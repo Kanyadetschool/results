@@ -1271,26 +1271,43 @@ toggleBtn.addEventListener('click', () => {
            Priority: 1) Local file ./student_images/{Grade}/{Name}.jpg
                      2) Default avatar
         ══════════════════════════════════════════════════════════════ */
-        const _imgLoadCache   = {};
+        const _imgLoadCache = {};
 
-        function _photoPath(name, grade) {
-            const rawName  = (name  || '').trim();
-            const rawGrade = (grade || '').trim();
-            if (!rawName) return '';
-            // Use raw strings so folder/file names with spaces (e.g. "Grade 1", "John Doe")
-            // resolve correctly. Only encode characters that MUST be percent-encoded in a URL
-            // path segment (everything except unreserved chars + space→%20 is handled by the
-            // browser natively when the src attribute contains literal spaces).
-            const encName  = rawName.split('').map(c => /[^\w\s\-.]/.test(c) ? encodeURIComponent(c) : c).join('');
-            const encGrade = rawGrade.split('').map(c => /[^\w\s\-.]/.test(c) ? encodeURIComponent(c) : c).join('');
-            return encGrade
-                ? `./student_images/${encGrade}/${encName}.jpg`
-                : `./student_images/${encName}.jpg`; // fallback if grade is unknown
+        // Low-level: probe a single URL, resolve src or null (with cache)
+        function _loadImg(src) {
+            return new Promise(resolve => {
+                if (!src) return resolve(null);
+                if (_imgLoadCache[src] !== undefined) return resolve(_imgLoadCache[src]);
+                const img = new Image();
+                const t   = setTimeout(() => { _imgLoadCache[src] = null; resolve(null); }, 2000);
+                img.onload  = () => { clearTimeout(t); _imgLoadCache[src] = img.src; resolve(img.src); };
+                img.onerror = () => { clearTimeout(t); _imgLoadCache[src] = null; resolve(null); };
+                img.src = src;
+            });
+        }
+
+        // Try multiple candidate paths in order — same waterfall approach as index.html
+        async function resolveStudentPhoto(name, studentId, grade) {
+            const g         = (grade || '').match(/Grade\s*\d+/i)?.[0] || grade || '';
+            const cleanName = (name  || '').trim();
+            if (!cleanName) return './student_images/default.jpg';
+            const encGrade  = encodeURIComponent(g);
+            const encName   = encodeURIComponent(cleanName);
+            const paths = [
+                `./student_images/${g}/${cleanName}.jpg`,          // raw — matches "Grade 1/John Doe.jpg"
+                `./student_images/${encGrade}/${encName}.jpg`,     // fully encoded fallback
+                `./student_images/${g}/${encName}.jpg`,            // raw grade, encoded name
+                `./student_images/${cleanName}.jpg`,               // no grade subfolder
+            ];
+            for (const p of paths) {
+                const src = await _loadImg(p);
+                if (src) return src;
+            }
+            return './student_images/default.jpg';
         }
 
         function _applyPhoto(el, src) {
             if (!el || !src) return;
-            // Works for both <img> elements and wrapper divs
             if (el.tagName === 'IMG') {
                 if (el.src !== src) el.src = src;
                 return;
@@ -1298,33 +1315,12 @@ toggleBtn.addEventListener('click', () => {
             let img = el.querySelector('img');
             if (!img) {
                 img = document.createElement('img');
-                img.alt  = el.getAttribute('data-photo-name') || '';
+                img.alt = el.getAttribute('data-photo-name') || '';
                 img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;';
-                el.textContent = ''; // remove initials
+                el.textContent = '';
                 el.appendChild(img);
             }
             if (img.src !== src) img.src = src;
-        }
-
-        function _tryLocalPhoto(name, grade) {
-            return new Promise(resolve => {
-                const src = _photoPath(name, grade);
-                if (!src) return resolve(null);
-                if (_imgLoadCache[src] !== undefined) return resolve(_imgLoadCache[src]);
-                const img = new Image();
-                const t   = setTimeout(() => { _imgLoadCache[src] = null; resolve(null); }, 2000);
-                img.onload  = () => { clearTimeout(t); _imgLoadCache[src] = src; resolve(src); };
-                img.onerror = () => { clearTimeout(t); _imgLoadCache[src] = null; resolve(null); };
-                img.src = src;
-            });
-        }
-
-        async function resolveStudentPhoto(name, studentId, grade) {
-            // 1. Local server folder file (./student_images/{Grade}/{Name}.jpg)
-            const local = await _tryLocalPhoto(name, grade);
-            if (local) return local;
-            // 2. Default placeholder
-            return './student_images/default.jpg';
         }
 
         // Async-load photo into any element (img tag or wrapper div with initials)
@@ -2449,9 +2445,9 @@ gradeFilterSelect.addEventListener('change', () => {
                             const sid   = d.id || '';
                             const grade = d.Grade || '';
                             const norm  = name.toLowerCase().trim();
-                            const src   = _photoPath(name, grade) || './student_images/default.jpg';
+                            const src   = './student_images/default.jpg'; // placeholder; async resolve below
                             const uid   = 'si_' + Math.random().toString(36).slice(2, 8);
-                            // Async resolve so onerror swap to default works after the image mounts
+                            // Async waterfall: tries raw path first, then encoded, then default
                             setTimeout(() => {
                                 resolveStudentPhoto(name, sid, grade).then(resolved => {
                                     const img = document.getElementById(uid);
@@ -2852,7 +2848,7 @@ gradeFilterSelect.addEventListener('change', () => {
                     const norm  = name.toLowerCase().trim();
                     const sid   = originalValues.id || '';
                     const grade = originalValues.Grade || '';
-                    const src   = _photoPath(name, grade) || './student_images/default.jpg';
+                    const src   = './student_images/default.jpg'; // placeholder; async resolve below
                     const uid   = 'ci_' + Math.random().toString(36).slice(2, 8);
                     cell.innerHTML = `<img id="${uid}" src="${src}" alt="${name}" class="student-image"
                         data-photo-name="${norm}" data-photo-id="${sid}"
