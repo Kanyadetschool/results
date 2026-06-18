@@ -1274,9 +1274,15 @@ toggleBtn.addEventListener('click', () => {
         const _imgLoadCache   = {};
 
         function _photoPath(name, grade) {
-            const encName  = encodeURIComponent((name || '').trim());
-            const encGrade = encodeURIComponent((grade || '').trim());
-            if (!encName) return '';
+            const rawName  = (name  || '').trim();
+            const rawGrade = (grade || '').trim();
+            if (!rawName) return '';
+            // Use raw strings so folder/file names with spaces (e.g. "Grade 1", "John Doe")
+            // resolve correctly. Only encode characters that MUST be percent-encoded in a URL
+            // path segment (everything except unreserved chars + space→%20 is handled by the
+            // browser natively when the src attribute contains literal spaces).
+            const encName  = rawName.split('').map(c => /[^\w\s\-.]/.test(c) ? encodeURIComponent(c) : c).join('');
+            const encGrade = rawGrade.split('').map(c => /[^\w\s\-.]/.test(c) ? encodeURIComponent(c) : c).join('');
             return encGrade
                 ? `./student_images/${encGrade}/${encName}.jpg`
                 : `./student_images/${encName}.jpg`; // fallback if grade is unknown
