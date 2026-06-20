@@ -7298,12 +7298,15 @@ setTimeout(() => {
         // If background scan already ran, reuse _pdfHref already set on student objects — no re-scan needed
         if (!forceRefresh && window._bgPdfScanDone) {
             const matched = all.filter(s => s._pdfHref);
-            // Also include orphans (server files with no student match) from the server map
-            const matchedHrefs = new Set(matched.map(s => s._pdfHref));
+            // Also include orphans (server files with no student match) from the server map.
+            // Compare by normalized filename, not raw href string — a student's _pdfHref may be a
+            // relative path (from the direct probe scan) while the server map holds absolute URLs
+            // (from the GitHub API scan); same file, different string, so href equality would miss it.
+            const matchedKeys = new Set(matched.map(s => normKey(decodeURIComponent((s._pdfHref || '').split('/').pop() || ''))));
             const orphans = [];
             if (window._allServerPdfMap) {
-                window._allServerPdfMap.forEach((href) => {
-                    if (!matchedHrefs.has(href)) {
+                window._allServerPdfMap.forEach((href, key) => {
+                    if (!matchedKeys.has(key)) {
                         const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i, '');
                         orphans.push({ 'Official Student Name': displayName, _pdfHref: href, _orphan: true });
                     }
