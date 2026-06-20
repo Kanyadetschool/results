@@ -265,6 +265,25 @@ tbody td{padding:10px 13px;vertical-align:middle;}
 .stat-n{font-size:22px;font-weight:700;display:block;line-height:1;margin-bottom:2px;}
 .stat-n.ok{color:var(--green);}.stat-n.fail{color:var(--red);}.stat-n.total{color:var(--gold);}
 
+/* DETECTED ADM NOS */
+.detected-adm-wrap{display:none;margin-bottom:20px;}
+.detected-adm-wrap.on{display:block;}
+.detected-adm-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(10,15,26,.4);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.detected-adm-label::after{content:'';flex:1;height:1px;background:rgba(10,15,26,.1);}
+.detected-adm-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.adm-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 11px;border-radius:20px;font-family:var(--mono);font-size:12px;font-weight:600;
+  border:2px solid rgba(200,65,11,.25);background:rgba(200,65,11,.06);color:var(--accent);
+  transition:all .18s;
+}
+.adm-chip.single{border-color:rgba(26,61,143,.25);background:rgba(26,61,143,.06);color:var(--blue);}
+.adm-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.adm-chip-db{font-size:9px;font-weight:400;opacity:.55;margin-left:2px;}
+.detected-adm-note{font-size:12px;color:rgba(10,15,26,.45);line-height:1.5;}
+.detected-adm-note strong{color:var(--accent);}
+.detected-adm-scanning{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(10,15,26,.45);font-style:italic;padding:6px 0;}
+
 /* INFO BOX */
 .info-box{background:rgba(26,61,143,.05);border:1.5px solid rgba(26,61,143,.14);border-radius:10px;padding:14px 18px;font-size:13px;color:rgba(10,15,26,.6);line-height:1.7;margin-bottom:18px;}
 .info-box strong{color:var(--blue);}
@@ -348,7 +367,7 @@ tbody td{padding:10px 13px;vertical-align:middle;}
         </div>
         <div class="card-body">
           <div class="info-box">
-            <strong>How it works:</strong> Search for a student by any part of their name or assessment number — select from the dropdown to auto-fill the fields. Then enter the new assessment number and click <em>Preview</em> to inspect matches before running the update.
+            <strong>How it works:</strong> Search for a student by name — selecting them auto-scans all databases and detects every Assessment No. currently linked to that student. All detected numbers will be unified into the single correct number you enter below.
           </div>
 
           <!-- STUDENT SEARCH -->
@@ -373,14 +392,22 @@ tbody td{padding:10px 13px;vertical-align:middle;}
             </div>
           </div>
 
-          <div class="field-grid">
-            <div class="field">
-              <label>Current Assessment No.</label>
-              <input type="text" id="adm-old" placeholder="e.g. 208" autocomplete="off" spellcheck="false">
+          <!-- DETECTED ADM NOS PANEL -->
+          <div class="detected-adm-wrap" id="adm-detected-wrap">
+            <div class="detected-adm-label">Assessment Numbers Detected</div>
+            <div id="adm-detected-scanning" class="detected-adm-scanning" style="display:none;">
+              <span style="animation:spin .7s linear infinite;display:inline-block;">⏳</span> Scanning all databases for this student…
             </div>
-            <div class="arrow-badge">→</div>
+            <div class="detected-adm-chips" id="adm-detected-chips"></div>
+            <div class="detected-adm-note" id="adm-detected-note"></div>
+          </div>
+
+          <!-- hidden input keeps old runPreview/runUpdate logic working -->
+          <input type="hidden" id="adm-old" value="">
+
+          <div class="field-grid" style="grid-template-columns:1fr;">
             <div class="field">
-              <label>New Assessment No.</label>
+              <label>Correct Assessment No. (all records will be set to this)</label>
               <input type="text" id="adm-new" placeholder="e.g. 312" autocomplete="off" spellcheck="false">
             </div>
           </div>
@@ -735,28 +762,104 @@ function closeDropdown(pan) {
   document.getElementById(`${pan}-search-dropdown`).classList.remove('open');
 }
 
-function selectStudent(pan, r) {
+// Stores all detected old adm nos for the adm panel
+const admState = { selectedName: '', detectedNos: [] };
+
+async function selectStudent(pan, r) {
   if (pan === 'adm') {
-    const f = document.getElementById('adm-old');
-    f.value = r.admNo;
-    f.classList.add('field-autofilled');
+    // Show chip
+    const chip = document.getElementById('adm-selected-chip');
+    const text = document.getElementById('adm-selected-text');
+    text.innerHTML = `${esc(r.name)}<span>· Grade ${esc(r.grade || '—')}</span>`;
+    chip.classList.add('visible');
+
+    document.getElementById('adm-search-input').value = '';
+    document.getElementById('adm-search-clear').classList.remove('visible');
+    closeDropdown('adm');
+
+    // Scan all DBs for this student's name and collect every distinct Adm No
+    admState.selectedName = r.name;
+    admState.detectedNos = [];
+
+    const wrap      = document.getElementById('adm-detected-wrap');
+    const scanning  = document.getElementById('adm-detected-scanning');
+    const chipsEl   = document.getElementById('adm-detected-chips');
+    const noteEl    = document.getElementById('adm-detected-note');
+    wrap.classList.add('on');
+    scanning.style.display = 'flex';
+    chipsEl.innerHTML = '';
+    noteEl.textContent = '';
+    document.getElementById('adm-old').value = '';
+    document.getElementById('adm-new').value = '';
+    document.getElementById('adm-btn-update').disabled = true;
+
+    const nameLower = r.name.toLowerCase();
+    // Map: admNo → [dbLabel, ...]
+    const found = {};
+
+    for (const [key, dbCfg] of Object.entries(DB_CONFIGS)) {
+      try {
+        const snap = await get(ref(db, dbCfg.path));
+        if (!snap.exists()) continue;
+        snap.forEach(child => {
+          const rec = child.val();
+          const recName = String(rec[dbCfg.nameField] || '').trim().toLowerCase();
+          if (recName === nameLower) {
+            const admNo = String(rec[dbCfg.assessmentField] || '').trim();
+            if (admNo) {
+              if (!found[admNo]) found[admNo] = [];
+              if (!found[admNo].includes(dbCfg.label)) found[admNo].push(dbCfg.label);
+            }
+          }
+        });
+      } catch(e) { console.warn('Scan error:', key, e); }
+    }
+
+    scanning.style.display = 'none';
+    const nos = Object.keys(found);
+    admState.detectedNos = nos;
+
+    if (!nos.length) {
+      noteEl.innerHTML = `<strong style="color:var(--red);">No Assessment Numbers found</strong> for "${esc(r.name)}" in any database.`;
+      return;
+    }
+
+    // Render chips
+    nos.forEach(no => {
+      const span = document.createElement('span');
+      span.className = `adm-chip${nos.length === 1 ? ' single' : ''}`;
+      span.innerHTML = `<span class="adm-chip-dot"></span>${esc(no)}<span class="adm-chip-db">${found[no].map(esc).join(', ')}</span>`;
+      chipsEl.appendChild(span);
+    });
+
+    if (nos.length === 1) {
+      noteEl.innerHTML = `Only <strong>${esc(nos[0])}</strong> found — enter a corrected number below if needed.`;
+      document.getElementById('adm-old').value = nos[0];
+    } else {
+      noteEl.innerHTML = `<strong style="color:var(--accent);">${nos.length} different Assessment Numbers</strong> found across databases. All will be replaced by the single correct number you enter below.`;
+      // Store as pipe-separated sentinel so runPreview knows it's multi-mode
+      document.getElementById('adm-old').value = nos.join('|');
+    }
+
     document.getElementById('adm-new').focus();
+    notify(`Found ${nos.length} Adm No${nos.length>1?'s':''} for ${r.name}`, nos.length > 1 ? '' : 'success');
+
   } else {
     const f = document.getElementById('name-old');
     f.value = r.name;
     f.classList.add('field-autofilled');
     document.getElementById('name-new').focus();
+
+    const chip = document.getElementById('name-selected-chip');
+    const text = document.getElementById('name-selected-text');
+    text.innerHTML = `${esc(r.name)}<span>· Adm ${esc(r.admNo || '—')} · Grade ${esc(r.grade || '—')} · ${esc(r.dbLabel)}</span>`;
+    chip.classList.add('visible');
+
+    document.getElementById('name-search-input').value = '';
+    document.getElementById('name-search-clear').classList.remove('visible');
+    closeDropdown('name');
+    notify(`Selected: ${r.name}`, 'success');
   }
-
-  const chip = document.getElementById(`${pan}-selected-chip`);
-  const text = document.getElementById(`${pan}-selected-text`);
-  text.innerHTML = `${esc(r.name)}<span>· Adm ${esc(r.admNo || '—')} · Grade ${esc(r.grade || '—')} · ${esc(r.dbLabel)}</span>`;
-  chip.classList.add('visible');
-
-  document.getElementById(`${pan}-search-input`).value = '';
-  document.getElementById(`${pan}-search-clear`).classList.remove('visible');
-  closeDropdown(pan);
-  notify(`Selected: ${r.name}`, 'success');
 }
 
 function initSearch(pan) {
@@ -909,6 +1012,13 @@ window.clearPanel = pan => {
   document.getElementById(`${pan}-selected-chip`).classList.remove('visible');
   document.getElementById(`${pan}-search-input`).value = '';
   document.getElementById(`${pan}-search-clear`).classList.remove('visible');
+  if (pan === 'adm') {
+    admState.selectedName = ''; admState.detectedNos = [];
+    document.getElementById('adm-detected-wrap').classList.remove('on');
+    document.getElementById('adm-detected-chips').innerHTML = '';
+    document.getElementById('adm-detected-note').textContent = '';
+    document.getElementById('adm-detected-scanning').style.display = 'none';
+  }
   document.getElementById(`${pan}-preview-section`).classList.remove('on');
   document.getElementById(`${pan}-log-section`).classList.remove('on');
   document.getElementById(`${pan}-tbody`).innerHTML = '';
@@ -943,6 +1053,11 @@ window.runPreview = async pan => {
   document.getElementById(`${pan}-summary`).className = 'summary-banner';
   state[pan].preview = [];
 
+  // For adm panel: oldVal may be pipe-separated list of multiple numbers to replace
+  const oldVals = (isAdm && oldVal.includes('|'))
+    ? oldVal.split('|').map(v => v.trim().toLowerCase()).filter(Boolean)
+    : [oldVal.toLowerCase()];
+
   try {
     for (const dbCfg of selectedDBs) {
       const snap = await get(ref(db, dbCfg.path));
@@ -950,7 +1065,7 @@ window.runPreview = async pan => {
       snap.forEach(child => {
         const rec = child.val();
         const storedVal = String(rec[dbCfg[field]] || '').trim();
-        if (storedVal.toLowerCase() === oldVal.toLowerCase()) {
+        if (oldVals.includes(storedVal.toLowerCase())) {
           state[pan].preview.push({ recordKey: child.key, record: rec, dbConfig: dbCfg, storedVal });
         }
       });
@@ -1026,9 +1141,13 @@ window.runUpdate = async pan => {
   const fieldKey = isAdm ? 'assessmentField' : 'nameField';
   const label    = isAdm ? 'Assessment No.' : 'Official Student Name';
 
+  const oldValsDisplay = (isAdm && oldVal.includes('|'))
+    ? oldVal.split('|').map(v => `"${v.trim()}"`).join(', ')
+    : `"${oldVal}"`;
+
   const confirmed = confirm(
     `⚠️ You are about to update ${items.length} record(s).\n\n` +
-    `Field: ${label}\nOld value: "${oldVal}"\nNew value: "${newVal}"\n\n` +
+    `Field: ${label}\nReplacing: ${oldValsDisplay}\nNew value: "${newVal}"\n\n` +
     `This cannot be automatically undone. Continue?`
   );
   if (!confirmed) return;
@@ -1043,7 +1162,10 @@ window.runUpdate = async pan => {
   const logId = `${pan}-log`;
   document.getElementById(logId).innerHTML = '';
 
-  addLog(logId, `Starting: "${oldVal}" → "${newVal}" [${label}]`, 'bold');
+  const oldValsLog = (isAdm && oldVal.includes('|'))
+    ? oldVal.split('|').map(v => `"${v.trim()}"`).join(' + ')
+    : `"${oldVal}"`;
+  addLog(logId, `Starting: ${oldValsLog} → "${newVal}" [${label}]`, 'bold');
   addLog(logId, `${items.length} record(s) across ${[...new Set(items.map(x=>x.dbConfig.label))].join(', ')}`, 'info');
   addLog(logId, '─'.repeat(50), 'info');
 
