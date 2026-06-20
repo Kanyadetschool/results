@@ -416,12 +416,14 @@ body::before{
   background:linear-gradient(135deg,var(--blue),var(--blue-dk));
   display:flex;align-items:center;justify-content:center;
   font-size:36px;box-shadow:0 8px 32px var(--blue-glow);
+  overflow:hidden;
 }
+.ldp-logo img{width:100%;height:100%;object-fit:cover;border-radius:22px;}
 .ldp-title{font-size:17px;font-weight:900;color:var(--text);margin-bottom:4px;text-align:center;}
-.ldp-subtitle{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:28px;text-align:center;}
+.ldp-subtitle{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:30px;text-align:center;}
 
-/* Overall track */
-.ldp-track-wrap{width:100%;margin-bottom:28px;}
+/* Overall track (thin, top) */
+.ldp-track-wrap{width:100%;margin-bottom:30px;}
 .ldp-track-label{display:flex;justify-content:space-between;margin-bottom:8px;}
 .ldp-track-lbl{font-size:11px;font-weight:700;color:var(--text2);}
 .ldp-track-pct{font-size:11px;font-weight:800;color:var(--blue-lt);font-family:'JetBrains Mono',monospace;}
@@ -435,56 +437,97 @@ body::before{
 }
 @keyframes ldpShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-/* Steps list */
-.ldp-steps{width:100%;display:flex;flex-direction:column;gap:10px;}
-.ldp-step{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 16px;border-radius:14px;
+/* ── Horizontal stepper: circles connected by drawing lines ── */
+.ldp-stepper{width:100%;}
+.ldp-stepper-row{display:flex;align-items:center;justify-content:center;width:100%;margin-bottom:26px;}
+.ldp-circle{
+  position:relative;flex-shrink:0;
+  width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface2);border:2px solid var(--border);
+  font-size:15px;color:var(--text3);
+  transition:all .35s cubic-bezier(.4,0,.2,1);
+}
+.ldp-circle .ldp-circle-check{display:none;font-size:14px;}
+.ldp-circle .ldp-circle-icon{display:inline-flex;}
+.ldp-circle.ldp-active{
+  border-color:var(--blue-lt);
+  background:rgba(41,128,185,.15);
+  color:var(--blue-lt);
+  box-shadow:0 0 0 4px rgba(41,128,185,.12);
+  animation:ldpCirclePulse 1.3s ease-in-out infinite;
+  transform:scale(1.12);
+}
+@keyframes ldpCirclePulse{0%,100%{box-shadow:0 0 0 4px rgba(41,128,185,.12)}50%{box-shadow:0 0 0 8px rgba(41,128,185,0)}}
+.ldp-circle.ldp-done{
+  border-color:var(--green,#27ae60);
+  background:rgba(39,174,96,.18);
+  color:#4dbb77;
+}
+.ldp-circle.ldp-done .ldp-circle-check{display:inline-flex;}
+.ldp-circle.ldp-done .ldp-circle-icon{display:none;}
+.ldp-circle.ldp-error{
+  border-color:var(--red,#e74c3c);
+  background:rgba(231,76,60,.15);
+  color:#e25b4b;
+}
+.ldp-line{
+  flex:1 1 auto;min-width:14px;max-width:46px;height:2px;
+  background:var(--border);border-radius:2px;overflow:hidden;margin:0 4px;
+}
+.ldp-line-fill{
+  height:100%;width:100%;
+  background:linear-gradient(90deg,var(--blue),var(--green,#27ae60));
+  transform:scaleX(0);transform-origin:left center;
+  transition:transform .65s cubic-bezier(.65,0,.35,1);
+}
+.ldp-line.ldp-filled .ldp-line-fill{transform:scaleX(1);}
+
+/* Single "current stage" card — only the active/just-finished step is shown */
+.ldp-current{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border-radius:14px;width:100%;
   background:var(--surface2);border:1px solid var(--border);
   transition:all .3s cubic-bezier(.4,0,.2,1);
 }
-.ldp-step.ldp-active{
+.ldp-current.ldp-st-active{
   background:linear-gradient(135deg,rgba(41,128,185,.12),rgba(41,128,185,.05));
   border-color:rgba(41,128,185,.35);
-  transform:translateX(3px);
 }
-.ldp-step.ldp-done{
+.ldp-current.ldp-st-done{
   background:linear-gradient(135deg,rgba(39,174,96,.08),rgba(39,174,96,.03));
   border-color:rgba(39,174,96,.25);
 }
-.ldp-step.ldp-error{
+.ldp-current.ldp-st-error{
   background:linear-gradient(135deg,rgba(231,76,60,.08),rgba(231,76,60,.03));
   border-color:rgba(231,76,60,.3);
 }
-
-.ldp-step-icon{
+.ldp-current-icon{
   width:36px;height:36px;border-radius:10px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;font-size:17px;
   background:var(--surface3);border:1px solid var(--border);
   transition:all .3s;
 }
-.ldp-step.ldp-active .ldp-step-icon{
-  background:rgba(41,128,185,.15);border-color:rgba(41,128,185,.3);
-  animation:ldpIconPulse 1s ease-in-out infinite;
-}
-.ldp-step.ldp-done .ldp-step-icon{background:rgba(39,174,96,.15);border-color:rgba(39,174,96,.3);}
-.ldp-step.ldp-error .ldp-step-icon{background:rgba(231,76,60,.12);border-color:rgba(231,76,60,.25);}
-@keyframes ldpIconPulse{0%,100%{box-shadow:0 0 0 0 rgba(41,128,185,.4)}50%{box-shadow:0 0 0 6px rgba(41,128,185,0)}}
+.ldp-current.ldp-st-active .ldp-current-icon{background:rgba(41,128,185,.15);border-color:rgba(41,128,185,.3);}
+.ldp-current.ldp-st-done .ldp-current-icon{background:rgba(39,174,96,.15);border-color:rgba(39,174,96,.3);}
+.ldp-current.ldp-st-error .ldp-current-icon{background:rgba(231,76,60,.12);border-color:rgba(231,76,60,.25);}
+.ldp-current-body{flex:1;min-width:0;}
+.ldp-current-name{font-size:12.5px;font-weight:700;color:var(--text);
+  opacity:0;transform:translateY(4px);animation:ldpFadeUp .35s ease forwards;}
+.ldp-current-detail{font-size:10.5px;color:var(--text3);margin-top:2px;transition:color .2s;
+  opacity:0;transform:translateY(4px);animation:ldpFadeUp .35s ease .05s forwards;}
+@keyframes ldpFadeUp{to{opacity:1;transform:none}}
+.ldp-current.ldp-st-active .ldp-current-detail{color:var(--blue-lt);}
+.ldp-current.ldp-st-done .ldp-current-detail{color:var(--green,#27ae60);}
+.ldp-current.ldp-st-error .ldp-current-detail{color:var(--red,#e74c3c);}
 
-.ldp-step-body{flex:1;min-width:0;}
-.ldp-step-name{font-size:12px;font-weight:700;color:var(--text);}
-.ldp-step-detail{font-size:10px;color:var(--text3);margin-top:2px;transition:color .2s;}
-.ldp-step.ldp-active .ldp-step-detail{color:var(--blue-lt);}
-.ldp-step.ldp-done .ldp-step-detail{color:var(--green);}
-.ldp-step.ldp-error .ldp-step-detail{color:var(--red);}
-
-.ldp-step-badge{
+.ldp-current-badge{
   font-size:10px;font-weight:800;padding:3px 9px;border-radius:8px;
   flex-shrink:0;opacity:0;transition:opacity .3s;font-family:'JetBrains Mono',monospace;
 }
-.ldp-step.ldp-done .ldp-step-badge{opacity:1;background:rgba(39,174,96,.15);color:#4dbb77;border:1px solid rgba(39,174,96,.25);}
-.ldp-step.ldp-error .ldp-step-badge{opacity:1;background:rgba(231,76,60,.12);color:#e25b4b;border:1px solid rgba(231,76,60,.22);}
-.ldp-step.ldp-active .ldp-step-badge{opacity:1;background:rgba(41,128,185,.1);color:var(--blue-lt);border:1px solid rgba(41,128,185,.2);}
+.ldp-current.ldp-st-done .ldp-current-badge{opacity:1;background:rgba(39,174,96,.15);color:#4dbb77;border:1px solid rgba(39,174,96,.25);}
+.ldp-current.ldp-st-error .ldp-current-badge{opacity:1;background:rgba(231,76,60,.12);color:#e25b4b;border:1px solid rgba(231,76,60,.22);}
+.ldp-current.ldp-st-active .ldp-current-badge{opacity:1;background:rgba(41,128,185,.1);color:var(--blue-lt);border:1px solid rgba(41,128,185,.2);}
 
 /* spinner for active step */
 .ldp-spinner{
@@ -493,8 +536,8 @@ body::before{
   animation:ldpSpin .7s linear infinite;
   display:none;
 }
-.ldp-step.ldp-active .ldp-spinner{display:block;}
-.ldp-step.ldp-done .ldp-spinner,.ldp-step.ldp-error .ldp-spinner{display:none;}
+.ldp-current.ldp-st-active .ldp-spinner{display:block;}
+.ldp-current.ldp-st-done .ldp-spinner,.ldp-current.ldp-st-error .ldp-spinner{display:none;}
 @keyframes ldpSpin{to{transform:rotate(360deg)}}
 
 /* ══════════════════════════════════════════
@@ -1374,7 +1417,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 
   <!-- Phase 2: staged setup progress -->
   <div id="ld-progress">
-    <div class="ldp-logo">&#x1F3EB;</div>
+    <div class="ldp-logo" id="ldp-logo">&#x1F3EB;</div>
     <div class="ldp-title">Setting up Results Portal</div>
     <div class="ldp-subtitle">Kanyadet Pri &amp; Junior School</div>
 
@@ -1387,59 +1430,30 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       <div class="ldp-track"><div class="ldp-track-fill" id="ldp-fill"></div></div>
     </div>
 
-    <!-- Individual stages -->
-    <div class="ldp-steps" id="ldp-steps">
-
-      <div class="ldp-step" id="ldp-s0">
-        <div class="ldp-step-icon">&#x26A1;</div>
-        <div class="ldp-step-body">
-          <div class="ldp-step-name">Firebase SDK</div>
-          <div class="ldp-step-detail" id="ldp-d0">Loading Firebase modules&hellip;</div>
-        </div>
-        <div class="ldp-spinner"></div>
-        <div class="ldp-step-badge" id="ldp-b0">&mdash;</div>
+    <!-- Stage indicator: circles connected by lines that draw in as each stage completes -->
+    <div class="ldp-stepper" id="ldp-steps">
+      <div class="ldp-stepper-row">
+        <div class="ldp-circle" id="ldp-c0"><span class="ldp-circle-icon">&#x26A1;</span><span class="ldp-circle-check">&#x2713;</span></div>
+        <div class="ldp-line" id="ldp-l0"><div class="ldp-line-fill"></div></div>
+        <div class="ldp-circle" id="ldp-c1"><span class="ldp-circle-icon">&#x1F510;</span><span class="ldp-circle-check">&#x2713;</span></div>
+        <div class="ldp-line" id="ldp-l1"><div class="ldp-line-fill"></div></div>
+        <div class="ldp-circle" id="ldp-c2"><span class="ldp-circle-icon">&#x1F5C4;&#xFE0F;</span><span class="ldp-circle-check">&#x2713;</span></div>
+        <div class="ldp-line" id="ldp-l2"><div class="ldp-line-fill"></div></div>
+        <div class="ldp-circle" id="ldp-c3"><span class="ldp-circle-icon">&#x1F4E6;</span><span class="ldp-circle-check">&#x2713;</span></div>
+        <div class="ldp-line" id="ldp-l3"><div class="ldp-line-fill"></div></div>
+        <div class="ldp-circle" id="ldp-c4"><span class="ldp-circle-icon">&#x1F3A8;</span><span class="ldp-circle-check">&#x2713;</span></div>
       </div>
 
-      <div class="ldp-step" id="ldp-s1">
-        <div class="ldp-step-icon">&#x1F510;</div>
-        <div class="ldp-step-body">
-          <div class="ldp-step-name">Authentication</div>
-          <div class="ldp-step-detail" id="ldp-d1">Checking session state&hellip;</div>
+      <!-- Only the current stage is shown at a time -->
+      <div class="ldp-current" id="ldp-current">
+        <div class="ldp-current-icon" id="ldp-current-icon">&#x26A1;</div>
+        <div class="ldp-current-body">
+          <div class="ldp-current-name" id="ldp-current-name">Firebase SDK</div>
+          <div class="ldp-current-detail" id="ldp-current-detail">Loading Firebase modules&hellip;</div>
         </div>
-        <div class="ldp-spinner"></div>
-        <div class="ldp-step-badge" id="ldp-b1">&mdash;</div>
+        <div class="ldp-spinner" id="ldp-current-spinner"></div>
+        <div class="ldp-current-badge" id="ldp-current-badge">&mdash;</div>
       </div>
-
-      <div class="ldp-step" id="ldp-s2">
-        <div class="ldp-step-icon">&#x1F5C4;&#xFE0F;</div>
-        <div class="ldp-step-body">
-          <div class="ldp-step-name">Database Connection</div>
-          <div class="ldp-step-detail" id="ldp-d2">Connecting to Realtime Database&hellip;</div>
-        </div>
-        <div class="ldp-spinner"></div>
-        <div class="ldp-step-badge" id="ldp-b2">&mdash;</div>
-      </div>
-
-      <div class="ldp-step" id="ldp-s3">
-        <div class="ldp-step-icon">&#x1F4E6;</div>
-        <div class="ldp-step-body">
-          <div class="ldp-step-name">Loading Student Data</div>
-          <div class="ldp-step-detail" id="ldp-d3">Fetching records from Firebase&hellip;</div>
-        </div>
-        <div class="ldp-spinner"></div>
-        <div class="ldp-step-badge" id="ldp-b3">&mdash;</div>
-      </div>
-
-      <div class="ldp-step" id="ldp-s4">
-        <div class="ldp-step-icon">&#x1F3A8;</div>
-        <div class="ldp-step-body">
-          <div class="ldp-step-name">Building Interface</div>
-          <div class="ldp-step-detail" id="ldp-d4">Rendering charts and tables&hellip;</div>
-        </div>
-        <div class="ldp-spinner"></div>
-        <div class="ldp-step-badge" id="ldp-b4">&mdash;</div>
-      </div>
-
     </div>
   </div>
 
@@ -1453,6 +1467,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 
   <!-- ── LOCK SCREEN — returning users with passkeys registered ── -->
   <div class="signin-card" id="lock-screen-card" style="display:none;max-width:420px;">
+    <div id="login-logo-icon-lock" style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;margin:0 auto .9rem;box-shadow:0 8px 24px var(--blue-glow);overflow:hidden;font-size:24px;">&#x1F3EB;</div>
     <div style="margin-bottom:1.1rem;">
       <div style="font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:.2rem;">Welcome Back</div>
       <div style="font-size:.78rem;color:var(--text2);font-weight:500;">Tap your account to unlock with biometrics</div>
@@ -1474,7 +1489,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 
   <!-- ── NEW USER CARD — first-time users: Google sign-in ── -->
   <div class="signin-card" id="new-user-card" style="display:none;">
-    <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;box-shadow:0 8px 24px var(--blue-glow);">
+    <div id="login-logo-icon" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;box-shadow:0 8px 24px var(--blue-glow);overflow:hidden;">
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
     </div>
     <h2>I.C.T EXAM DEPT</h2>
@@ -2964,13 +2979,20 @@ function tryLoadLogo(){
     // Replace brand-icon emoji in sidebar
     const brand=document.querySelector('.brand-icon');
     if(brand) brand.innerHTML=`<img src="./imgs/logo.png" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
-    // Replace loader logo emoji
+    // Replace loader logo emoji (splash phase)
     const ll=document.getElementById('ld-logo')||document.querySelector('.ld-logo');
     if(ll) ll.innerHTML=`<img src="./imgs/logo.png" alt="Logo" style="width:48px;height:48px;object-fit:cover;border-radius:12px;">`;
+    // Replace loader logo emoji (setup progress phase)
+    const ldp=document.getElementById('ldp-logo');
+    if(ldp) ldp.innerHTML=`<img src="./imgs/logo.png" alt="Logo">`;
     // Replace login screen icon with logo
     const loginIcon=document.getElementById('login-logo-icon');
     if(loginIcon){
       loginIcon.innerHTML=`<img src="./imgs/logo.png" alt="Logo" style="width:80%;height:80%;object-fit:contain;border-radius:0;">`;
+    }
+    const loginIconLock=document.getElementById('login-logo-icon-lock');
+    if(loginIconLock){
+      loginIconLock.innerHTML=`<img src="./imgs/logo.png" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">`;
     }
   };
   // onerror: silently keep emoji — no crash
@@ -3270,25 +3292,58 @@ let auth;
 ══════════════════════════════════════════ */
 const SetupProgress = (() => {
   const STEPS = [
-    { id: 0, pct: 10, name: 'Firebase SDK',        detail: 'Loading Firebase modules…'         },
-    { id: 1, pct: 30, name: 'Authentication',       detail: 'Checking session state…'           },
-    { id: 2, pct: 55, name: 'Database Connection',  detail: 'Connecting to Realtime Database…'  },
-    { id: 3, pct: 78, name: 'Loading Student Data', detail: 'Fetching records from Firebase…'   },
-    { id: 4, pct: 95, name: 'Building Interface',   detail: 'Rendering charts and tables…'      },
+    { id: 0, pct: 10, name: 'Firebase SDK',        icon: '⚡',  detail: 'Loading Firebase modules…'         },
+    { id: 1, pct: 30, name: 'Authentication',      icon: '🔐', detail: 'Checking session state…'           },
+    { id: 2, pct: 55, name: 'Database Connection', icon: '🗄️', detail: 'Connecting to Realtime Database…'  },
+    { id: 3, pct: 78, name: 'Loading Student Data',icon: '📦', detail: 'Fetching records from Firebase…'   },
+    { id: 4, pct: 95, name: 'Building Interface',  icon: '🎨', detail: 'Rendering charts and tables…'      },
   ];
 
   let _splashShown = false;
   let _progressVisible = false;
 
-  function _setStep(idx, state, detailOverride, badge) {
-    const el = document.getElementById('ldp-s' + idx);
-    const detailEl = document.getElementById('ldp-d' + idx);
-    const badgeEl  = document.getElementById('ldp-b' + idx);
-    if (!el) return;
-    el.classList.remove('ldp-active', 'ldp-done', 'ldp-error');
-    if (state) el.classList.add('ldp-' + state);
-    if (detailOverride && detailEl) detailEl.textContent = detailOverride;
-    if (badge && badgeEl) badgeEl.textContent = badge;
+  // Mark a circle's visual state and, when it becomes 'done', draw the
+  // connecting line into the next circle.
+  function _setCircle(idx, state) {
+    const c = document.getElementById('ldp-c' + idx);
+    if (c) {
+      c.classList.remove('ldp-active', 'ldp-done', 'ldp-error');
+      if (state) c.classList.add('ldp-' + state);
+    }
+    const line = document.getElementById('ldp-l' + idx);
+    if (line) {
+      if (state === 'done') line.classList.add('ldp-filled');
+      else line.classList.remove('ldp-filled');
+    }
+  }
+
+  // Swap the single "current stage" card to show stage idx, with the given
+  // state/detail/badge. Re-triggers the fade-up animation each time.
+  function _renderCurrent(idx, state, detailOverride, badge) {
+    const step = STEPS[idx];
+    if (!step) return;
+    const card    = document.getElementById('ldp-current');
+    const iconEl  = document.getElementById('ldp-current-icon');
+    const nameEl  = document.getElementById('ldp-current-name');
+    const detEl   = document.getElementById('ldp-current-detail');
+    const badgeEl = document.getElementById('ldp-current-badge');
+    if (!card) return;
+
+    card.classList.remove('ldp-st-active', 'ldp-st-done', 'ldp-st-error');
+    if (state) card.classList.add('ldp-st-' + state);
+
+    if (iconEl) iconEl.textContent = state === 'done' ? '✓' : (state === 'error' ? '✗' : step.icon);
+    if (nameEl) nameEl.textContent = step.name;
+    if (detEl)  detEl.textContent  = detailOverride || step.detail;
+    if (badgeEl) badgeEl.textContent = badge || (state === 'done' ? '✓' : state === 'error' ? '✗' : '…');
+
+    // Restart the fade-up entrance animation for name/detail
+    [nameEl, detEl].forEach(el => {
+      if (!el) return;
+      el.style.animation = 'none';
+      void el.offsetWidth; // reflow to restart animation
+      el.style.animation = '';
+    });
   }
 
   function _setProgress(pct, label) {
@@ -3321,30 +3376,39 @@ const SetupProgress = (() => {
       setTimeout(_showProgress, 600);
       // Pre-mark step 0 as active immediately
       setTimeout(() => {
-        _setStep(0, 'active', 'Loading Firebase modules…', 'Loading');
+        _setCircle(0, 'active');
+        _renderCurrent(0, 'active', 'Loading Firebase modules…', '…');
         _setProgress(5, 'Initializing Firebase SDK…');
       }, 650);
     },
 
     // step index 0–4; state = 'active'|'done'|'error'
+    // Stages are shown one at a time: the circle row advances and draws the
+    // connecting line, while the single detail card below swaps to match
+    // whichever stage is currently active (or just finished/errored).
     step(idx, state, detail, badge) {
       if (!_progressVisible) _showProgress();
       const pct = STEPS[idx] ? STEPS[idx].pct : 100;
-      _setStep(idx, state, detail, badge);
+
+      // Safety net: mark any earlier circles done + lines drawn
+      for (let i = 0; i < idx; i++) {
+        const el = document.getElementById('ldp-c' + i);
+        if (el && !el.classList.contains('ldp-done')) _setCircle(i, 'done');
+      }
+
+      _setCircle(idx, state);
+      _renderCurrent(idx, state, detail, badge);
+
       if (state === 'active') {
         _setProgress(pct, STEPS[idx] ? STEPS[idx].name + '…' : '');
       } else if (state === 'done') {
-        // Mark all previous steps done too (safety net)
-        for (let i = 0; i < idx; i++) {
-          const el = document.getElementById('ldp-s' + i);
-          if (el && !el.classList.contains('ldp-done')) _setStep(i, 'done', null, '✓');
-        }
+        _setProgress(pct, STEPS[idx] ? STEPS[idx].name : '');
       }
     },
 
     // Call when everything is fully rendered; hides the loader
     done(recordCount) {
-      _setStep(4, 'done', recordCount ? recordCount + ' records ready' : 'Done', '✓');
+      this.step(4, 'done', recordCount ? recordCount + ' records ready' : 'Done', '✓');
       _setProgress(100, 'Ready!');
       setTimeout(() => {
         const loader = document.getElementById('loader');
@@ -3366,7 +3430,7 @@ const SetupProgress = (() => {
 })();
 
 // Kick off on DOMContentLoaded
-window.addEventListener('DOMContentLoaded', () => SetupProgress.start());
+window.addEventListener('DOMContentLoaded', () => { SetupProgress.start(); tryLoadLogo(); });
 
 function waitFB(cb,n){
   n=n||0;
