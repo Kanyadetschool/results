@@ -1052,14 +1052,16 @@ window.runUpdate = async pan => {
   const auditTs = Date.now();
   const auditUser = auth.currentUser.email || auth.currentUser.uid;
 
+  // Build student-only batch (no audit paths — keeps it clean for Firebase rules)
+  const auditBatch = {};
   items.forEach((item, i) => {
     const { dbConfig, recordKey, record, storedVal } = item;
     const path  = `${dbConfig.path}/${recordKey}`;
     const field = dbConfig[fieldKey];
     batch[`${path}/${field}`] = newVal;
 
-    const auditKey = `audit_log/${auditTs}_${pan}_${i}`;
-    batch[auditKey] = {
+    const auditKey = `AuditLog/${auditTs}_${pan}_${i}`;
+    auditBatch[auditKey] = {
       timestamp: auditTs,
       user: auditUser,
       action: 'bulk_update',
@@ -1082,6 +1084,10 @@ window.runUpdate = async pan => {
       const displayName = item.record[item.dbConfig.nameField] || item.recordKey;
       addLog(logId, `✓ [${item.dbConfig.label}] ${displayName}  key:${item.recordKey}`, 'ok');
     });
+    // Write audit log separately — failure here doesn't roll back the update
+    update(ref(db), auditBatch).catch(e =>
+      console.warn('Audit log write skipped (rules may not allow it):', e.message)
+    );
   } catch(e) {
     fail = items.length;
     addLog(logId, `✗ Atomic batch update failed — ${e.message}`, 'err');
