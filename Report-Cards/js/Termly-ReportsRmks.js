@@ -505,7 +505,7 @@ function drawSummary(doc, student, stats) {
     doc.setFontSize(8);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(80, 80, 80);
-    doc.text('Mean Score:', 22, yPos + 12);
+    doc.text('Perc rating', 22, yPos + 12);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text(`${stats.average}%`, 55, yPos + 12);
@@ -882,7 +882,7 @@ async function generateStudentReportCard(student, includeWatermark = true) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(9);
     const studentInfo = [
         [`Name: ${student['Official Student Name'] || 'N/A'}`, `Assessment No: ${student['Assessment No'] || 'N/A'}`],
-        [`UPI: ${student['UPI'] || 'N/A'}`, `Grade: ${student['Grade'] || 'N/A'}`],
+        [`UPI: ${student['UPI'] || 'N/A'}`, `${student['Grade'] || 'N/A'}`],
         [`Gender: ${student['Gender'] || 'N/A'}`, `Class: ${student['Class'] || 'N/A'}`]
     ];
     let infoY = yPos + 16;
@@ -1509,7 +1509,7 @@ function _drawCompactReportPage(doc, student, stats, studentImageData, logoRes, 
     doc.setFont(undefined, 'normal'); doc.setFontSize(9);
     const studentInfo = [
         [`Name: ${student['Official Student Name'] || 'N/A'}`, `Assessment No: ${student['Assessment No'] || 'N/A'}`],
-        [`UPI: ${student['UPI'] || 'N/A'}`, `Grade: ${student['Grade'] || 'N/A'}`],
+        [`UPI: ${student['UPI'] || 'N/A'}`, `${student['Grade'] || 'N/A'}`],
         [`Gender: ${student['Gender'] || 'N/A'}`, `Class: ${student['Class'] || 'N/A'}`]
     ];
     let infoY = yPos + 16;
@@ -3672,13 +3672,13 @@ function generateWhatsAppText(student) {
         `📋 *Student Report — ${termLabel}*`,
         ``,
         `👤 *${student['Official Student Name'] || 'N/A'}*`,
-        `🆔 Adm: ${student['Assessment No'] || 'N/A'}  |  Grade: ${student['Grade'] || 'N/A'}`,
+        `🆔 Adm: ${student['Assessment No'] || 'N/A'}  |  ${student['Grade'] || 'N/A'}`,
         ``,
         `📚 *ACADEMIC PERFORMANCE*`,
         ...lines,
         ``,
         `📊 *SUMMARY*`,
-        `  Mean Score: ${stats.average}%`,
+        `  Perc rating ${stats.average}%`,
         `  Total Points: ${stats.totalPoints} / ${stats.maxPoints}`,
         `  Performance Level: ${stats.comment}`,
         `  Position: ${student['Position'] || 'N/A'}`,
