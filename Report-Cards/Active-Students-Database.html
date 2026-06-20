@@ -1353,7 +1353,7 @@
 
 <!-- PDF Viewer Modal -->
 <!-- PDF VIEWER MODAL — full-screen overlay -->
-<div id="pdf-modal-backdrop" class="modal-backdrop hidden" style="align-items:stretch;justify-content:stretch;padding:0;">
+<div id="pdf-modal-backdrop" class="modal-backdrop hidden" style="align-items:stretch;justify-content:stretch;padding:0;z-index:1300;">
     <div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:var(--surface);overflow:hidden;">
 
         <!-- Header: avatar · name/cert/grade · | · grade filter · ◀ counter ▶ · spacer · × -->
@@ -1424,7 +1424,7 @@
 </div>
 
 <!-- PDF SEARCH MODAL (universal modal style) -->
-<div id="pdf-search-panel" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(13,31,53,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
+<div id="pdf-search-panel" style="display:none;position:fixed;inset:0;z-index:1150;background:rgba(13,31,53,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
     <div style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);margin:1rem;">
         <!-- Header -->
         <div style="padding:1rem 1.25rem .875rem;border-bottom:1px solid var(--border);background:var(--navy);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
@@ -1517,7 +1517,7 @@
   </div>
 </div>
 
-<div id="unmatched-pdfs-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(13,31,53,.6);backdrop-filter:blur(5px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
+<div id="unmatched-pdfs-modal" style="display:none;position:fixed;inset:0;z-index:1160;background:rgba(13,31,53,.6);backdrop-filter:blur(5px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
     <div style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);margin:1rem;">
         <!-- Header -->
         <div style="padding:1rem 1.25rem .875rem;border-bottom:1px solid var(--border);background:var(--navy);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
@@ -7118,10 +7118,12 @@ setTimeout(() => {
         </div>`;
         countEl.textContent = '';
 
-        const base = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdfs/';
+        const base = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdf/';
         let serverFileNames = null;
 
         // ── Strategy 1: GitHub API (authoritative for GitHub Pages) ──────
+        // student_pdf/ holds one subfolder per Grade, so list the parent first
+        // to find the grade folders, then list each grade folder for its PDFs.
         try {
             const host = location.hostname;
             const hparts = host.split('.');
@@ -7130,20 +7132,38 @@ setTimeout(() => {
                 const pathParts = location.pathname.split('/').filter(Boolean);
                 const repo = pathParts[0];
                 const folderSegs = pathParts.slice(1, -1);
-                folderSegs.push('student_pdfs');
+                folderSegs.push('student_pdf');
                 const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderSegs.join('/')}`;
-                const m = msgEl(); if (m) m.textContent = 'Fetching file list from GitHub…';
+                const m = msgEl(); if (m) m.textContent = 'Fetching folder list from GitHub…';
                 const res = await fetch(apiUrl, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
                 if (res.ok) {
                     const items = await res.json();
                     if (Array.isArray(items)) {
                         serverFileNames = new Map();
-                        items.forEach(item => {
-                            if (item.type === 'file' && /\.pdf$/i.test(item.name)) {
-                                const pagesUrl = base + encodeURIComponent(item.name);
-                                serverFileNames.set(item.name.toLowerCase().replace(/\.pdf$/i,''), pagesUrl);
-                            }
-                        });
+                        // PDFs directly under student_pdf/ (no grade subfolder)
+                        items.filter(item => item.type === 'file' && /\.pdf$/i.test(item.name))
+                            .forEach(item => serverFileNames.set(item.name.toLowerCase().replace(/\.pdf$/i,''), base + encodeURIComponent(item.name)));
+                        // Recurse one level into each grade subfolder
+                        const gradeDirs = items.filter(item => item.type === 'dir');
+                        let gi = 0;
+                        for (const dir of gradeDirs) {
+                            gi++;
+                            const m2 = msgEl(); if (m2) m2.textContent = `Reading grade folders… ${gi}/${gradeDirs.length} (${dir.name})`;
+                            try {
+                                const subRes = await fetch(dir.url, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
+                                if (subRes.ok) {
+                                    const subItems = await subRes.json();
+                                    if (Array.isArray(subItems)) {
+                                        subItems.forEach(f => {
+                                            if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
+                                                const href = base + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
+                                                serverFileNames.set(f.name.toLowerCase().replace(/\.pdf$/i,''), href);
+                                            }
+                                        });
+                                    }
+                                }
+                            } catch(_) { /* skip this grade folder */ }
+                        }
                         if (!serverFileNames.size) serverFileNames = null;
                         else window._allServerPdfMap = serverFileNames; // share with unmatched panel
                     }
@@ -7151,23 +7171,37 @@ setTimeout(() => {
             }
         } catch(_) {}
 
-        // ── Strategy 2: plain directory listing ──────────────────────────
+        // ── Strategy 2: plain directory listing (+ grade subfolders) ─────
         if (!serverFileNames) {
         try {
             const res = await fetch(base, { method: 'GET', headers: { Accept: 'text/html' } });
             if (res.ok) {
                 const html = await res.text();
-                const matches = [...html.matchAll(/href="([^"]+\.pdf)"/gi)];
-                if (matches.length) {
-                    serverFileNames = new Map();
-                    matches.forEach(m => {
-                        const href = m[1];
-                        const basename = decodeURIComponent(href.split('/').pop());
-                        serverFileNames.set(basename.toLowerCase().replace(/\.pdf$/i, ''), href);
-                    });
-                    if (serverFileNames.size) window._allServerPdfMap = serverFileNames;
-                    else serverFileNames = null;
+                serverFileNames = new Map();
+                [...html.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
+                    const href = m[1];
+                    const basename = decodeURIComponent(href.split('/').pop());
+                    serverFileNames.set(basename.toLowerCase().replace(/\.pdf$/i, ''), href);
+                });
+                const subdirs = [...html.matchAll(/href="([^"?][^"]*\/)"/gi)]
+                    .map(m => m[1])
+                    .filter(h => h !== '../' && h !== './' && !h.startsWith('/'));
+                for (const sub of subdirs) {
+                    try {
+                        const subUrl = new URL(sub, base).href;
+                        const subRes = await fetch(subUrl, { method:'GET', headers:{ Accept:'text/html' } });
+                        if (subRes.ok) {
+                            const subHtml = await subRes.text();
+                            [...subHtml.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
+                                const href = new URL(m[1], subUrl).href;
+                                const basename = decodeURIComponent(href.split('/').pop());
+                                serverFileNames.set(basename.toLowerCase().replace(/\.pdf$/i, ''), href);
+                            });
+                        }
+                    } catch(_) { /* skip this subfolder */ }
                 }
+                if (serverFileNames.size) window._allServerPdfMap = serverFileNames;
+                else serverFileNames = null;
             }
         } catch (_) {}
         }
@@ -7394,10 +7428,10 @@ setTimeout(() => {
         const pathParts = location.pathname.split('/').filter(Boolean); // ['ranking','Report-Cards','Active-Students-Database.html']
         if (!pathParts.length) return null;
         const repo = pathParts[0];                                   // ranking
-        // Build folder path: same as current page path minus the filename, plus 'student_pdfs'
+        // Build folder path: same as current page path minus the filename, plus 'student_pdf'
         const folderSegments = pathParts.slice(1, -1);               // ['Report-Cards']
-        folderSegments.push('student_pdfs');
-        const folderPath = folderSegments.join('/');                  // Report-Cards/student_pdfs
+        folderSegments.push('student_pdf');
+        const folderPath = folderSegments.join('/');                  // Report-Cards/student_pdf
         return { apiUrl: `https://api.github.com/repos/${owner}/${repo}/contents/${folderPath}`, owner, repo, folderPath };
     }
 
@@ -7409,14 +7443,16 @@ setTimeout(() => {
             return new Map(window._allServerPdfMap);
         }
 
-        const pagesBase = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdfs/';
-        const map = new Map();
+        const pagesBase = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdf/';
+        const map = new Map(); // normKey(filename) -> href
 
-        // Strategy 2: GitHub API (authoritative — works on GitHub Pages without directory listing)
+        // Strategy 2: GitHub API — authoritative on GitHub Pages, no directory listing needed.
+        // student_pdf/ now contains one subfolder per Grade, so we list the parent folder
+        // first to discover the grade folders, then list each grade folder for its PDFs.
         const ghInfo = getGithubApiUrl();
         if (ghInfo) {
             try {
-                statusCb && statusCb('Fetching file list from GitHub…');
+                statusCb && statusCb('Fetching folder list from GitHub…');
                 const res = await fetch(ghInfo.apiUrl, {
                     headers: { Accept: 'application/vnd.github.v3+json' },
                     cache: 'no-store'
@@ -7424,13 +7460,34 @@ setTimeout(() => {
                 if (res.ok) {
                     const items = await res.json();
                     if (Array.isArray(items)) {
-                        items.forEach(item => {
-                            if (item.type === 'file' && /\.pdf$/i.test(item.name)) {
-                                // Build the GitHub Pages URL for this PDF
-                                const pagesUrl = pagesBase + encodeURIComponent(item.name);
-                                map.set(normKey(item.name), pagesUrl);
-                            }
-                        });
+                        // Any PDFs sitting directly in student_pdf/ (no grade subfolder)
+                        items.filter(item => item.type === 'file' && /\.pdf$/i.test(item.name))
+                            .forEach(item => map.set(normKey(item.name), pagesBase + encodeURIComponent(item.name)));
+
+                        // Recurse one level into each grade subfolder
+                        const gradeDirs = items.filter(item => item.type === 'dir');
+                        let gi = 0;
+                        for (const dir of gradeDirs) {
+                            gi++;
+                            statusCb && statusCb(`Reading grade folders from GitHub… ${gi}/${gradeDirs.length} (${dir.name})`);
+                            try {
+                                const subRes = await fetch(dir.url, {
+                                    headers: { Accept: 'application/vnd.github.v3+json' },
+                                    cache: 'no-store'
+                                });
+                                if (subRes.ok) {
+                                    const subItems = await subRes.json();
+                                    if (Array.isArray(subItems)) {
+                                        subItems.forEach(f => {
+                                            if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
+                                                const href = pagesBase + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
+                                                map.set(normKey(f.name), href);
+                                            }
+                                        });
+                                    }
+                                }
+                            } catch(_) { /* skip this grade folder, keep going */ }
+                        }
                     }
                 }
                 if (map.size > 0) {
@@ -7441,18 +7498,38 @@ setTimeout(() => {
             } catch(_) {}
         }
 
-        // Strategy 3: plain directory listing fetch (works if server has index enabled)
+        // Strategy 3: plain directory listing (works only if the host has directory
+        // index enabled). List student_pdf/, follow any grade subfolder links, then
+        // list each of those too.
         try {
             statusCb && statusCb('Fetching server directory listing…');
             const res = await fetch(pagesBase, { method:'GET', headers:{ Accept:'text/html' }, cache:'no-store' });
             if (res.ok) {
                 const html = await res.text();
-                const matches = [...html.matchAll(/href="([^"]+\.pdf)"/gi)];
-                matches.forEach(m => {
+                // PDFs directly under student_pdf/
+                [...html.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
                     const href     = m[1];
                     const basename = decodeURIComponent(href.split('/').pop());
                     map.set(normKey(basename), href);
                 });
+                // Grade subfolder links (end in '/', skip parent/query links)
+                const subdirs = [...html.matchAll(/href="([^"?][^"]*\/)"/gi)]
+                    .map(m => m[1])
+                    .filter(h => h !== '../' && h !== './' && !h.startsWith('/'));
+                for (const sub of subdirs) {
+                    try {
+                        const subUrl = new URL(sub, pagesBase).href;
+                        const subRes = await fetch(subUrl, { method:'GET', headers:{ Accept:'text/html' }, cache:'no-store' });
+                        if (subRes.ok) {
+                            const subHtml = await subRes.text();
+                            [...subHtml.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
+                                const href     = new URL(m[1], subUrl).href;
+                                const basename = decodeURIComponent(href.split('/').pop());
+                                map.set(normKey(basename), href);
+                            });
+                        }
+                    } catch(_) { /* skip this subfolder */ }
+                }
                 if (map.size > 0) {
                     window._allServerPdfMap = map;
                     return map;
@@ -7460,35 +7537,22 @@ setTimeout(() => {
             }
         } catch(_) {}
 
-        // Strategy 4: HEAD-probe every student name variant in batches of 100
-        statusCb && statusCb('Probing PDFs by student names (batches of 100)…');
+        // Strategy 4: HEAD-probe each student's exact expected file —
+        // ./student_pdf/{Grade}/{Name}.pdf (falls back to .PDF)
+        statusCb && statusCb('Probing PDFs by student name + grade…');
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) return map;
 
-        const BATCH = 350;
-        const buildUrls = s => {
-            const name  = normName(s);
-            const no    = (s['Assessment No'] || s.id || '').toString().trim();
-            const grade = (s.Grade || s['Class'] || '').toString().replace(/^Grade\s+/i,'').trim();
-            return [
-                name, name.toUpperCase(), name.toLowerCase(), no,
-                `${no} ${name}`, `${name} ${no}`, `${grade} ${name}`,
-                name.replace(/\s+/g,'_'), name.toUpperCase().replace(/\s+/g,'_'),
-            ].filter((v,i,a) => v && a.indexOf(v) === i)
-             .flatMap(v => [
-                 { key: normKey(v), url: pagesBase + encodeURIComponent(v) + '.pdf' },
-                 { key: normKey(v), url: pagesBase + encodeURIComponent(v) + '.PDF' },
-             ]);
-        };
-
+        const BATCH = 100;
         let checked = 0;
         for (let i = 0; i < students.length; i += BATCH) {
             const batch = students.slice(i, i + BATCH);
             await Promise.all(batch.map(async s => {
-                for (const { key, url } of buildUrls(s)) {
+                const candidates = (typeof _pdfCandidates === 'function') ? _pdfCandidates(normName(s), s.Grade) : [];
+                for (const url of candidates) {
                     try {
                         const r = await fetch(url, { method:'HEAD', cache:'no-store' });
-                        if (r.ok) { map.set(key, url); break; }
+                        if (r.ok) { map.set(normKey(normName(s)), url); break; }
                     } catch(_) {}
                 }
             }));
@@ -7655,7 +7719,7 @@ setTimeout(() => {
                 const pathParts = location.pathname.split('/').filter(Boolean);
                 const repo = pathParts[0];
                 const folderSegs = pathParts.slice(1, -1);
-                folderSegs.push('student_pdfs');
+                folderSegs.push('student_pdf');
                 const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderSegs.join('/')}`;
 
                 const res = await fetch(apiUrl, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
@@ -7663,12 +7727,30 @@ setTimeout(() => {
                 const items = await res.json();
                 if (!Array.isArray(items)) return;
 
-                const pagesBase = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdfs/';
+                const pagesBase = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdf/';
                 const freshMap = new Map();
                 items.forEach(item => {
                     if (item.type === 'file' && /\.pdf$/i.test(item.name))
                         freshMap.set(normKey(item.name), pagesBase + encodeURIComponent(item.name));
                 });
+                // Recurse into each grade subfolder
+                const gradeDirs = items.filter(item => item.type === 'dir');
+                for (const dir of gradeDirs) {
+                    try {
+                        const subRes = await fetch(dir.url, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
+                        if (subRes.ok) {
+                            const subItems = await subRes.json();
+                            if (Array.isArray(subItems)) {
+                                subItems.forEach(f => {
+                                    if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
+                                        const href = pagesBase + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
+                                        freshMap.set(normKey(f.name), href);
+                                    }
+                                });
+                            }
+                        }
+                    } catch(_) { /* skip this grade folder */ }
+                }
 
                 // Only trigger a recheck if the file list actually changed
                 const oldMap = window._allServerPdfMap;
