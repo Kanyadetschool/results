@@ -3249,16 +3249,17 @@ function _photoPath(name, grade) {
 }
 window._photoPath = _photoPath;
 
-function _probeImage(url) {
-    if (!url) return Promise.resolve(false);
-    if (_imgExistCache[url] !== undefined) return Promise.resolve(_imgExistCache[url]);
-    return new Promise(resolve => {
-        const img = new Image();
-        const t = setTimeout(() => { _imgExistCache[url] = false; resolve(false); }, 4000);
-        img.onload  = () => { clearTimeout(t); _imgExistCache[url] = true;  resolve(true);  };
-        img.onerror = () => { clearTimeout(t); _imgExistCache[url] = false; resolve(false); };
-        img.src = url;
-    });
+async function _probeImage(url) {
+    if (!url) return false;
+    if (_imgExistCache[url] !== undefined) return _imgExistCache[url];
+    try {
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        _imgExistCache[url] = res.ok;
+        return res.ok;
+    } catch(_) {
+        _imgExistCache[url] = false;
+        return false;
+    }
 }
 
 async function resolveStudentPhoto(name, grade) {
