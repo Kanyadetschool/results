@@ -1912,6 +1912,7 @@ document.addEventListener('click', function(e) {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -2460,6 +2461,7 @@ toggleUploadBtn.addEventListener('click', () => {
 const app = initializeApp(firebaseConfig);
 db = getDatabase(app);
 auth = getAuth(app);
+const firestoreDb = getFirestore(app);
 
 // Ensure session survives page reloads (default, but set explicitly for passkey flow)
 setPersistence(auth, browserLocalPersistence).catch(() => {});
@@ -2868,7 +2870,32 @@ function _softLock() {
 // Called from onAuthStateChanged (new login) AND from _softUnlock (biometric).
 // This is the single source of truth for "user is authenticated, open the app".
 let _appAlreadyOpen = false; window._getAppFlags = () => ({get appAlreadyOpen(){return _appAlreadyOpen;}, set appAlreadyOpen(v){_appAlreadyOpen=v;}, get firstAuthCheck(){return _firstAuthCheck;}, set firstAuthCheck(v){_firstAuthCheck=v;}, get autoUnlockFired(){return _autoUnlockFired;}, set autoUnlockFired(v){_autoUnlockFired=v;}});
-function _openApp(user) {
+async function _openApp(user) {
+    // ── Advanced Admin gate ──────────────────────────────────────
+    // Only users whose Firestore users/{uid} doc has Advancedadmin === true
+    // are permitted into the Active Students Database. Mirrors the
+    // access-control pattern used in index.html.
+    let _allowed = false;
+    try {
+        const _userDocSnap = await getDoc(doc(firestoreDb, 'users', user.uid));
+        _allowed = _userDocSnap.exists() && _userDocSnap.data().Advancedadmin === true;
+    } catch (err) {
+        console.error('[AdvancedAdmin] Profile check failed:', err);
+        _allowed = false;
+    }
+    if (!_allowed) {
+        _appAlreadyOpen = false;
+        PK.remove(user.email || ''); // stop auto-unlock from re-prompting a denied account
+        document.body.classList.add('user-logged-out');
+        document.body.classList.remove('user-logged-in');
+        signInSection.classList.remove('hidden');
+        signOutBtn.classList.add('hidden');
+        dataSection.classList.add('hidden');
+        showModal('⛔ Access restricted to Advanced Admins only.');
+        await signOut(auth);
+        return;
+    }
+
     userId = user.uid;
 
     // ── Topbar: show avatar only, full details in profile dropdown ──
@@ -2973,11 +3000,11 @@ function _softUnlock() {
     _isLocked = false;
     const user = auth.currentUser;
     if (user) {
+        const _afterOpen = () => { if (document.body.classList.contains('user-logged-in')) showToast('Fingerprint verified — welcome back!', 'success', 3000); };
         if (_splashEl && !_splashEl.classList.contains('hidden')) {
-            _dismissSplash(() => { _openApp(user); showToast('Fingerprint verified — welcome back!', 'success', 3000); });
+            _dismissSplash(() => { _openApp(user).then(_afterOpen); });
         } else {
-            _openApp(user);
-            showToast('Fingerprint verified — welcome back!', 'success', 3000);
+            _openApp(user).then(_afterOpen);
         }
     }
 }
