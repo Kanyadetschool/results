@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lunch Contribution Manager — May 2026</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -45,30 +45,40 @@ window.dispatchEvent(new Event('fb-ready'));
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --ink: #141414;
-    --ink-mid: #555;
-    --ink-light: #999;
-    --bg: #F4F1EB;
-    --bg2: #EAE6DC;
-    --white: #FDFCF9;
-    --rule: #DDD9D0;
-    --accent: #1A1A1A;
-    --ok-bg: #DFF0D1; --ok-fg: #2E6010;
-    --warn-bg: #FCE9C8; --warn-fg: #7A4600;
-    --nil-bg: #FADFDF; --nil-fg: #8C1F1F;
-    --shadow: 0 2px 16px rgba(0,0,0,.07);
+    --ink: #0c1e33;
+    --ink-mid: #3a6080;
+    --ink-light: #8aadcc;
+    --bg: #eef4fb;
+    --bg2: #e2edf7;
+    --white: #ffffff;
+    --rule: rgba(41,128,185,.15);
+    --rule-strong: rgba(41,128,185,.4);
+    --accent: #2980b9; --accent-dk: #1a5276; --accent-lt: #5dade2;
+    --accent-glow: rgba(41,128,185,.35);
+    --ok-bg: rgba(39,174,96,.12); --ok-fg: #1d8a4e;
+    --warn-bg: rgba(243,156,18,.15); --warn-fg: #b9770e;
+    --nil-bg: rgba(231,76,60,.12); --nil-fg: #c0392b;
+    --shadow: 0 4px 20px rgba(41,128,185,.1);
+    --radius-lg: 18px; --radius-md: 12px; --radius-sm: 8px;
   }
 
   body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     background: var(--bg);
     color: var(--ink);
     min-height: 100vh;
+    position: relative;
   }
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse 60% 50% at 8% 10%, rgba(41,128,185,.10) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 45% at 92% 90%, rgba(22,160,133,.07) 0%, transparent 60%);
+  }
+  .app-header, .nav-tabs, .main, .toast, .modal, .pdf-overlay { position: relative; z-index: 1; }
 
   /* ── HEADER ── */
   .app-header {
-    background: var(--ink);
+    background: linear-gradient(135deg,var(--accent),var(--accent-dk));
     color: var(--white);
     padding: 20px 20px 16px;
     display: flex;
@@ -76,35 +86,38 @@ window.dispatchEvent(new Event('fb-ready'));
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
+    border-bottom: 3px solid var(--accent-lt);
   }
   .app-header .eyebrow {
     font-size: 10px;
     letter-spacing: .14em;
     text-transform: uppercase;
-    color: #888;
+    color: rgba(255,255,255,.7);
     margin-bottom: 4px;
-    font-family: 'DM Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
   }
   .app-header h1 {
-    font-family: 'DM Serif Display', serif;
-    font-size: 28px;
-    font-weight: 400;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -.01em;
     line-height: 1.1;
   }
   .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .btn {
     display: inline-flex; align-items: center; gap: 7px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 500;
-    padding: 9px 18px; border-radius: 6px; border: none; cursor: pointer;
-    transition: all .15s;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px; font-weight: 700;
+    padding: 9px 18px; border-radius: var(--radius-md); border: none; cursor: pointer;
+    transition: all .2s cubic-bezier(.4,0,.2,1);
   }
-  .btn-primary { background: var(--white); color: var(--ink); }
-  .btn-primary:hover { background: #e8e4da; }
-  .btn-ghost { background: transparent; color: #aaa; border: 1px solid #333; }
-  .btn-ghost:hover { border-color: #888; color: var(--white); }
-  .btn-danger { background: #3a1010; color: #f5a0a0; border: 1px solid #5c1f1f; }
-  .btn-danger:hover { background: #5c1f1f; }
+  .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent-dk)); color: #fff; box-shadow: 0 3px 12px var(--accent-glow); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--accent-glow); }
+  .btn-ghost { background: rgba(255,255,255,.12); color: #eaf2fb; border: 1px solid rgba(255,255,255,.3); }
+  .btn-ghost:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,.2); }
+  .btn-danger { background: linear-gradient(135deg,#e74c3c,#c0392b); color: #fff; border: none; box-shadow: 0 3px 12px rgba(231,76,60,.3); }
+  .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(231,76,60,.35); }
   .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
 
   /* ── MAIN ── */
@@ -118,7 +131,7 @@ window.dispatchEvent(new Event('fb-ready'));
     box-shadow: var(--shadow); border: 1px solid var(--rule);
   }
   .stat-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--ink-light); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+    color: var(--ink-light); margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; }
   .stat-val { font-size: 20px; font-weight: 600; line-height: 1; }
   .stat-sub { font-size: 11px; color: var(--ink-light); margin-top: 3px; }
   .stat-val.danger { color: var(--nil-fg); }
@@ -131,13 +144,13 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .toolbar-left { display: flex; align-items: center; gap: 12px; }
   .section-title {
-    font-family: 'DM Serif Display', serif;
-    font-size: 18px; font-weight: 400;
+    font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;
+    font-size: 18px;
   }
   .member-count {
     font-size: 12px; background: var(--bg2); border-radius: 20px;
     padding: 3px 10px; color: var(--ink-mid);
-    font-family: 'DM Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   /* ── TABLE ── */
@@ -149,7 +162,7 @@ window.dispatchEvent(new Event('fb-ready'));
   thead th {
     font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
     color: var(--ink-light); padding: 12px 16px; background: var(--bg);
-    font-weight: 600; font-family: 'DM Mono', monospace; text-align: left;
+    font-weight: 600; font-family: 'JetBrains Mono', monospace; text-align: left;
     border-bottom: 1px solid var(--rule);
   }
   thead th:last-child { text-align: right; }
@@ -158,9 +171,9 @@ window.dispatchEvent(new Event('fb-ready'));
   tbody tr:hover { background: #FAFAF7; }
   td { padding: 12px 16px; font-size: 14px; vertical-align: middle; }
   td:last-child { text-align: right; }
-  .td-no { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink-light); width: 36px; }
+  .td-no { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-light); width: 36px; }
   .td-name { font-weight: 500; }
-  .td-amount { font-family: 'DM Mono', monospace; font-weight: 600; }
+  .td-amount { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
   .td-amount.ok   { color: var(--ok-fg); }
   .td-amount.warn { color: var(--warn-fg); }
   .td-amount.nil  { color: var(--nil-fg); }
@@ -169,7 +182,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .badge {
     display: inline-flex; align-items: center;
     font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-    padding: 3px 9px; border-radius: 20px; font-family: 'DM Mono', monospace;
+    padding: 3px 9px; border-radius: 20px; font-family: 'JetBrains Mono', monospace;
   }
   .badge-ok   { background: var(--ok-bg);   color: var(--ok-fg); }
   .badge-warn { background: var(--warn-bg); color: var(--warn-fg); }
@@ -179,8 +192,8 @@ window.dispatchEvent(new Event('fb-ready'));
   tfoot tr { border-top: 2px solid var(--ink); }
   tfoot tr:first-child { border-top: 2px solid var(--ink); }
   tfoot tr:last-child  { border-top: 1px solid var(--rule); }
-  tfoot td { padding: 12px 16px; font-family: 'DM Mono', monospace; font-weight: 600; font-size: 14px; background: var(--bg); }
-  tfoot td.lbl { text-align: left; font-family: 'DM Sans', sans-serif; }
+  tfoot td { padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 14px; background: var(--bg); }
+  tfoot td.lbl { text-align: left; font-family: 'Plus Jakarta Sans', sans-serif; }
   tfoot td.lbl.danger { color: var(--nil-fg); }
   tfoot td.amt { text-align: right; }
   tfoot td.amt.danger { color: var(--nil-fg); }
@@ -189,7 +202,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .icon-btn {
     background: none; border: none; cursor: pointer; padding: 4px 6px;
     border-radius: 5px; color: var(--ink-light); transition: all .15s;
-    font-size: 13px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
   }
   .icon-btn:hover { background: var(--bg2); color: var(--ink); }
   .icon-btn.del:hover { background: var(--nil-bg); color: var(--nil-fg); }
@@ -202,14 +215,14 @@ window.dispatchEvent(new Event('fb-ready'));
     display: none;
   }
   .add-form.open { display: block; }
-  .form-title { font-family: 'DM Serif Display', serif; font-size: 17px; margin-bottom: 16px; }
+  .form-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 17px; margin-bottom: 16px; }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
   @media(max-width:520px){ .form-grid { grid-template-columns: 1fr; } }
   .field label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--ink-light); display: block; margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+    color: var(--ink-light); display: block; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; }
   .field input, .field select {
     width: 100%; padding: 10px 14px; border: 1.5px solid var(--rule);
-    border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+    border-radius: 7px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px;
     background: var(--bg); color: var(--ink); transition: border-color .15s; outline: none;
   }
   .field input:focus, .field select:focus { border-color: var(--ink); }
@@ -223,10 +236,10 @@ window.dispatchEvent(new Event('fb-ready'));
     flex-wrap: wrap;
   }
   .settings-bar label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--ink-light); font-family: 'DM Mono', monospace; }
+    color: var(--ink-light); font-family: 'JetBrains Mono', monospace; }
   .settings-bar input[type=number] {
     padding: 7px 12px; border: 1.5px solid var(--rule); border-radius: 7px;
-    font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600;
     width: 120px; background: var(--bg); color: var(--ink); outline: none;
     transition: border-color .15s;
   }
@@ -246,7 +259,7 @@ window.dispatchEvent(new Event('fb-ready'));
     background: var(--bg2); border: 1.5px solid var(--rule);
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 600; color: var(--ink-mid);
-    flex-shrink: 0; font-family: 'DM Sans', sans-serif;
+    flex-shrink: 0; font-family: 'Plus Jakarta Sans', sans-serif;
   }
   .td-name { display: flex; align-items: center; gap: 10px; }
   .td-name-text { font-weight: 500; }
@@ -306,8 +319,8 @@ window.dispatchEvent(new Event('fb-ready'));
   }
 
   .print-header { display: none; margin-bottom: 20px; }
-  .print-header .ph-eyebrow { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #999; font-family: 'DM Mono', monospace; }
-  .print-header h2 { font-family: 'DM Serif Display', serif; font-size: 26px; font-weight: 400; margin: 4px 0 2px; }
+  .print-header .ph-eyebrow { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #999; font-family: 'JetBrains Mono', monospace; }
+  .print-header h2 { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 26px; margin: 4px 0 2px; }
   .print-header .ph-meta { font-size: 12px; color: #777; }
   .print-footer { display: none; margin-top: 28px; border-top: 1px solid #ddd; padding-top: 12px; font-size: 11px; color: #aaa; display: flex; justify-content: space-between; }
 
@@ -324,7 +337,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .editing-row td { background: #FDFCF5 !important; }
   .inline-input {
     border: 1.5px solid var(--ink); border-radius: 5px; padding: 4px 8px;
-    font-family: 'DM Mono', monospace; font-size: 13px; width: 90px; background: var(--white);
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; width: 90px; background: var(--white);
   }
 
   /* ── DYNAMIC PRINT / PDF BUTTON ── */
@@ -360,22 +373,22 @@ window.dispatchEvent(new Event('fb-ready'));
   /* ── NAV TABS ── */
   .nav-tabs {
     display: flex; gap: 4px; align-items: center;
-    border-bottom: 1px solid #2a2a2a;
-    background: var(--ink);
+    border-bottom: 1px solid rgba(255,255,255,.15);
+    background: linear-gradient(135deg,var(--accent-dk),#123a57);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
   .nav-tabs::-webkit-scrollbar { display: none; }
   .nav-tab {
-    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
-    color: #666; padding: 10px 16px; cursor: pointer; border: none;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,.6); padding: 10px 16px; cursor: pointer; border: none;
     background: transparent; border-bottom: 2px solid transparent;
-    margin-bottom: -1px; transition: all .15s; letter-spacing: .01em;
+    margin-bottom: -1px; transition: all .2s; letter-spacing: .01em;
     white-space: nowrap; flex-shrink: 0;
   }
-  .nav-tab:hover { color: #aaa; }
-  .nav-tab.active { color: var(--white); border-bottom-color: var(--white); }
+  .nav-tab:hover { color: #fff; }
+  .nav-tab.active { color: #fff; border-bottom-color: #fff; }
 
   /* ── HISTORY PAGE ── */
   .history-page { display: none; }
@@ -384,7 +397,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .home-page.hidden { display: none; }
 
   .hist-section-title {
-    font-family: 'DM Serif Display', serif; font-size: 20px;
+    font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 20px;
     font-weight: 400; margin-bottom: 16px; color: var(--ink);
   }
   .hist-chart-wrap {
@@ -393,7 +406,7 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .hist-chart-wrap canvas { max-height: 260px; }
   .hist-chart-meta {
-    font-size: 11px; color: var(--ink-light); font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
     margin-top: 10px; text-align: center;
   }
 
@@ -413,14 +426,14 @@ window.dispatchEvent(new Event('fb-ready'));
   .hist-period-card.rate-mid::before   { background: var(--warn-fg); }
   .hist-period-card.rate-low::before   { background: var(--nil-fg); }
   .hpc-period {
-    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .1em;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .1em;
     text-transform: uppercase; color: var(--ink-light); margin-bottom: 8px;
   }
   .hpc-collected {
     font-size: 18px; font-weight: 700; line-height: 1; margin-bottom: 10px;
   }
   .hpc-std-line {
-    font-size: 11px; color: var(--ink-light); font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
     margin-bottom: 10px;
   }
   .hpc-bar-wrap {
@@ -437,7 +450,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .hpc-delete-btn {
     margin-top: 12px; width: 100%; padding: 6px 0;
     background: none; border: 1px solid var(--rule); border-radius: 6px;
-    font-size: 11px; font-family: 'DM Mono', monospace; color: var(--ink-light);
+    font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--ink-light);
     cursor: pointer; transition: all .15s; letter-spacing: .04em;
   }
   .hpc-delete-btn:hover { background: var(--nil-bg); border-color: var(--nil-fg); color: var(--nil-fg); }
@@ -445,14 +458,14 @@ window.dispatchEvent(new Event('fb-ready'));
   #deletePeriodModal .modal-title { color: var(--nil-fg); }
   .period-undo-bar {
     position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(100px);
-    background: #1e1b17; color: #e0ddd6; border: 1px solid #3a3530;
+    background: linear-gradient(135deg,#0c1525,#090f1a); color: #ddeeff; border: 1px solid rgba(41,128,185,.3);
     border-radius: 10px; padding: 12px 20px;
     display: flex; align-items: center; gap: 16px; z-index: 1001;
     box-shadow: 0 8px 32px rgba(0,0,0,.4); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
     font-size: 13px; white-space: nowrap;
   }
   .period-undo-bar.show { transform: translateX(-50%) translateY(0); }
-  .period-undo-bar .undo-btn { background: #e0ddd6; color: #141414; border: none; border-radius: 6px; padding: 5px 13px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Mono', monospace; }
+  .period-undo-bar .undo-btn { background: linear-gradient(135deg,#2980b9,#1a5276); color: #fff; border: none; border-radius: 6px; padding: 5px 13px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
 
   /* Member history table */
   .hist-member-wrap {
@@ -463,7 +476,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .hist-thead th {
     font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
     color: var(--ink-light); padding: 10px 14px; background: var(--bg);
-    font-weight: 600; font-family: 'DM Mono', monospace; text-align: left;
+    font-weight: 600; font-family: 'JetBrains Mono', monospace; text-align: left;
     border-bottom: 1px solid var(--rule); white-space: nowrap;
   }
   .hist-thead th:first-child { min-width: 160px; }
@@ -479,16 +492,16 @@ window.dispatchEvent(new Event('fb-ready'));
   .hist-cell-inner {
     display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
   }
-  .hist-cell-amt { font-family: 'DM Mono', monospace; font-size: 11px; }
+  .hist-cell-amt { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
   .hist-cell-amt.ok   { color: var(--ok-fg); }
   .hist-cell-amt.warn { color: var(--warn-fg); }
   .hist-cell-amt.nil  { color: var(--ink-light); }
-  .hist-cell-total { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; text-align: right; }
+  .hist-cell-total { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; text-align: right; }
 
   /* Period column header sub-line */
   .hist-col-sub {
     display: block; font-size: 9px; font-weight: 400; color: var(--ink-light);
-    letter-spacing: 0; text-transform: none; margin-top: 2px; font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0; text-transform: none; margin-top: 2px; font-family: 'Plus Jakarta Sans', sans-serif;
   }
 
   /* Empty state */
@@ -501,7 +514,7 @@ window.dispatchEvent(new Event('fb-ready'));
   /* Loading spinner for history */
   .hist-loading {
     text-align: center; padding: 40px;
-    color: var(--ink-light); font-size: 13px; font-family: 'DM Mono', monospace;
+    color: var(--ink-light); font-size: 13px; font-family: 'JetBrains Mono', monospace;
   }
 
   /* Scrollable table wrapper */
@@ -509,25 +522,27 @@ window.dispatchEvent(new Event('fb-ready'));
 
   /* ── DARK MODE ── */
   body.dark {
-    --ink: #F0EDE6;
-    --ink-mid: #AAA49A;
-    --ink-light: #666;
-    --bg: #181614;
-    --bg2: #221F1B;
-    --white: #1E1B17;
-    --rule: #2E2A24;
-    --accent: #E0DDD6;
-    --ok-bg: #1A2E10; --ok-fg: #7DC653;
-    --warn-bg: #2E1F08; --warn-fg: #E0952A;
-    --nil-bg: #2E0E0E; --nil-fg: #E06060;
-    --shadow: 0 2px 16px rgba(0,0,0,.35);
+    --ink: #ddeeff;
+    --ink-mid: #7aaec9;
+    --ink-light: #4a7a9b;
+    --bg: #090f1a;
+    --bg2: #0c1525;
+    --white: #111d2e;
+    --rule: rgba(41,128,185,.18);
+    --rule-strong: rgba(41,128,185,.4);
+    --accent: #5dade2; --accent-dk: #2980b9; --accent-lt: #7ec0ee;
+    --accent-glow: rgba(41,128,185,.45);
+    --ok-bg: rgba(39,174,96,.15); --ok-fg: #4dbb77;
+    --warn-bg: rgba(243,156,18,.18); --warn-fg: #f0b85c;
+    --nil-bg: rgba(231,76,60,.18); --nil-fg: #e8796c;
+    --shadow: 0 8px 32px rgba(0,0,0,.4);
   }
-  body.dark .app-header { background: #100E0B; }
-  body.dark .nav-tabs { background: #100E0B; border-bottom-color: #2E2A24; }
-  body.dark .btn-ghost { border-color: #444; color: #888; }
-  body.dark .btn-ghost:hover { border-color: #888; color: var(--ink); }
-  body.dark .btn-primary { background: #2E2A24; color: var(--ink); }
-  body.dark .btn-primary:hover { background: #3a3530; }
+  body.dark .app-header { background: linear-gradient(135deg,var(--accent-dk),#123a57); }
+  body.dark .nav-tabs { background: linear-gradient(135deg,#123a57,#0e2c45); border-bottom-color: rgba(255,255,255,.12); }
+  body.dark .btn-ghost { border-color: var(--rule-strong); color: var(--ink-light); }
+  body.dark .btn-ghost:hover { border-color: var(--accent-lt); color: var(--accent-lt); }
+  body.dark .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent-dk)); color: #fff; }
+  body.dark .btn-primary:hover { background: linear-gradient(135deg,var(--accent-lt),var(--accent)); }
   body.dark .inline-input { background: var(--bg2); color: var(--ink); border-color: var(--rule); }
   body.dark .field input, body.dark .field select { background: var(--bg2); color: var(--ink); }
 
@@ -553,7 +568,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .search-input {
     width: 100%; padding: 9px 14px 9px 34px;
     border: 1.5px solid var(--rule); border-radius: 7px;
-    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px;
     background: var(--white); color: var(--ink); outline: none;
     transition: border-color .15s;
   }
@@ -565,7 +580,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .filter-tab {
     font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 5px;
     border: none; cursor: pointer; background: transparent; color: var(--ink-light);
-    font-family: 'DM Mono', monospace; letter-spacing: .05em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: .05em; text-transform: uppercase;
     transition: all .15s;
   }
   .filter-tab.active { background: var(--white); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
@@ -578,7 +593,7 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .collection-bar-label {
     font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--ink-light); font-family: 'DM Mono', monospace; white-space: nowrap;
+    color: var(--ink-light); font-family: 'JetBrains Mono', monospace; white-space: nowrap;
   }
   .collection-bar-track {
     flex: 1; min-width: 120px; background: var(--bg2);
@@ -589,7 +604,7 @@ window.dispatchEvent(new Event('fb-ready'));
     transition: width .6s cubic-bezier(.4,0,.2,1), background .3s;
   }
   .collection-bar-pct {
-    font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700;
     white-space: nowrap; min-width: 52px; text-align: right;
   }
 
@@ -602,11 +617,11 @@ window.dispatchEvent(new Event('fb-ready'));
   .bulk-bar.visible { display: flex; }
   .bulk-bar label { font-size: 13px; font-weight: 500; }
   .bulk-amount-input {
-    padding: 7px 12px; border: 1.5px solid #444; border-radius: 7px;
-    background: #2a2724; color: var(--white); font-family: 'DM Mono', monospace;
+    padding: 7px 12px; border: 1.5px solid rgba(255,255,255,.25); border-radius: 7px;
+    background: rgba(255,255,255,.08); color: var(--white); font-family: 'JetBrains Mono', monospace;
     font-size: 13px; width: 110px; outline: none;
   }
-  .bulk-amount-input:focus { border-color: #888; }
+  .bulk-amount-input:focus { border-color: var(--accent-lt); }
   .select-col { width: 36px; text-align: center !important; }
   .row-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--ink); }
 
@@ -620,7 +635,7 @@ window.dispatchEvent(new Event('fb-ready'));
   /* ── UNDO BAR ── */
   .undo-bar {
     position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(100px);
-    background: #1e1b17; color: #e0ddd6; border: 1px solid #3a3530;
+    background: linear-gradient(135deg,#0c1525,#090f1a); color: #ddeeff; border: 1px solid rgba(41,128,185,.3);
     border-radius: 10px; padding: 12px 20px;
     display: flex; align-items: center; gap: 16px; z-index: 1000;
     box-shadow: 0 8px 32px rgba(0,0,0,.4); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
@@ -628,9 +643,9 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .undo-bar.show { transform: translateX(-50%) translateY(0); }
   .undo-btn {
-    background: #e0ddd6; color: #141414; border: none; border-radius: 6px;
+    background: linear-gradient(135deg,#2980b9,#1a5276); color: #fff; border: none; border-radius: 6px;
     padding: 5px 13px; font-size: 12px; font-weight: 700; cursor: pointer;
-    font-family: 'DM Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   /* ── MEMBER NOTES TOOLTIP ── */
@@ -659,13 +674,13 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .analytics-card .ac-label {
     font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--ink-light); font-family: 'DM Mono', monospace; margin-bottom: 8px;
+    color: var(--ink-light); font-family: 'JetBrains Mono', monospace; margin-bottom: 8px;
   }
   .analytics-card .ac-name {
     font-weight: 600; font-size: 14px; margin-bottom: 2px;
   }
   .analytics-card .ac-val {
-    font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink-light);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-light);
   }
   .streak-bar {
     display: flex; gap: 3px; margin-top: 8px; flex-wrap: wrap;
@@ -685,10 +700,11 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .modal-backdrop.show { display: flex; }
   .modal-box {
-    background: var(--white); border-radius: 14px; padding: 28px 32px;
+    background: var(--white); border-radius: var(--radius-lg); padding: 28px 32px;
     max-width: 420px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,.3);
+    border: 1px solid var(--rule);
   }
-  .modal-title { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 12px; }
+  .modal-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 20px; margin-bottom: 12px; }
   .modal-body  { font-size: 13px; color: var(--ink-mid); line-height: 1.6; margin-bottom: 18px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
@@ -701,7 +717,7 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .overdue-banner.show { display: flex; }
   .overdue-banner-text { font-size: 13px; font-weight: 500; color: var(--nil-fg); flex: 1; }
-  .overdue-banner-sub  { font-size: 11px; color: var(--nil-fg); opacity: .75; font-family: 'DM Mono', monospace; }
+  .overdue-banner-sub  { font-size: 11px; color: var(--nil-fg); opacity: .75; font-family: 'JetBrains Mono', monospace; }
 
   /* ── TREND CHART on Analytics (02) ── */
   .trend-chart-wrap {
@@ -714,10 +730,10 @@ window.dispatchEvent(new Event('fb-ready'));
   .receipt-modal { max-width: 520px; }
   .receipt-body {
     border: 1px solid var(--rule); border-radius: 10px; padding: 24px 28px;
-    font-family: 'DM Mono', monospace; font-size: 13px; line-height: 2;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 2;
     margin-bottom: 20px; background: var(--bg);
   }
-  .receipt-body .r-title { font-family: 'DM Serif Display', serif; font-size: 22px; font-weight: 400; margin-bottom: 4px; font-family: serif; }
+  .receipt-body .r-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 22px; margin-bottom: 4px; }
   .receipt-body .r-sub   { font-size: 11px; color: var(--ink-light); margin-bottom: 18px; letter-spacing: .08em; text-transform: uppercase; }
   .receipt-row { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--rule); padding: 3px 0; }
   .receipt-row.total { border-bottom: none; border-top: 2px solid var(--ink); font-weight: 700; margin-top: 6px; }
@@ -725,7 +741,7 @@ window.dispatchEvent(new Event('fb-ready'));
 
   /* ── PAYMENT DATE STAMP (06) ── */
   .date-stamp {
-    font-size: 10px; color: var(--ink-light); font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
     display: block; margin-top: 2px;
   }
 
@@ -737,7 +753,7 @@ window.dispatchEvent(new Event('fb-ready'));
     border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
   }
   .share-url-text {
-    flex: 1; font-family: 'DM Mono', monospace; font-size: 12px;
+    flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px;
     color: var(--ink); word-break: break-all; line-height: 1.4;
     background: none; border: none; outline: none; resize: none;
     overflow: hidden; cursor: text;
@@ -747,7 +763,7 @@ window.dispatchEvent(new Event('fb-ready'));
   /* ── ROLE BADGE (10) ── */
   .role-badge {
     font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    padding: 3px 9px; border-radius: 20px; font-family: 'DM Mono', monospace;
+    padding: 3px 9px; border-radius: 20px; font-family: 'JetBrains Mono', monospace;
   }
   .role-admin  { background: var(--ok-bg);   color: var(--ok-fg); }
   .role-viewer { background: var(--warn-bg);  color: var(--warn-fg); }
@@ -766,7 +782,7 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .mini-dash-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); border-color: var(--ink-mid); }
   .mini-dash-card:active { transform: translateY(0); box-shadow: none; }
-  .mdc-nav-hint { font-size: 9px; color: var(--ink-light); font-family: 'DM Mono', monospace;
+  .mdc-nav-hint { font-size: 9px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
     margin-top: 6px; opacity: 0; transition: opacity .15s; letter-spacing: .06em; }
   .mini-dash-card:hover .mdc-nav-hint { opacity: 1; }
   .mini-dash-card::after {
@@ -775,10 +791,10 @@ window.dispatchEvent(new Event('fb-ready'));
   .mini-dash-card.mdc-high::after { background: var(--ok-fg); }
   .mini-dash-card.mdc-mid::after  { background: var(--warn-fg); }
   .mini-dash-card.mdc-low::after  { background: var(--nil-fg); }
-  .mdc-period { font-size: 10px; color: var(--ink-light); font-family: 'DM Mono', monospace;
+  .mdc-period { font-size: 10px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
     letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
   .mdc-collected { font-size: 17px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
-  .mdc-rate { font-size: 11px; font-family: 'DM Mono', monospace; }
+  .mdc-rate { font-size: 11px; font-family: 'JetBrains Mono', monospace; }
 
   /* ── FEATURE 02: PIN MODAL ── */
   .pin-dots { display: flex; gap: 10px; justify-content: center; margin: 16px 0; }
@@ -791,7 +807,7 @@ window.dispatchEvent(new Event('fb-ready'));
   .pin-key {
     padding: 13px; border-radius: 8px; border: 1px solid var(--rule);
     background: var(--bg); font-size: 16px; font-weight: 500; cursor: pointer;
-    text-align: center; font-family: 'DM Mono', monospace; transition: background .1s;
+    text-align: center; font-family: 'JetBrains Mono', monospace; transition: background .1s;
   }
   .pin-key:hover { background: var(--bg2); }
   .pin-key:active { background: var(--rule); }
@@ -803,10 +819,10 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .log-row:last-child { border-bottom: none; }
   .log-status { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
-    font-family: 'DM Mono', monospace; flex-shrink: 0; margin-top: 2px; }
+    font-family: 'JetBrains Mono', monospace; flex-shrink: 0; margin-top: 2px; }
   .log-status.sent { background: var(--ok-bg); color: var(--ok-fg); }
   .log-status.fail { background: var(--nil-bg); color: var(--nil-fg); }
-  .log-meta { font-size: 11px; color: var(--ink-light); font-family: 'DM Mono', monospace; }
+  .log-meta { font-size: 11px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace; }
   .log-name { font-size: 13px; font-weight: 500; }
 
   /* ── FEATURE 04: DONUT CHART ── */
@@ -821,7 +837,7 @@ window.dispatchEvent(new Event('fb-ready'));
     align-items: center; justify-content: center; pointer-events: none;
   }
   .donut-center-pct { font-size: 18px; font-weight: 700; line-height: 1; }
-  .donut-center-lbl { font-size: 9px; color: var(--ink-light); font-family: 'DM Mono', monospace; text-transform: uppercase; }
+  .donut-center-lbl { font-size: 9px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; }
   .donut-legend { display: flex; flex-direction: column; gap: 8px; }
   .donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
   .donut-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -834,7 +850,7 @@ window.dispatchEvent(new Event('fb-ready'));
     font-size: 14px; color: var(--ink-light);
   }
   .drop-zone.drag-over { border-color: var(--ink); background: var(--bg2); }
-  .import-preview { font-family: 'DM Mono', monospace; font-size: 12px; margin-top: 14px;
+  .import-preview { font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-top: 14px;
     max-height: 200px; overflow-y: auto; background: var(--bg);
     border-radius: 8px; padding: 12px; }
   .import-row { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--bg2); }
@@ -850,23 +866,23 @@ window.dispatchEvent(new Event('fb-ready'));
     border-bottom: 1px solid var(--bg);
   }
   .lb-row:last-child { border-bottom: none; }
-  .lb-rank { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700;
+  .lb-rank { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
     width: 28px; text-align: center; flex-shrink: 0; }
   .lb-rank.gold   { color: #B8860B; }
   .lb-rank.silver { color: #888; }
   .lb-rank.bronze { color: #A0522D; }
   .lb-name { flex: 1; font-weight: 500; font-size: 14px; }
-  .lb-val { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink-mid); }
+  .lb-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-mid); }
   .lb-badge-wrap { display: flex; gap: 4px; }
 
   /* ── FEATURE 08: PWA ── */
   .pwa-banner {
     display: none; align-items: center; gap: 14px; flex-wrap: wrap;
-    background: #E6F1FB; border: 1.5px solid #378ADD;
+    background: rgba(41,128,185,.08); border: 1.5px solid rgba(41,128,185,.3);
     border-radius: 10px; padding: 12px 18px; margin-bottom: 16px;
   }
   .pwa-banner.show { display: flex; }
-  .pwa-banner-text { font-size: 13px; font-weight: 500; color: #0C447C; flex: 1; }
+  .pwa-banner-text { font-size: 13px; font-weight: 500; color: var(--accent-dk); flex: 1; }
 
   /* ── FEATURE 09: PERIOD NOTES ── */
   .period-notes-wrap {
@@ -884,16 +900,16 @@ window.dispatchEvent(new Event('fb-ready'));
   .period-notes-textarea {
     width: 100%; min-height: 100px; resize: vertical;
     border: 1.5px solid var(--rule); border-radius: 7px;
-    padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 10px 14px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px;
     background: var(--bg); color: var(--ink); outline: none; line-height: 1.6;
   }
   .period-notes-textarea:focus { border-color: var(--ink); }
-  .period-notes-saved { font-size: 11px; color: var(--ok-fg); font-family: 'DM Mono', monospace;
+  .period-notes-saved { font-size: 11px; color: var(--ok-fg); font-family: 'JetBrains Mono', monospace;
     margin-top: 6px; display: none; }
 
   /* ── FEATURE 10: CUSTOM AMOUNTS ── */
   .custom-std-badge {
-    display: inline-block; font-size: 9px; font-family: 'DM Mono', monospace;
+    display: inline-block; font-size: 9px; font-family: 'JetBrains Mono', monospace;
     background: var(--warn-bg); color: var(--warn-fg); border-radius: 20px;
     padding: 1px 6px; margin-left: 5px; vertical-align: middle; font-weight: 700;
   }
@@ -942,7 +958,7 @@ window.dispatchEvent(new Event('fb-ready'));
     <button class="dark-toggle" id="darkToggle" onclick="toggleDark()" title="Toggle dark mode">🌙</button>
     <div id="authArea" style="display:flex;align-items:center;gap:10px;">
       <span id="roleBadge" style="display:none"></span>
-      <span id="authUser" style="font-size:12px;color:#888;font-family:'DM Mono',monospace;"></span>
+      <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
       <button id="authBtn" class="btn btn-ghost" onclick="handleAuth()" style="font-size:12px;padding:7px 14px;">Sign in</button>
     </div>
     <button class="btn btn-ghost" onclick="toggleForm()">
@@ -979,7 +995,7 @@ window.dispatchEvent(new Event('fb-ready'));
   <!-- PWA INSTALL BANNER (08) -->
   <div class="pwa-banner" id="pwaBanner">
     <div class="pwa-banner-text">📱 Install this app to your home screen for quick offline access</div>
-    <button class="btn" style="background:#378ADD;color:#fff;font-size:12px;padding:7px 14px;" onclick="pwaInstall()">Install</button>
+    <button class="btn" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 14px;" onclick="pwaInstall()">Install</button>
     <button onclick="document.getElementById('pwaBanner').classList.remove('show');try{sessionStorage.setItem('pwaDismissed','1')}catch(e){}" style="background:none;border:none;color:#185FA5;cursor:pointer;font-size:16px;">✕</button>
   </div>
 
@@ -990,14 +1006,14 @@ window.dispatchEvent(new Event('fb-ready'));
   <div class="settings-bar">
     <div class="field-inline">
       <label for="stdInput">Standard Amount</label>
-      <input type="number" id="stdInput" value="620" min="1" onchange="recalc()">
-      <span class="hint">Ksh per member/month</span>
+      <input type="number" id="stdInput" value="620" min="1" onchange="saveStd()">
+      <span class="hint">Ksh per member/month — saved per period</span>
     </div>
     <div class="field-inline" style="margin-left:auto">
       <label for="periodInput">Period</label>
       <input type="text" id="periodInput" value="May 2026"
         style="padding:7px 12px;border:1.5px solid var(--rule);border-radius:7px;
-               font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);
+               font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);
                color:var(--ink);outline:none;width:120px;" readonly>
       <script>
         // On load, update the hardcoded default to the actual current month
@@ -1149,7 +1165,7 @@ window.dispatchEvent(new Event('fb-ready'));
     <label id="bulkSelLabel">0 selected</label>
     <input class="bulk-amount-input" type="number" id="bulkAmtInput" min="0" placeholder="Amount (Ksh)">
     <button class="btn" style="background:#4ade80;color:#052e16;font-size:12px;padding:7px 14px;" onclick="applyBulkUpdate()">Apply to selected</button>
-    <button class="btn" style="background:#3a1010;color:#f5a0a0;border:1px solid #5c1f1f;font-size:12px;padding:7px 14px;" onclick="toggleBulkMode()">Cancel</button>
+    <button class="btn" style="background:rgba(231,76,60,.15);color:#e25b4b;border:1px solid rgba(231,76,60,.3);font-size:12px;padding:7px 14px;" onclick="toggleBulkMode()">Cancel</button>
     <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;margin-left:auto;" onclick="selectAllVisible()">Select all visible</button>
   </div>
 
@@ -1285,11 +1301,11 @@ window.dispatchEvent(new Event('fb-ready'));
     <!-- Mode tabs -->
     <div style="display:flex;gap:0;background:var(--white);border:1px solid var(--rule);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:20px;">
       <button id="waTabSend" onclick="switchWaMode('send')"
-        style="flex:1;padding:14px 10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .15s;background:#141414;color:#fff;border-right:1px solid var(--rule);">
+        style="flex:1;padding:14px 10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .15s;background:var(--accent);color:#fff;border-right:1px solid var(--rule);">
         📲 Semi-Auto Send All
       </button>
       <button id="waTabAuto" onclick="switchWaMode('auto')"
-        style="flex:1;padding:14px 10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s;background:var(--white);color:var(--ink-mid);">
+        style="flex:1;padding:14px 10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s;background:var(--white);color:var(--ink-mid);">
         ⚡ Full Auto (Cloud Functions)
       </button>
     </div>
@@ -1298,15 +1314,15 @@ window.dispatchEvent(new Event('fb-ready'));
     <div id="waPanelSend">
       <!-- Config -->
       <div style="background:var(--white);border-radius:12px;border:1px solid var(--rule);box-shadow:var(--shadow);padding:24px;margin-bottom:16px;">
-        <div style="font-family:'DM Serif Display',serif;font-size:17px;margin-bottom:18px;">Reminder Settings</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:17px;margin-bottom:18px;">Reminder Settings</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
           <div>
-            <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Deadline Date</label>
-            <input type="date" id="waDeadline" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;" onchange="saveDeadlineToDb(this.value)">
+            <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Deadline Date</label>
+            <input type="date" id="waDeadline" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;" onchange="saveDeadlineToDb(this.value)">
           </div>
           <div>
-            <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Filter</label>
-            <select id="waFilter" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Filter</label>
+            <select id="waFilter" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
               <option value="all-unpaid">All unpaid (Nil + Partial)</option>
               <option value="nil">Nil only (Ksh 0)</option>
               <option value="partial">Partial only (below standard)</option>
@@ -1314,9 +1330,9 @@ window.dispatchEvent(new Event('fb-ready'));
           </div>
         </div>
         <div>
-          <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Message Template</label>
-          <textarea id="waMsgTemplate" rows="4" style="width:100%;padding:12px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;line-height:1.5;">Dear {name}, this is a reminder that your lunch contribution for {period} is due by {deadline}. Standard: Ksh {standard}. Paid: Ksh {amount_paid}. Balance: Ksh {balance}. Kindly clear your balance at your earliest convenience. Thank you.</textarea>
-          <div style="font-size:11px;color:var(--ink-light);margin-top:5px;font-family:'DM Mono',monospace;">Variables: {name} · {standard} · {period} · {deadline} · {amount_paid} · {balance}</div>
+          <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Message Template</label>
+          <textarea id="waMsgTemplate" rows="4" style="width:100%;padding:12px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;line-height:1.5;">Dear {name}, this is a reminder that your lunch contribution for {period} is due by {deadline}. Standard: Ksh {standard}. Paid: Ksh {amount_paid}. Balance: Ksh {balance}. Kindly clear your balance at your earliest convenience. Thank you.</textarea>
+          <div style="font-size:11px;color:var(--ink-light);margin-top:5px;font-family:'JetBrains Mono',monospace;">Variables: {name} · {standard} · {period} · {deadline} · {amount_paid} · {balance}</div>
         </div>
         <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-primary" onclick="buildWaList()" style="background:var(--ink);color:var(--white);">
@@ -1343,7 +1359,7 @@ window.dispatchEvent(new Event('fb-ready'));
         <div style="background:var(--bg2);border-radius:20px;height:8px;overflow:hidden;">
           <div id="waProgressBar" style="height:100%;background:#25D366;border-radius:20px;transition:width .4s;width:0%"></div>
         </div>
-        <div style="font-size:12px;color:var(--ink-light);margin-top:8px;font-family:'DM Mono',monospace;" id="waProgressSub">WhatsApp will open for each member — confirm or skip each one.</div>
+        <div style="font-size:12px;color:var(--ink-light);margin-top:8px;font-family:'JetBrains Mono',monospace;" id="waProgressSub">WhatsApp will open for each member — confirm or skip each one.</div>
       </div>
 
       <!-- Results list -->
@@ -1355,7 +1371,7 @@ window.dispatchEvent(new Event('fb-ready'));
 
       <!-- Explainer -->
       <div style="background:var(--white);border-radius:12px;border:1px solid var(--rule);box-shadow:var(--shadow);padding:26px;margin-bottom:16px;">
-        <div style="font-family:'DM Serif Display',serif;font-size:19px;margin-bottom:10px;">How Full Auto Works</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:19px;margin-bottom:10px;">How Full Auto Works</div>
         <div style="font-size:13px;color:var(--ink-mid);line-height:1.7;margin-bottom:18px;">
           A <strong>Firebase Cloud Function</strong> runs on a schedule you set (e.g. every 25th of the month).
           It reads unpaid members from your Firebase DB, builds personalised messages, and sends them via the
@@ -1382,7 +1398,7 @@ window.dispatchEvent(new Event('fb-ready'));
 
       <!-- Step-by-step setup -->
       <div style="background:var(--white);border-radius:12px;border:1px solid var(--rule);box-shadow:var(--shadow);padding:26px;margin-bottom:16px;">
-        <div style="font-family:'DM Serif Display',serif;font-size:17px;margin-bottom:18px;">Setup Guide</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:17px;margin-bottom:18px;">Setup Guide</div>
 
         <!-- Step 1 -->
         <div style="display:flex;gap:14px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--bg2);min-width:0;overflow:hidden;">
@@ -1398,7 +1414,7 @@ window.dispatchEvent(new Event('fb-ready'));
           <div style="width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">2</div>
           <div style="flex:1;">
             <div style="font-weight:600;margin-bottom:6px;">Install Firebase CLI &amp; init Functions</div>
-            <pre style="background:var(--bg);border-radius:7px;padding:12px 14px;font-size:12px;font-family:'DM Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:hidden;color:var(--ink-mid);line-height:1.6;">npm install -g firebase-tools
+            <pre style="background:var(--bg);border-radius:7px;padding:12px 14px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:hidden;color:var(--ink-mid);line-height:1.6;">npm install -g firebase-tools
 firebase login
 firebase init functions   # choose JavaScript, your existing project</pre>
           </div>
@@ -1410,7 +1426,7 @@ firebase init functions   # choose JavaScript, your existing project</pre>
           <div style="flex:1;min-width:0;overflow:hidden;">
             <div style="font-weight:600;margin-bottom:8px;">Paste this into <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px;">functions/index.js</code></div>
             <div style="position:relative;min-width:0;overflow:hidden;">
-              <pre id="cfCode" style="background:#0d1117;color:#e6edf3;border-radius:9px;padding:16px 18px;font-size:11px;font-family:'DM Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:hidden;line-height:1.7;max-height:380px;overflow-y:auto;"><span style="color:#ff7b72">const</span> functions = <span style="color:#d2a8ff">require</span>(<span style="color:#a5d6ff">"firebase-functions"</span>);
+              <pre id="cfCode" style="background:#0d1117;color:#e6edf3;border-radius:9px;padding:16px 18px;font-size:11px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:hidden;line-height:1.7;max-height:380px;overflow-y:auto;"><span style="color:#ff7b72">const</span> functions = <span style="color:#d2a8ff">require</span>(<span style="color:#a5d6ff">"firebase-functions"</span>);
 <span style="color:#ff7b72">const</span> admin = <span style="color:#d2a8ff">require</span>(<span style="color:#a5d6ff">"firebase-admin"</span>);
 <span style="color:#ff7b72">const</span> https = <span style="color:#d2a8ff">require</span>(<span style="color:#a5d6ff">"https"</span>);
 admin.<span style="color:#d2a8ff">initializeApp</span>();
@@ -1473,7 +1489,7 @@ exports.<span style="color:#79c0ff">sendLunchReminders</span> = functions.pubsub
     req.<span style="color:#d2a8ff">write</span>(body); req.<span style="color:#d2a8ff">end</span>();
   });
 }</pre>
-              <button onclick="copyCfCode()" style="position:absolute;top:10px;right:10px;background:#21262d;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace;" id="cfCopyBtn">Copy</button>
+              <button onclick="copyCfCode()" style="position:absolute;top:10px;right:10px;background:#21262d;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:'JetBrains Mono',monospace;" id="cfCopyBtn">Copy</button>
             </div>
           </div>
         </div>
@@ -1483,7 +1499,7 @@ exports.<span style="color:#79c0ff">sendLunchReminders</span> = functions.pubsub
           <div style="width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">4</div>
           <div style="flex:1;">
             <div style="font-weight:600;margin-bottom:8px;">Set your secrets &amp; deploy</div>
-            <pre style="background:var(--bg);border-radius:7px;padding:12px 14px;font-size:12px;font-family:'DM Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:hidden;color:var(--ink-mid);line-height:1.7;">firebase functions:config:set \
+            <pre style="background:var(--bg);border-radius:7px;padding:12px 14px;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;word-break:break-all;overflow-x:hidden;color:var(--ink-mid);line-height:1.7;">firebase functions:config:set \
   wa.apikey="YOUR_AFRICA_TALKING_KEY" \
   wa.sender="+254XXXXXXXXX" \
   wa.day="25" \
@@ -1507,10 +1523,10 @@ firebase deploy --only functions</pre>
       <!-- Reminder log viewer -->
       <div style="background:var(--white);border-radius:12px;border:1px solid var(--rule);box-shadow:var(--shadow);padding:24px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-          <div style="font-family:'DM Serif Display',serif;font-size:17px;">Delivery Log</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:17px;">Delivery Log</div>
           <button class="btn btn-ghost" style="font-size:12px;" onclick="loadReminderLog()">↻ Refresh</button>
         </div>
-        <div id="waLogArea" style="font-size:13px;color:var(--ink-light);font-family:'DM Mono',monospace;">Click Refresh to load the latest reminder log from Firebase.</div>
+        <div id="waLogArea" style="font-size:13px;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Click Refresh to load the latest reminder log from Firebase.</div>
       </div>
     </div>
 
@@ -1560,8 +1576,8 @@ firebase deploy --only functions</pre>
     <div class="modal-title">Change Period</div>
     <div class="modal-body">Enter the month and year to switch to. If that period already exists, you'll see its data. If it's new, the current roster will be carried forward with all amounts reset to zero.</div>
     <div class="field" style="margin-bottom:8px;">
-      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Month</label>
-      <select id="newPeriodMonth" onchange="updateNewPeriodInfo()" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Month</label>
+      <select id="newPeriodMonth" onchange="updateNewPeriodInfo()" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
         <option>January</option><option>February</option><option>March</option>
         <option>April</option><option>May</option><option>June</option>
         <option>July</option><option>August</option><option>September</option>
@@ -1569,10 +1585,10 @@ firebase deploy --only functions</pre>
       </select>
     </div>
     <div class="field" style="margin-bottom:16px;">
-      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Year</label>
-      <input type="number" id="newPeriodYear" min="2020" max="2099" oninput="updateNewPeriodInfo()" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Mono',monospace;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Year</label>
+      <input type="number" id="newPeriodYear" min="2020" max="2099" oninput="updateNewPeriodInfo()" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
     </div>
-    <div id="newPeriodInfo" style="font-size:12px;color:var(--ink-light);margin-bottom:14px;font-family:'DM Mono',monospace;min-height:16px;"></div>
+    <div id="newPeriodInfo" style="font-size:12px;color:var(--ink-light);margin-bottom:14px;font-family:'JetBrains Mono',monospace;min-height:16px;"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('newPeriodModal')">Cancel</button>
       <button class="btn btn-primary" style="background:var(--ink);color:var(--white);" onclick="confirmNewPeriod()">Switch Period →</button>
@@ -1588,8 +1604,8 @@ firebase deploy --only functions</pre>
       Copy the member list from a previous period into <strong id="carryFwdTarget"></strong>, with all amounts reset to 0. Existing members in the target period will be overwritten.
     </div>
     <div class="field" style="margin-bottom:16px;">
-      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Source period</label>
-      <select id="carryFwdSource" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;"></select>
+      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Source period</label>
+      <select id="carryFwdSource" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);outline:none;"></select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeCarryForward()">Cancel</button>
@@ -1679,12 +1695,12 @@ firebase deploy --only functions</pre>
     <div class="modal-title">Email Period Summary</div>
     <div class="modal-body">Fill in the recipients and we'll open your email client with a pre-built summary.</div>
     <div class="field" style="margin-bottom:12px;">
-      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">To (comma-separated)</label>
-      <input type="text" id="emailTo" placeholder="principal@school.ac.ke, bursar@school.ac.ke" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">To (comma-separated)</label>
+      <input type="text" id="emailTo" placeholder="principal@school.ac.ke, bursar@school.ac.ke" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
     </div>
     <div class="field" style="margin-bottom:16px;">
-      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'DM Mono',monospace;">Subject</label>
-      <input type="text" id="emailSubject" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+      <label style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">Subject</label>
+      <input type="text" id="emailSubject" style="width:100%;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('emailModal')">Cancel</button>
@@ -1721,6 +1737,7 @@ let currentUser = null;
 // photoCache: normalized-name → photoURL string
 const photoCache = {};
 let membersUnsubscribe = null; // holds the Firebase unsubscribe function
+let stdUnsubscribe     = null; // holds the Firebase unsubscribe function for the per-period standard amount
 
 // Feature state
 let currentFilter  = 'all';   // all | paid | partial | nil
@@ -1754,6 +1771,36 @@ function status(amt, customStd) {
 function membersPath() {
   const period = getPeriod().replace(/\s+/g, '_');
   return `lunch/${period}/members`;
+}
+function stdPath() {
+  const period = getPeriod().replace(/\s+/g, '_');
+  return `lunch/${period}/std`;
+}
+
+// Each month/period has its own Standard Amount, stored at lunch/{period}/std.
+// Switching periods re-subscribes to that period's value (falling back to the
+// 620 default if the period has never had one set).
+function subscribeToStd() {
+  if (!fbReady) return;
+  const { db, ref, onValue } = window._fb;
+  if (stdUnsubscribe) { stdUnsubscribe(); stdUnsubscribe = null; }
+  stdUnsubscribe = onValue(ref(db, stdPath()), snapshot => {
+    const val = snapshot.val();
+    const input = document.getElementById('stdInput');
+    if (input) input.value = (val != null && val !== '') ? val : 620;
+    recalc();
+  });
+}
+
+// Persist the Standard Amount for the *currently selected* period only —
+// other months keep whatever standard amount was saved for them.
+function saveStd() {
+  const val = parseFloat(document.getElementById('stdInput').value) || 420;
+  if (fbReady) {
+    const { db, ref, set } = window._fb;
+    set(ref(db, stdPath()), val).catch(e => showToast('Error saving standard amount: ' + e.message));
+  }
+  recalc();
 }
 
 // ── AUTH ──────────────────────────────────────────────────────
@@ -1911,7 +1958,7 @@ function render() {
       <td class="select-col no-print" style="display:${bulkMode?'table-cell':'none'}"><input type="checkbox" class="row-check" ${checked} onchange="toggleSelect('${m.id}',this.checked)"></td>
       <td class="td-no">${m._origIdx + 1}</td>
       <td class="td-name">${avatarHtml}<span class="td-name-text">${m.name}${noteTip}${customBadge}</span></td>
-      <td class="td-phone" style="font-size:12px;font-family:'DM Mono',monospace;color:var(--ink-mid)">${m.phone ? `<a href="https://wa.me/${waNum(m.phone)}" target="_blank" title="${m.phone}" style="color:var(--ink-mid);text-decoration:none;">${maskPhone(m.phone)}</a>` : '<span style="color:var(--rule)">—</span>'}</td>
+      <td class="td-phone" style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--ink-mid)">${m.phone ? `<a href="https://wa.me/${waNum(m.phone)}" target="_blank" title="${m.phone}" style="color:var(--ink-mid);text-decoration:none;">${maskPhone(m.phone)}</a>` : '<span style="color:var(--rule)">—</span>'}</td>
       <td><span class="badge ${s.badgeCls}">${s.label}</span></td>
       <td class="td-amount ${s.cls}">Ksh ${fmt(m.amount)}${m.paidAt ? `<span class="date-stamp">${fmtShortDate(m.paidAt)}</span>` : ''}</td>
       <td class="td-actions no-print no-edit">
@@ -2071,8 +2118,8 @@ function startEdit(i) {
   const m     = members[i];
   row.classList.add('editing-row');
 
-  row.cells[1].innerHTML = `<input class="inline-input" id="eName" value="${m.name}" style="width:160px;font-family:'DM Sans',sans-serif;font-size:13px;">`;
-  row.cells[2].innerHTML = `<input class="inline-input" id="ePhone" type="tel" value="${m.phone || ''}" placeholder="+254..." style="width:120px;font-family:'DM Mono',monospace;font-size:12px;">`;
+  row.cells[1].innerHTML = `<input class="inline-input" id="eName" value="${m.name}" style="width:160px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;">`;
+  row.cells[2].innerHTML = `<input class="inline-input" id="ePhone" type="tel" value="${m.phone || ''}" placeholder="+254..." style="width:120px;font-family:'JetBrains Mono',monospace;font-size:12px;">`;
   row.cells[4].innerHTML = `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
     <input class="inline-input" id="eAmt" type="number" value="${m.amount}" min="0" style="width:90px;">
     <input class="inline-input" id="eCustomStd" type="number" value="${m.customStd||''}" min="0" placeholder="Custom std" style="width:90px;font-size:11px;opacity:.7;" title="Custom standard amount (leave blank for global)">
@@ -2386,13 +2433,13 @@ function renderHistChart(periods) {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { family: "'DM Mono', monospace", size: 11 }, color: '#999' }
+          ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: '#999' }
         },
         y: {
           beginAtZero: true,
           grid: { color: '#EAE6DC' },
           ticks: {
-            font: { family: "'DM Mono', monospace", size: 11 }, color: '#999',
+            font: { family: "'JetBrains Mono', monospace", size: 11 }, color: '#999',
             callback: v => 'Ksh ' + v.toLocaleString('en-KE')
           }
         }
@@ -2492,7 +2539,7 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
     const cells = periodKeys.map(pk => {
       const amt = memberHistory[name]?.[pk];
       if (amt === undefined) {
-        return `<td class="period-cell"><span style="color:var(--rule);font-family:'DM Mono',monospace;font-size:11px;">—</span></td>`;
+        return `<td class="period-cell"><span style="color:var(--rule);font-family:'JetBrains Mono',monospace;font-size:11px;">—</span></td>`;
       }
       const cls = amt === 0 ? 'nil' : amt >= std ? 'ok' : 'warn';
       const label = amt === 0 ? 'Nil' : amt >= std ? 'Paid' : 'Partial';
@@ -2513,7 +2560,7 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
       </td>
       ${cells}
       <td class="hist-cell-total" style="text-align:right">Ksh ${memberTotal.toLocaleString('en-KE')}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-light);">
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-light);">
         ${paidPeriods}/${periodsPresent} <span style="font-size:10px;">paid</span>
       </td>
     </tr>`;
@@ -2537,18 +2584,18 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
   html += `</tbody><tfoot>
     <!-- Collection rate row -->
     <tr style="background:var(--bg);border-top:1px solid var(--rule);">
-      <td style="padding:7px 14px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);font-family:'DM Mono',monospace;">Collection rate</td>
+      <td style="padding:7px 14px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Collection rate</td>
       ${periodKeys.map((pk, i) => {
         const exp  = names.filter(n => memberHistory[n]?.[pk] !== undefined).length * std;
         const rate = exp > 0 ? Math.round((periodSums[i] / exp) * 100) : 0;
         const col  = rate >= 90 ? 'var(--ok-fg)' : rate >= 60 ? 'var(--warn-fg)' : 'var(--nil-fg)';
-        return `<td style="padding:7px 14px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${col};">${rate}%</td>`;
+        return `<td style="padding:7px 14px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${col};">${rate}%</td>`;
       }).join('')}
       <td colspan="2"></td>
     </tr>
     <!-- Breakdown row: paid / partial / nil badges -->
     <tr style="background:var(--bg);border-top:1px solid var(--bg2);">
-      <td style="padding:7px 14px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);font-family:'DM Mono',monospace;">Breakdown</td>
+      <td style="padding:7px 14px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Breakdown</td>
       ${periodKeys.map((pk, i) => `
         <td style="padding:7px 14px;text-align:center;">
           <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;">
@@ -2561,9 +2608,9 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
     </tr>
     <!-- Total collected row -->
     <tr style="background:var(--bg);border-top:2px solid var(--ink);">
-      <td style="padding:10px 14px;font-size:12px;font-weight:600;font-family:'DM Mono',monospace;">Total collected</td>
-      ${periodSums.map(s => `<td style="padding:10px 14px;font-size:12px;font-weight:600;font-family:'DM Mono',monospace;text-align:center;">Ksh ${s.toLocaleString('en-KE')}</td>`).join('')}
-      <td style="padding:10px 14px;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;text-align:right;color:var(--ok-fg);">Ksh ${grandTotal.toLocaleString('en-KE')}</td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;">Total collected</td>
+      ${periodSums.map(s => `<td style="padding:10px 14px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;text-align:center;">Ksh ${s.toLocaleString('en-KE')}</td>`).join('')}
+      <td style="padding:10px 14px;font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;text-align:right;color:var(--ok-fg);">Ksh ${grandTotal.toLocaleString('en-KE')}</td>
       <td></td>
     </tr>
   </tfoot></table>`;
@@ -2616,11 +2663,11 @@ function switchWaMode(mode) {
   document.getElementById('waPanelSend').style.display = isSend ? '' : 'none';
   document.getElementById('waPanelAuto').style.display = isSend ? 'none' : '';
   document.getElementById('waTabSend').style.cssText =
-    'flex:1;padding:14px 10px;font-family:"DM Sans",sans-serif;font-size:13px;border:none;cursor:pointer;transition:all .15s;border-right:1px solid var(--rule);' +
-    (isSend ? 'background:#141414;color:#fff;font-weight:600;' : 'background:var(--white);color:var(--ink-mid);font-weight:500;');
+    'flex:1;padding:14px 10px;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;border:none;cursor:pointer;transition:all .15s;border-right:1px solid var(--rule);' +
+    (isSend ? 'background:var(--accent);color:#fff;font-weight:600;' : 'background:var(--white);color:var(--ink-mid);font-weight:500;');
   document.getElementById('waTabAuto').style.cssText =
-    'flex:1;padding:14px 10px;font-family:"DM Sans",sans-serif;font-size:13px;border:none;cursor:pointer;transition:all .15s;' +
-    (!isSend ? 'background:#141414;color:#fff;font-weight:600;' : 'background:var(--white);color:var(--ink-mid);font-weight:500;');
+    'flex:1;padding:14px 10px;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;border:none;cursor:pointer;transition:all .15s;' +
+    (!isSend ? 'background:var(--accent);color:#fff;font-weight:600;' : 'background:var(--white);color:var(--ink-mid);font-weight:500;');
 }
 
 // ── INIT WA PAGE ─────────────────────────────────────────────
@@ -2662,25 +2709,25 @@ function buildWaList() {
   }
 
   let html = `<div style="background:var(--white);border:1px solid var(--rule);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
-    <div><span style="font-size:22px;font-weight:700;color:var(--nil-fg)">${targets.length}</span> <span style="font-size:12px;color:var(--ink-light);font-family:'DM Mono',monospace;">unpaid members</span></div>
-    <div><span style="font-size:22px;font-weight:700;color:var(--ok-fg)">${withPhone.length}</span> <span style="font-size:12px;color:var(--ink-light);font-family:'DM Mono',monospace;">queued with phone</span></div>
-    <div><span style="font-size:22px;font-weight:700;color:var(--warn-fg)">${withoutPhone.length}</span> <span style="font-size:12px;color:var(--ink-light);font-family:'DM Mono',monospace;">missing phone</span></div>
+    <div><span style="font-size:22px;font-weight:700;color:var(--nil-fg)">${targets.length}</span> <span style="font-size:12px;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">unpaid members</span></div>
+    <div><span style="font-size:22px;font-weight:700;color:var(--ok-fg)">${withPhone.length}</span> <span style="font-size:12px;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">queued with phone</span></div>
+    <div><span style="font-size:22px;font-weight:700;color:var(--warn-fg)">${withoutPhone.length}</span> <span style="font-size:12px;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">missing phone</span></div>
   </div>`;
 
   if (withPhone.length) {
-    html += `<div style="font-family:'DM Serif Display',serif;font-size:17px;margin-bottom:12px;">Send Queue (${withPhone.length})</div>`;
+    html += `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:17px;margin-bottom:12px;">Send Queue (${withPhone.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;" id="waQueueList">`;
     withPhone.forEach((m, qi) => {
       const msg = buildWaMsg(m);
       const waUrl = `https://wa.me/${waNum(m.phone)}?text=${encodeURIComponent(msg)}`;
       const s = status(m.amount);
       html += `<div id="waCard-${m.id}" style="background:var(--white);border:1.5px solid var(--rule);border-radius:10px;padding:16px 18px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;transition:border-color .2s;">
-        <div style="width:24px;height:24px;border-radius:50%;border:2px solid var(--rule);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-light);flex-shrink:0;margin-top:2px;font-family:'DM Mono',monospace;" id="waIdx-${m.id}">${qi+1}</div>
+        <div style="width:24px;height:24px;border-radius:50%;border:2px solid var(--rule);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-light);flex-shrink:0;margin-top:2px;font-family:'JetBrains Mono',monospace;" id="waIdx-${m.id}">${qi+1}</div>
         <div style="flex:1;min-width:180px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
             <span style="font-weight:600;font-size:14px;">${m.name}</span>
             <span class="badge badge-${s.cls}">${s.label}</span>
-            <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--ink-light);">${m.phone}</span>
+            <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--ink-light);">${m.phone}</span>
           </div>
           <div style="font-size:12px;background:var(--bg);border-radius:7px;padding:9px 12px;color:var(--ink-mid);line-height:1.5;white-space:pre-wrap;" id="msg-${m.id}">${msg}</div>
         </div>
@@ -2823,16 +2870,16 @@ async function loadReminderLog() {
     const statusColor = v.status === 'sent' ? 'var(--ok-fg)' : 'var(--nil-fg)';
     return `<tr>
       <td style="padding:9px 14px;font-size:13px;font-weight:500;">${v.phone || id}</td>
-      <td style="padding:9px 14px;font-size:12px;font-family:'DM Mono',monospace;color:${statusColor};text-transform:uppercase;font-weight:600;">${v.status}</td>
-      <td style="padding:9px 14px;font-size:11px;font-family:'DM Mono',monospace;color:var(--ink-light);">${v.sentAt ? new Date(v.sentAt).toLocaleString('en-KE') : '—'}</td>
+      <td style="padding:9px 14px;font-size:12px;font-family:'JetBrains Mono',monospace;color:${statusColor};text-transform:uppercase;font-weight:600;">${v.status}</td>
+      <td style="padding:9px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--ink-light);">${v.sentAt ? new Date(v.sentAt).toLocaleString('en-KE') : '—'}</td>
     </tr>`;
   }).join('');
 
   area.innerHTML = `<table style="width:100%;border-collapse:collapse;">
     <thead><tr style="border-bottom:1px solid var(--rule);">
-      <th style="text-align:left;padding:8px 14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);font-family:'DM Mono',monospace;">Phone</th>
-      <th style="text-align:left;padding:8px 14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);font-family:'DM Mono',monospace;">Status</th>
-      <th style="text-align:left;padding:8px 14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);font-family:'DM Mono',monospace;">Sent At</th>
+      <th style="text-align:left;padding:8px 14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Phone</th>
+      <th style="text-align:left;padding:8px 14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Status</th>
+      <th style="text-align:left;padding:8px 14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Sent At</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -3009,6 +3056,7 @@ async function confirmNewPeriod() {
     // Period already has data — just switch the view, preserve everything
     document.getElementById('periodInput').value = newPeriod;
     subscribeToMembers();
+    subscribeToStd();
     recalc();
     loadMiniDash();
     showToast(`Switched to ${newPeriod}`);
@@ -3031,6 +3079,7 @@ async function confirmNewPeriod() {
       await window._fb.set(window._fb.ref(window._fb.db, `lunch/${newPeriodKey}/members`), writes);
       document.getElementById('periodInput').value = newPeriod;
       subscribeToMembers();
+      subscribeToStd();
       suppressSeed = false;
       recalc();
       loadMiniDash();
@@ -3039,6 +3088,7 @@ async function confirmNewPeriod() {
       // No source data at all — just switch (empty period)
       document.getElementById('periodInput').value = newPeriod;
       subscribeToMembers();
+      subscribeToStd();
       recalc();
       loadMiniDash();
       showToast(`Switched to ${newPeriod}`);
@@ -3108,6 +3158,7 @@ async function execCarryForward() {
       showToast(`${Object.keys(writes).length} members carried forward from ${sourceKey.replace(/_/g,' ')}`);
       // Now re-subscribe to the (unchanged) current period — data is clean
       subscribeToMembers();
+      subscribeToStd();
     })
     .catch(e => { suppressSeed = false; showToast('Error: ' + e.message); });
 }
@@ -3240,9 +3291,9 @@ async function loadAnalytics() {
         const consistColor = sc.consistency >= 80 ? 'var(--ok-fg)' : sc.consistency >= 50 ? 'var(--warn-fg)' : 'var(--nil-fg)';
         return `<tr>
           <td class="member-cell"><div style="display:flex;align-items:center;gap:8px;font-weight:500;">${name}</div></td>
-          <td><div style="font-family:'DM Mono',monospace;font-size:12px;color:${consistColor};font-weight:700;">${sc.consistency}%</div></td>
+          <td><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${consistColor};font-weight:700;">${sc.consistency}%</div></td>
           ${dots}
-          <td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${sc.streak>0?'var(--ok-fg)':'var(--ink-light)'};">${sc.streak} mos</td>
+          <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${sc.streak>0?'var(--ok-fg)':'var(--ink-light)'};">${sc.streak} mos</td>
         </tr>`;
       }).join('')}
       </tbody>
@@ -3394,16 +3445,16 @@ function renderTrendChart(periodKeys, memberHistory, names, periodTotals) {
       responsive: true, maintainAspectRatio: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom', labels: { font: { family: "'DM Mono', monospace", size: 11 }, boxWidth: 12 } },
+        legend: { position: 'bottom', labels: { font: { family: "'JetBrains Mono', monospace", size: 11 }, boxWidth: 12 } },
         tooltip: { callbacks: { label: c => ` ${c.dataset.label}: Ksh ${c.parsed.y.toLocaleString('en-KE')}` } }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { family:"'DM Mono',monospace", size:11 }, color:'#999' } },
+        x: { grid: { display: false }, ticks: { font: { family:"'JetBrains Mono',monospace", size:11 }, color:'#999' } },
         y: { beginAtZero: true, position: 'left',
-             ticks: { font:{family:"'DM Mono',monospace",size:11}, color:'#999', callback: v => 'Ksh '+v.toLocaleString('en-KE') },
+             ticks: { font:{family:"'JetBrains Mono',monospace",size:11}, color:'#999', callback: v => 'Ksh '+v.toLocaleString('en-KE') },
              grid: { color: '#EAE6DC' } },
         y2: { beginAtZero: true, position: 'right', grid: { display: false },
-              ticks: { font:{family:"'DM Mono',monospace",size:11}, color:'#7A4600', callback: v => 'Ksh '+v.toLocaleString('en-KE') } }
+              ticks: { font:{family:"'JetBrains Mono',monospace",size:11}, color:'#7A4600', callback: v => 'Ksh '+v.toLocaleString('en-KE') } }
       }
     }
   });
@@ -3442,12 +3493,12 @@ function printReceipt() {
   const body = document.getElementById('receiptBody').innerHTML;
   const win  = window.open('', '_blank', 'width=500,height=650');
   win.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;900&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'DM Sans', sans-serif; padding: 32px; max-width: 420px; margin: auto; }
-      .receipt-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ddd; padding: 5px 0; font-size: 13px; font-family: 'DM Mono', monospace; }
-      .receipt-row.total { border-bottom: none; border-top: 2px solid #141414; font-weight: 700; margin-top: 6px; }
-      .r-title { font-family: 'DM Serif Display', serif; font-size: 22px; }
+      body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; max-width: 420px; margin: auto; }
+      .receipt-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ddd; padding: 5px 0; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+      .receipt-row.total { border-bottom: none; border-top: 2px solid #2980b9; font-weight: 700; margin-top: 6px; }
+      .r-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 22px; }
       .r-sub { font-size: 11px; color: #999; margin-bottom: 18px; text-transform: uppercase; letter-spacing: .08em; }
       .receipt-stamp { font-size: 10px; color: #aaa; text-align: center; margin-top: 14px; }
       @media print { @page { margin: 8mm; } }
@@ -3601,6 +3652,7 @@ async function execAutoRollover() {
   document.getElementById('periodInput').value = newPeriod;
   banner.classList.remove('show');
   subscribeToMembers();
+  subscribeToStd();
   suppressSeed = false;
   recalc();
   loadMiniDash();
@@ -3707,6 +3759,7 @@ async function switchToPeriod(periodLabel) {
     // Period exists — just switch view
     document.getElementById('periodInput').value = periodLabel;
     subscribeToMembers();
+    subscribeToStd();
     recalc();
     loadMiniDash();
     showToast(`Switched to ${periodLabel}`);
@@ -3727,6 +3780,7 @@ async function switchToPeriod(periodLabel) {
       await window._fb.set(window._fb.ref(window._fb.db, `lunch/${newPeriodKey}/members`), writes);
       document.getElementById('periodInput').value = periodLabel;
       subscribeToMembers();
+      subscribeToStd();
       suppressSeed = false;
       recalc();
       loadMiniDash();
@@ -3734,6 +3788,7 @@ async function switchToPeriod(periodLabel) {
     } else {
       document.getElementById('periodInput').value = periodLabel;
       subscribeToMembers();
+      subscribeToStd();
       recalc();
       loadMiniDash();
       showToast(`Switched to ${periodLabel}`);
@@ -4047,7 +4102,7 @@ async function loadLeaderboard() {
     const rankCls = ['gold','silver','bronze'];
     const medals  = ['🥇','🥈','🥉'];
     return `<div class="hist-member-wrap">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--rule);font-family:'DM Serif Display',serif;font-size:17px;">${icon} ${title}</div>
+      <div style="padding:14px 16px;border-bottom:1px solid var(--rule);font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:17px;">${icon} ${title}</div>
       ${list.slice(0,5).map((s,i) => `
         <div class="lb-row">
           <div class="lb-rank ${rankCls[i]||''}">${medals[i]||i+1}</div>
@@ -4092,7 +4147,7 @@ function pwaInstall() {
   const manifest = {
     name: 'Lunch Contribution Manager', short_name: 'Lunch Fund',
     start_url: location.pathname, display: 'standalone',
-    background_color: '#F4F1EB', theme_color: '#141414',
+    background_color: '#eef4fb', theme_color: '#2980b9',
     icons: [{ src: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14/assets/72x72/1f371.png', sizes: '72x72', type: 'image/png' }]
   };
   const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
@@ -4204,6 +4259,7 @@ window.addEventListener('fb-ready', () => {
     if (!members.length) subscribeToMembers();
   });
   subscribeToMembers();
+  subscribeToStd();
   loadPhotos();
   loadMiniDash();
   applyReadOnlyMode();
