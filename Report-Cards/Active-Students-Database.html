@@ -1353,7 +1353,7 @@
 
 <!-- PDF Viewer Modal -->
 <!-- PDF VIEWER MODAL — full-screen overlay -->
-<div id="pdf-modal-backdrop" class="modal-backdrop hidden" style="align-items:stretch;justify-content:stretch;padding:0;">
+<div id="pdf-modal-backdrop" class="modal-backdrop hidden" style="align-items:stretch;justify-content:stretch;padding:0;z-index:1300;">
     <div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:var(--surface);overflow:hidden;">
 
         <!-- Header: avatar · name/cert/grade · | · grade filter · ◀ counter ▶ · spacer · × -->
@@ -1424,7 +1424,7 @@
 </div>
 
 <!-- PDF SEARCH MODAL (universal modal style) -->
-<div id="pdf-search-panel" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(13,31,53,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
+<div id="pdf-search-panel" style="display:none;position:fixed;inset:0;z-index:1150;background:rgba(13,31,53,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
     <div style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);margin:1rem;">
         <!-- Header -->
         <div style="padding:1rem 1.25rem .875rem;border-bottom:1px solid var(--border);background:var(--navy);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
@@ -1517,7 +1517,7 @@
   </div>
 </div>
 
-<div id="unmatched-pdfs-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(13,31,53,.6);backdrop-filter:blur(5px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
+<div id="unmatched-pdfs-modal" style="display:none;position:fixed;inset:0;z-index:1160;background:rgba(13,31,53,.6);backdrop-filter:blur(5px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
     <div style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);margin:1rem;">
         <!-- Header -->
         <div style="padding:1rem 1.25rem .875rem;border-bottom:1px solid var(--border);background:var(--navy);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
@@ -6973,6 +6973,18 @@ setTimeout(() => {
         // Strip leading "Grade " prefix if present so we never double-print it
         return raw.replace(/^Grade\s+/i, '').trim();
     }
+    // Canonical lookup key for a filename/candidate: lowercase, trimmed, with
+    // *every run* of internal whitespace collapsed to one space, extension dropped.
+    // Without the \s+ collapse, a stray double-space or trailing-space typo in a
+    // filename on the server (e.g. "ELIAS  ONYANGO.pdf") produces a different
+    // Map key than the student record's name, so the same PDF gets matched to
+    // the student AND re-listed as a second, "orphan" entry with the same
+    // on-screen name. Collapsing whitespace here merges those into one key.
+    function _pdfKey(str) {
+        return (str || '').toString().trim().toLowerCase()
+            .replace(/\.pdf$/i, '')
+            .replace(/\s+/g, ' ');
+    }
 
     /* ─── Grade dropdown ─────────────────────────────────── */
     function populateGradeFilter(students) {
@@ -7122,6 +7134,8 @@ setTimeout(() => {
         let serverFileNames = null;
 
         // ── Strategy 1: GitHub API (authoritative for GitHub Pages) ──────
+        // student_pdf/ holds one subfolder per Grade, so list the parent first
+        // to find the grade folders, then list each grade folder for its PDFs.
         try {
             const host = location.hostname;
             const hparts = host.split('.');
@@ -7132,18 +7146,36 @@ setTimeout(() => {
                 const folderSegs = pathParts.slice(1, -1);
                 folderSegs.push('student_pdf');
                 const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderSegs.join('/')}`;
-                const m = msgEl(); if (m) m.textContent = 'Fetching file list from GitHub…';
+                const m = msgEl(); if (m) m.textContent = 'Fetching folder list from GitHub…';
                 const res = await fetch(apiUrl, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
                 if (res.ok) {
                     const items = await res.json();
                     if (Array.isArray(items)) {
                         serverFileNames = new Map();
-                        items.forEach(item => {
-                            if (item.type === 'file' && /\.pdf$/i.test(item.name)) {
-                                const pagesUrl = base + encodeURIComponent(item.name);
-                                serverFileNames.set(item.name.toLowerCase().replace(/\.pdf$/i,''), pagesUrl);
-                            }
-                        });
+                        // PDFs directly under student_pdf/ (no grade subfolder)
+                        items.filter(item => item.type === 'file' && /\.pdf$/i.test(item.name))
+                            .forEach(item => serverFileNames.set(_pdfKey(item.name), { href: base + encodeURIComponent(item.name), grade: '' }));
+                        // Recurse one level into each grade subfolder
+                        const gradeDirs = items.filter(item => item.type === 'dir');
+                        let gi = 0;
+                        for (const dir of gradeDirs) {
+                            gi++;
+                            const m2 = msgEl(); if (m2) m2.textContent = `Reading grade folders… ${gi}/${gradeDirs.length} (${dir.name})`;
+                            try {
+                                const subRes = await fetch(dir.url, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
+                                if (subRes.ok) {
+                                    const subItems = await subRes.json();
+                                    if (Array.isArray(subItems)) {
+                                        subItems.forEach(f => {
+                                            if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
+                                                const href = base + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
+                                                serverFileNames.set(_pdfKey(f.name), { href, grade: dir.name });
+                                            }
+                                        });
+                                    }
+                                }
+                            } catch(_) { /* skip this grade folder */ }
+                        }
                         if (!serverFileNames.size) serverFileNames = null;
                         else window._allServerPdfMap = serverFileNames; // share with unmatched panel
                     }
@@ -7151,23 +7183,38 @@ setTimeout(() => {
             }
         } catch(_) {}
 
-        // ── Strategy 2: plain directory listing ──────────────────────────
+        // ── Strategy 2: plain directory listing (+ grade subfolders) ─────
         if (!serverFileNames) {
         try {
             const res = await fetch(base, { method: 'GET', headers: { Accept: 'text/html' } });
             if (res.ok) {
                 const html = await res.text();
-                const matches = [...html.matchAll(/href="([^"]+\.pdf)"/gi)];
-                if (matches.length) {
-                    serverFileNames = new Map();
-                    matches.forEach(m => {
-                        const href = m[1];
-                        const basename = decodeURIComponent(href.split('/').pop());
-                        serverFileNames.set(basename.toLowerCase().replace(/\.pdf$/i, ''), href);
-                    });
-                    if (serverFileNames.size) window._allServerPdfMap = serverFileNames;
-                    else serverFileNames = null;
+                serverFileNames = new Map();
+                [...html.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
+                    const href = m[1];
+                    const basename = decodeURIComponent(href.split('/').pop());
+                    serverFileNames.set(_pdfKey(basename), { href, grade: '' });
+                });
+                const subdirs = [...html.matchAll(/href="([^"?][^"]*\/)"/gi)]
+                    .map(m => m[1])
+                    .filter(h => h !== '../' && h !== './' && !h.startsWith('/'));
+                for (const sub of subdirs) {
+                    try {
+                        const subUrl = new URL(sub, base).href;
+                        const gradeLabel = decodeURIComponent(sub.replace(/\/$/, ''));
+                        const subRes = await fetch(subUrl, { method:'GET', headers:{ Accept:'text/html' } });
+                        if (subRes.ok) {
+                            const subHtml = await subRes.text();
+                            [...subHtml.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
+                                const href = new URL(m[1], subUrl).href;
+                                const basename = decodeURIComponent(href.split('/').pop());
+                                serverFileNames.set(_pdfKey(basename), { href, grade: gradeLabel });
+                            });
+                        }
+                    } catch(_) { /* skip this subfolder */ }
                 }
+                if (serverFileNames.size) window._allServerPdfMap = serverFileNames;
+                else serverFileNames = null;
             }
         } catch (_) {}
         }
@@ -7181,18 +7228,28 @@ setTimeout(() => {
             const m = msgEl(); if (m) m.textContent = `Matching ${serverFileNames.size} PDFs to students…`;
             all.forEach(s => {
                 const name = getName(s), no = (s['Assessment No'] || s.id || '').toString().trim();
+                const sGrade = getRawGrade(s);
                 const candidates = [name, name.toUpperCase(), name.toLowerCase(), no,
-                    `${no} ${name}`, `${name} ${no}`, `${getRawGrade(s)} ${name}`]
-                    .map(c => c.trim().toLowerCase().replace(/\.pdf$/i, ''));
+                    `${no} ${name}`, `${name} ${no}`, `${sGrade} ${name}`]
+                    .map(_pdfKey);
+                // Cross-check on TWO parameters — name AND grade — not name alone.
+                // A name-only match is only accepted if the file's own grade folder
+                // (when known) agrees with the student's grade, or the file isn't
+                // tagged to any grade folder (root-level PDFs). This stops a PDF
+                // sitting in the wrong/old grade folder from silently "matching"
+                // a different student who happens to share that name.
                 for (const c of candidates) {
-                    if (serverFileNames.has(c)) { s._pdfHref = serverFileNames.get(c); withPdfs.push(s); break; }
+                    const entry = serverFileNames.get(c);
+                    if (entry && (!entry.grade || !sGrade || entry.grade === sGrade)) {
+                        s._pdfHref = entry.href; withPdfs.push(s); break;
+                    }
                 }
             });
             const matchedHrefs = new Set(withPdfs.map(s => s._pdfHref));
-            serverFileNames.forEach((href) => {
-                if (!matchedHrefs.has(href)) {
-                    const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i, '');
-                    withPdfs.push({ 'Official Student Name': displayName, _pdfHref: href, _orphan: true });
+            serverFileNames.forEach((entry) => {
+                if (!matchedHrefs.has(entry.href)) {
+                    const displayName = decodeURIComponent(entry.href.split('/').pop()).replace(/\.pdf$/i, '');
+                    withPdfs.push({ 'Official Student Name': displayName, _pdfHref: entry.href, _orphan: true });
                 }
             });
         } else {
@@ -7264,15 +7321,33 @@ setTimeout(() => {
         // If background scan already ran, reuse _pdfHref already set on student objects — no re-scan needed
         if (!forceRefresh && window._bgPdfScanDone) {
             const matched = all.filter(s => s._pdfHref);
-            // Also include orphans (server files with no student match) from the server map
-            const matchedHrefs = new Set(matched.map(s => s._pdfHref));
+            // Also include orphans (server files with no student match) from the server map.
+            //
+            // IMPORTANT: we cross-check by normalized NAME KEY (the same key the
+            // map itself is stored under), not by comparing raw href strings.
+            // The background scan (_bgScanPdfs) stores a relative path like
+            // "./student_pdf/Grade 1/Elias Onyango.pdf", while window._allServerPdfMap
+            // (built from a GitHub API / directory listing) stores an absolute URL
+            // for the *same* file. Those two strings never match, so comparing
+            // hrefs caused every background-matched student to ALSO show up as a
+            // second "no student record" orphan row for the same name/file.
+            const matchedByNameGrade = new Set(matched.map(s => _pdfKey(getName(s)) + '|' + _pdfKey(getRawGrade(s))));
+            const matchedByNameOnly  = new Set(matched.map(s => _pdfKey(getName(s))));
             const orphans = [];
             if (window._allServerPdfMap) {
-                window._allServerPdfMap.forEach((href) => {
-                    if (!matchedHrefs.has(href)) {
-                        const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i, '');
-                        orphans.push({ 'Official Student Name': displayName, _pdfHref: href, _orphan: true });
-                    }
+                window._allServerPdfMap.forEach((entry, key) => {
+                    const href  = entry && typeof entry === 'object' ? entry.href  : entry;  // back-compat with plain-string maps
+                    const grade = entry && typeof entry === 'object' ? entry.grade : '';
+                    if (!href) return;
+                    // Two-parameter cross-check: Name + Grade folder when the file's
+                    // grade is known, falling back to Name only for files sitting
+                    // directly under student_pdf/ with no grade subfolder.
+                    const accountedFor = grade
+                        ? matchedByNameGrade.has(key + '|' + _pdfKey(grade))
+                        : matchedByNameOnly.has(key);
+                    if (accountedFor) return; // already accounted for by a real student record
+                    const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i, '');
+                    orphans.push({ 'Official Student Name': displayName, _pdfHref: href, _orphan: true });
                 });
             }
             withPdfs = [...matched, ...orphans].sort((a,b) => {
@@ -7368,13 +7443,20 @@ setTimeout(() => {
     function normName(s) {
         return (s['Official Student Name'] || s['name'] || '').trim();
     }
+    function normGrade(s) {
+        return (s.Grade || s['Class'] || s['grade'] || s['class'] || '').toString().replace(/^Grade\s+/i,'').trim();
+    }
+    // Collapse every run of whitespace to one space (in addition to trim/lowercase)
+    // so a stray double-space or trailing-space typo in a server filename doesn't
+    // produce a different key than the student's name — which otherwise causes
+    // the same PDF to be counted as both matched AND "unmatched" for the same name.
     function normKey(str) {
-        return str.trim().toLowerCase().replace(/\.pdf$/i, '');
+        return str.trim().toLowerCase().replace(/\.pdf$/i, '').replace(/\s+/g, ' ');
     }
     function buildCandidates(s) {
         const name = normName(s);
         const no   = (s['Assessment No'] || s.id || '').toString().trim();
-        const grade = (s.Grade || s['Class'] || s['grade'] || s['class'] || '').toString().replace(/^Grade\s+/i,'').trim();
+        const grade = normGrade(s);
         return [
             name, name.toUpperCase(), name.toLowerCase(), no,
             `${no} ${name}`, `${name} ${no}`, `${grade} ${name}`,
@@ -7410,13 +7492,15 @@ setTimeout(() => {
         }
 
         const pagesBase = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student_pdf/';
-        const map = new Map();
+        const map = new Map(); // normKey(filename) -> href
 
-        // Strategy 2: GitHub API (authoritative — works on GitHub Pages without directory listing)
+        // Strategy 2: GitHub API — authoritative on GitHub Pages, no directory listing needed.
+        // student_pdf/ now contains one subfolder per Grade, so we list the parent folder
+        // first to discover the grade folders, then list each grade folder for its PDFs.
         const ghInfo = getGithubApiUrl();
         if (ghInfo) {
             try {
-                statusCb && statusCb('Fetching file list from GitHub…');
+                statusCb && statusCb('Fetching folder list from GitHub…');
                 const res = await fetch(ghInfo.apiUrl, {
                     headers: { Accept: 'application/vnd.github.v3+json' },
                     cache: 'no-store'
@@ -7424,13 +7508,34 @@ setTimeout(() => {
                 if (res.ok) {
                     const items = await res.json();
                     if (Array.isArray(items)) {
-                        items.forEach(item => {
-                            if (item.type === 'file' && /\.pdf$/i.test(item.name)) {
-                                // Build the GitHub Pages URL for this PDF
-                                const pagesUrl = pagesBase + encodeURIComponent(item.name);
-                                map.set(normKey(item.name), pagesUrl);
-                            }
-                        });
+                        // Any PDFs sitting directly in student_pdf/ (no grade subfolder)
+                        items.filter(item => item.type === 'file' && /\.pdf$/i.test(item.name))
+                            .forEach(item => map.set(normKey(item.name), { href: pagesBase + encodeURIComponent(item.name), grade: '' }));
+
+                        // Recurse one level into each grade subfolder
+                        const gradeDirs = items.filter(item => item.type === 'dir');
+                        let gi = 0;
+                        for (const dir of gradeDirs) {
+                            gi++;
+                            statusCb && statusCb(`Reading grade folders from GitHub… ${gi}/${gradeDirs.length} (${dir.name})`);
+                            try {
+                                const subRes = await fetch(dir.url, {
+                                    headers: { Accept: 'application/vnd.github.v3+json' },
+                                    cache: 'no-store'
+                                });
+                                if (subRes.ok) {
+                                    const subItems = await subRes.json();
+                                    if (Array.isArray(subItems)) {
+                                        subItems.forEach(f => {
+                                            if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
+                                                const href = pagesBase + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
+                                                map.set(normKey(f.name), { href, grade: dir.name });
+                                            }
+                                        });
+                                    }
+                                }
+                            } catch(_) { /* skip this grade folder, keep going */ }
+                        }
                     }
                 }
                 if (map.size > 0) {
@@ -7441,18 +7546,39 @@ setTimeout(() => {
             } catch(_) {}
         }
 
-        // Strategy 3: plain directory listing fetch (works if server has index enabled)
+        // Strategy 3: plain directory listing (works only if the host has directory
+        // index enabled). List student_pdf/, follow any grade subfolder links, then
+        // list each of those too.
         try {
             statusCb && statusCb('Fetching server directory listing…');
             const res = await fetch(pagesBase, { method:'GET', headers:{ Accept:'text/html' }, cache:'no-store' });
             if (res.ok) {
                 const html = await res.text();
-                const matches = [...html.matchAll(/href="([^"]+\.pdf)"/gi)];
-                matches.forEach(m => {
+                // PDFs directly under student_pdf/
+                [...html.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
                     const href     = m[1];
                     const basename = decodeURIComponent(href.split('/').pop());
-                    map.set(normKey(basename), href);
+                    map.set(normKey(basename), { href, grade: '' });
                 });
+                // Grade subfolder links (end in '/', skip parent/query links)
+                const subdirs = [...html.matchAll(/href="([^"?][^"]*\/)"/gi)]
+                    .map(m => m[1])
+                    .filter(h => h !== '../' && h !== './' && !h.startsWith('/'));
+                for (const sub of subdirs) {
+                    try {
+                        const subUrl = new URL(sub, pagesBase).href;
+                        const gradeLabel = decodeURIComponent(sub.replace(/\/$/, ''));
+                        const subRes = await fetch(subUrl, { method:'GET', headers:{ Accept:'text/html' }, cache:'no-store' });
+                        if (subRes.ok) {
+                            const subHtml = await subRes.text();
+                            [...subHtml.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
+                                const href     = new URL(m[1], subUrl).href;
+                                const basename = decodeURIComponent(href.split('/').pop());
+                                map.set(normKey(basename), { href, grade: gradeLabel });
+                            });
+                        }
+                    } catch(_) { /* skip this subfolder */ }
+                }
                 if (map.size > 0) {
                     window._allServerPdfMap = map;
                     return map;
@@ -7460,35 +7586,22 @@ setTimeout(() => {
             }
         } catch(_) {}
 
-        // Strategy 4: HEAD-probe every student name variant in batches of 100
-        statusCb && statusCb('Probing PDFs by student names (batches of 100)…');
+        // Strategy 4: HEAD-probe each student's exact expected file —
+        // ./student_pdf/{Grade}/{Name}.pdf (falls back to .PDF)
+        statusCb && statusCb('Probing PDFs by student name + grade…');
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) return map;
 
-        const BATCH = 350;
-        const buildUrls = s => {
-            const name  = normName(s);
-            const no    = (s['Assessment No'] || s.id || '').toString().trim();
-            const grade = (s.Grade || s['Class'] || '').toString().replace(/^Grade\s+/i,'').trim();
-            return [
-                name, name.toUpperCase(), name.toLowerCase(), no,
-                `${no} ${name}`, `${name} ${no}`, `${grade} ${name}`,
-                name.replace(/\s+/g,'_'), name.toUpperCase().replace(/\s+/g,'_'),
-            ].filter((v,i,a) => v && a.indexOf(v) === i)
-             .flatMap(v => [
-                 { key: normKey(v), url: pagesBase + encodeURIComponent(v) + '.pdf' },
-                 { key: normKey(v), url: pagesBase + encodeURIComponent(v) + '.PDF' },
-             ]);
-        };
-
+        const BATCH = 100;
         let checked = 0;
         for (let i = 0; i < students.length; i += BATCH) {
             const batch = students.slice(i, i + BATCH);
             await Promise.all(batch.map(async s => {
-                for (const { key, url } of buildUrls(s)) {
+                const candidates = (typeof _pdfCandidates === 'function') ? _pdfCandidates(normName(s), s.Grade) : [];
+                for (const url of candidates) {
                     try {
                         const r = await fetch(url, { method:'HEAD', cache:'no-store' });
-                        if (r.ok) { map.set(key, url); break; }
+                        if (r.ok) { map.set(normKey(normName(s)), { href: url, grade: normGrade(s) }); break; }
                     } catch(_) {}
                 }
             }));
@@ -7501,19 +7614,34 @@ setTimeout(() => {
 
     /* ── compute unmatched ────────────────────────────────── */
     function computeUnmatched(serverMap, students) {
-        const matchedHrefs = new Set();
+        // Cross-check on TWO parameters — name AND grade — not name alone.
+        // A candidate match is only accepted if the file's own grade folder
+        // (when known) agrees with the student's grade, or the file has no
+        // grade tag (root-level PDF). This is what stops a real match from
+        // also being re-listed as a second "unmatched" entry for the same name.
+        const accountedKeys = new Set();
         students.forEach(s => {
+            const sGrade = normKey(normGrade(s));
             const cands = buildCandidates(s);
             for (const c of cands) {
-                if (serverMap.has(c)) { matchedHrefs.add(serverMap.get(c)); break; }
+                const entry = serverMap.get(c);
+                if (!entry) continue;
+                const href  = entry && typeof entry === 'object' ? entry.href  : entry;
+                const grade = entry && typeof entry === 'object' ? entry.grade : '';
+                if (!href) continue;
+                if (!grade || !sGrade || normKey(grade) === sGrade) {
+                    accountedKeys.add(c);
+                    break;
+                }
             }
         });
         const unmatched = [];
-        serverMap.forEach((href, key) => {
-            if (!matchedHrefs.has(href)) {
-                const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i,'');
-                unmatched.push({ name: displayName, href });
-            }
+        serverMap.forEach((entry, key) => {
+            const href = entry && typeof entry === 'object' ? entry.href : entry; // back-compat with plain-string maps
+            if (!href) return;
+            if (accountedKeys.has(key)) return;
+            const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i,'');
+            unmatched.push({ name: displayName, href });
         });
         unmatched.sort((a,b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
         return unmatched;
@@ -7667,8 +7795,26 @@ setTimeout(() => {
                 const freshMap = new Map();
                 items.forEach(item => {
                     if (item.type === 'file' && /\.pdf$/i.test(item.name))
-                        freshMap.set(normKey(item.name), pagesBase + encodeURIComponent(item.name));
+                        freshMap.set(normKey(item.name), { href: pagesBase + encodeURIComponent(item.name), grade: '' });
                 });
+                // Recurse into each grade subfolder
+                const gradeDirs = items.filter(item => item.type === 'dir');
+                for (const dir of gradeDirs) {
+                    try {
+                        const subRes = await fetch(dir.url, { headers:{ Accept:'application/vnd.github.v3+json' }, cache:'no-store' });
+                        if (subRes.ok) {
+                            const subItems = await subRes.json();
+                            if (Array.isArray(subItems)) {
+                                subItems.forEach(f => {
+                                    if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
+                                        const href = pagesBase + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
+                                        freshMap.set(normKey(f.name), { href, grade: dir.name });
+                                    }
+                                });
+                            }
+                        }
+                    } catch(_) { /* skip this grade folder */ }
+                }
 
                 // Only trigger a recheck if the file list actually changed
                 const oldMap = window._allServerPdfMap;
