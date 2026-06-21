@@ -1184,6 +1184,20 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 .audit-no-diff{font-size:12px;color:var(--text3);font-style:italic;padding:4px 0;}
 .audit-summary-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:rgba(41,128,185,.1);color:var(--blue-lt);border:1px solid rgba(41,128,185,.2);margin-right:4px;}
 
+/* ── Per-entry action buttons (Copy / View JSON / Restore / Delete) ── */
+.audit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+.audit-act-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10.5px;font-weight:700;padding:6px 11px;border-radius:9px;
+  background:var(--surface3);border:1px solid var(--border);color:var(--text2);
+  cursor:pointer;transition:all .2s;
+}
+.audit-act-btn:hover{border-color:var(--blue-lt);color:var(--blue-lt);background:rgba(41,128,185,.08);}
+.audit-act-btn.aab-restore:hover{border-color:#27ae60;color:#4dbb77;background:rgba(39,174,96,.08);}
+.audit-act-btn.aab-delete{color:#e25b4b;}
+.audit-act-btn.aab-delete:hover{border-color:#e74c3c;color:#e25b4b;background:rgba(231,76,60,.08);}
+.audit-act-btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none;}
+
 /* ══════════════════════════════════════════
    SUBJECT PERFORMANCE BAR
 ══════════════════════════════════════════ */
@@ -6023,6 +6037,10 @@ function renderAuditView(){
     actorSel.value=current;
   }
 
+  // Cache the currently-rendered filtered list so action buttons (Copy/View/
+  // Restore/Delete) can resolve "this entry" by its row index at click-time.
+  window._auditFilteredCache = filtered;
+
   container.innerHTML=filtered.map((a,i)=>{
     const d=new Date(a.time);
     const dateStr=d.toLocaleDateString('en-KE',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
@@ -6039,6 +6057,7 @@ function renderAuditView(){
     }
 
     const diffHTML=_buildDiffHTML(a);
+    const actionsHTML=_buildAuditActionsHTML(a,i);
 
     return `<div class="audit-card" id="acard-${i}">
       <div class="audit-card-head" onclick="toggleAuditCard('acard-${i}')">
@@ -6054,16 +6073,184 @@ function renderAuditView(){
         </div>
         <div class="audit-chevron">▶</div>
       </div>
-      <div class="audit-body">${diffHTML}</div>
+      <div class="audit-body">${diffHTML}${actionsHTML}</div>
     </div>`;
   }).join('');
 
   document.getElementById('audit-count').textContent=filtered.length+' entries';
 }
 
+/* ─── Per-entry action buttons: Copy / View JSON / Restore / Delete ─── */
+function _buildAuditActionsHTML(a,i){
+  const cat=a.category||_inferCategory(a.text||'');
+  const canRestoreEdit   = cat==='edit'   && a.before && a.targetId;
+  const canRestoreDelete = cat==='delete' && a.before && a.targetId;
+  const canRestoreAdd    = cat==='add'    && a.targetId; // "undo add" = remove the record
+  const canDeleteEntry   = isAdvancedAdmin && a._key;
+
+  let html = `<div class="audit-actions">`;
+  html += `<button class="audit-act-btn" onclick="event.stopPropagation();auditCopyEntry(${i})">📋 Copy</button>`;
+  html += `<button class="audit-act-btn" onclick="event.stopPropagation();auditViewJSON(${i})">🧾 View Full Details</button>`;
+
+  if(canRestoreEdit){
+    html += `<button class="audit-act-btn aab-restore" onclick="event.stopPropagation();auditRestoreEdit(${i})">↩️ Restore Previous Values</button>`;
+  }
+  if(canRestoreDelete){
+    html += `<button class="audit-act-btn aab-restore" onclick="event.stopPropagation();auditRestoreDeleted(${i})">♻️ Restore Deleted Record</button>`;
+  }
+  if(canRestoreAdd){
+    html += `<button class="audit-act-btn aab-delete" onclick="event.stopPropagation();auditUndoAdd(${i})">↶ Undo (Remove Record)</button>`;
+  }
+  if(canDeleteEntry){
+    html += `<button class="audit-act-btn aab-delete" onclick="event.stopPropagation();auditDeleteEntry(${i})">🗑️ Delete Entry</button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 window.toggleAuditCard=function(id){const el=document.getElementById(id);if(el)el.classList.toggle('open');};
 window.auditSearch=function(v){auditSearchVal=v.toLowerCase();renderAuditView();};
 window.auditFilter=function(type,v){if(type==='actor')auditFilterActor=v;else if(type==='cat')auditFilterCat=v;renderAuditView();};
+
+/* ─── Resolve a cached audit entry by its rendered row index ─────────── */
+function _auditEntryAt(i){
+  const list=window._auditFilteredCache||[];
+  return list[i]||null;
+}
+
+/* ─── Copy a plain-text summary of an entry to the clipboard ─────────── */
+window.auditCopyEntry=async function(i){
+  const a=_auditEntryAt(i);
+  if(!a){notify('Entry not found.','error');return;}
+  const d=new Date(a.time);
+  const lines=[
+    (a.text||'').replace(/^[^\s]+\s/,''),
+    `Admin: ${a.actor||'Admin'}${a.email?' <'+a.email+'>':''}`,
+    `Time: ${d.toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'})} ${d.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`,
+  ];
+  if(a.targetName) lines.push(`Target: ${a.targetName}`);
+  if(a.before) lines.push(`Before: ${JSON.stringify(a.before)}`);
+  if(a.after)  lines.push(`After: ${JSON.stringify(a.after)}`);
+  const text=lines.join('\n');
+  try{
+    await navigator.clipboard.writeText(text);
+    notify('📋 Entry copied to clipboard.','success');
+  }catch(e){
+    notify('Could not copy automatically — select and copy manually.','warn');
+  }
+};
+
+/* ─── View the entry's full raw JSON in a modal ──────────────────────── */
+window.auditViewJSON=function(i){
+  const a=_auditEntryAt(i);
+  if(!a){notify('Entry not found.','error');return;}
+  const {_key,...clean}=a;
+  Swal.fire({
+    title:'🧾 Full Entry Details',
+    html:`<pre style="text-align:left;font-size:11px;max-height:50vh;overflow:auto;background:rgba(127,140,141,.08);padding:10px;border-radius:8px;white-space:pre-wrap;word-break:break-word;">${JSON.stringify(clean,null,2).replace(/</g,'&lt;')}</pre>`,
+    confirmButtonText:'Close',
+    width:560,
+  });
+};
+
+/* ─── Restore: write an edit entry's "before" values back onto the record ── */
+window.auditRestoreEdit=async function(i){
+  const a=_auditEntryAt(i);
+  if(!a||!a.before||!a.targetId){notify('Nothing to restore for this entry.','error');return;}
+  const ok=await showConfirm(
+    '↩️ Restore Previous Values',
+    `Revert <strong>${a.targetName||'this record'}</strong> back to its values before this edit?<br><br>This will overwrite the current data with the "before" snapshot.`,
+    '↩️','Restore','btn-blue'
+  );
+  if(!ok) return;
+  try{
+    const{ref,update}=window._fb;
+    await update(ref(db,`${DB_PATH}/${a.targetId}`),a.before);
+    const idx=allData.findIndex(r=>r.id===a.targetId);
+    if(idx>-1) allData[idx]={...allData[idx],...a.before};
+    notify('✅ Previous values restored.','success');
+    logActivity(`↩️ Restored previous values for ${a.targetName||a.targetId}`,'act-blue',currentAdminName,{
+      category:'edit', targetId:a.targetId, targetName:a.targetName, before:a.after, after:a.before, extra:'Restored from audit log'
+    });
+    renderAll();
+  }catch(e){
+    notify('Error restoring: '+e.message,'error');
+  }
+};
+
+/* ─── Restore: recreate a deleted record from its "before" snapshot ──── */
+window.auditRestoreDeleted=async function(i){
+  const a=_auditEntryAt(i);
+  if(!a||!a.before||!a.targetId){notify('Nothing to restore for this entry.','error');return;}
+  const ok=await showConfirm(
+    '♻️ Restore Deleted Record',
+    `Recreate the record for <strong>${a.targetName||a.targetId}</strong> using its last known data?`,
+    '♻️','Restore','btn-blue'
+  );
+  if(!ok) return;
+  try{
+    const{ref,set}=window._fb;
+    const record={...a.before}; delete record.id;
+    await set(ref(db,`${DB_PATH}/${a.targetId}`),record);
+    allData.push({id:a.targetId,...record});
+    notify('✅ Record restored.','success');
+    logActivity(`♻️ Restored deleted record for ${a.targetName||a.targetId}`,'act-green',currentAdminName,{
+      category:'add', targetId:a.targetId, targetName:a.targetName, after:record, extra:'Restored from audit log'
+    });
+    renderAll();
+  }catch(e){
+    notify('Error restoring: '+e.message,'error');
+  }
+};
+
+/* ─── Undo an "add": remove the record that was created ──────────────── */
+window.auditUndoAdd=async function(i){
+  const a=_auditEntryAt(i);
+  if(!a||!a.targetId){notify('Nothing to undo for this entry.','error');return;}
+  const rec=allData.find(r=>r.id===a.targetId);
+  if(!rec){notify('Record no longer exists.','warn');return;}
+  const ok=await showConfirm(
+    '↶ Undo Add',
+    `Remove the record created for <strong>${a.targetName||rec['Official Student Name']||a.targetId}</strong>? This cannot be undone.`,
+    '🗑️','Remove','btn-red'
+  );
+  if(!ok) return;
+  try{
+    const{ref,remove}=window._fb;
+    await remove(ref(db,`${DB_PATH}/${a.targetId}`));
+    allData=allData.filter(r=>r.id!==a.targetId);
+    notify('🗑 Record removed.','warn');
+    logActivity(`🗑 Undid add — removed ${a.targetName||a.targetId}`,'act-red',currentAdminName,{
+      category:'delete', targetId:a.targetId, targetName:a.targetName, before:rec, extra:'Undone from audit log'
+    });
+    renderAll();
+  }catch(e){
+    notify('Error removing: '+e.message,'error');
+  }
+};
+
+/* ─── Delete a single audit log entry (Advanced Admin only) ──────────── */
+window.auditDeleteEntry=async function(i){
+  if(!isAdvancedAdmin){notify('⛔ Only Advanced Admins can delete audit entries.','error');return;}
+  const a=_auditEntryAt(i);
+  if(!a||!a._key){notify('This entry cannot be deleted yet (still syncing — try refreshing the log).','warn');return;}
+  const ok=await showConfirm(
+    '🗑️ Delete This Entry',
+    'Permanently delete this single audit log entry? This cannot be undone.',
+    '🗑️','Delete','btn-red'
+  );
+  if(!ok) return;
+  try{
+    const{ref,remove}=window._fb;
+    await remove(ref(db,`${AUDIT_PATH}/${a._key}`));
+    activities=activities.filter(e=>e._key!==a._key);
+    notify('🗑️ Audit entry deleted.','warn');
+    renderAuditView();
+    renderDashboardAuditWidget();
+  }catch(e){
+    notify('Error deleting entry: '+e.message,'error');
+  }
+};
 
 /* ─── Export audit log to CSV ─────────────────────── */
 window.exportAuditCSV=function(){
