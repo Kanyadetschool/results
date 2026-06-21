@@ -1476,7 +1476,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="var(--gold)" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/></svg>
         <span style="font-weight:700;color:#fff;font-size:.95rem;">Print Report Options</span>
       </div>
-      <button onclick="document.getElementById('print-options-modal').style.display='none'" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+      <button onclick="window._closePrintOptions()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1508,7 +1508,7 @@
     </div>
     <!-- Footer -->
     <div style="padding:.75rem 1.2rem;border-top:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:flex-end;gap:.5rem;">
-      <button onclick="document.getElementById('print-options-modal').style.display='none'" style="padding:.45rem 1rem;border-radius:8px;border:1.5px solid var(--border2);background:transparent;color:var(--text2);font-size:.82rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Cancel</button>
+      <button onclick="window._closePrintOptions()" style="padding:.45rem 1rem;border-radius:8px;border:1.5px solid var(--border2);background:transparent;color:var(--text2);font-size:.82rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Cancel</button>
       <button id="print-options-go-btn" onclick="window._executePrintReport()" style="padding:.45rem 1.1rem;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-size:.82rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:.4rem;">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/></svg>
         Download PDF
@@ -6946,6 +6946,23 @@ setTimeout(() => {
 }, 800);
 
 
+// ── OVERLAY COORDINATOR ───────────────────────────────
+// Several modals (Student PDFs panel, Unmatched PDFs modal, Print Options
+// modal) were each opened independently, so opening one while another was
+// already open just stacked them on top of each other instead of swapping.
+// Each open function below registers its own close function here first;
+// registering automatically closes whichever overlay was previously active.
+window._activeOverlayClose = null;
+window._registerOverlay = function(closeFn) {
+    if (window._activeOverlayClose && window._activeOverlayClose !== closeFn) {
+        try { window._activeOverlayClose(); } catch(_) {}
+    }
+    window._activeOverlayClose = closeFn;
+};
+window._unregisterOverlay = function(closeFn) {
+    if (window._activeOverlayClose === closeFn) window._activeOverlayClose = null;
+};
+
 // ── PDF SEARCH PANEL ──────────────────────────────────
 (function() {
     const panel       = document.getElementById('pdf-search-panel');
@@ -6984,6 +7001,13 @@ setTimeout(() => {
         return (str || '').toString().trim().toLowerCase()
             .replace(/\.pdf$/i, '')
             .replace(/\s+/g, ' ');
+    }
+    // Canonical grade key — strips an optional leading "Grade " label (folder
+    // names on the server are typically "Grade 1", while the student record's
+    // Grade field is sometimes already just "1") so both sides compare equal
+    // regardless of which raw format either one happens to use.
+    function _gradeKey(v) {
+        return (v || '').toString().replace(/^Grade\s+/i, '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
     /* ─── Grade dropdown ─────────────────────────────────── */
@@ -7169,7 +7193,7 @@ setTimeout(() => {
                                         subItems.forEach(f => {
                                             if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
                                                 const href = base + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
-                                                serverFileNames.set(_pdfKey(f.name), { href, grade: dir.name });
+                                                serverFileNames.set(_pdfKey(f.name), { href, grade: _gradeKey(dir.name) });
                                             }
                                         });
                                     }
@@ -7208,7 +7232,7 @@ setTimeout(() => {
                             [...subHtml.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
                                 const href = new URL(m[1], subUrl).href;
                                 const basename = decodeURIComponent(href.split('/').pop());
-                                serverFileNames.set(_pdfKey(basename), { href, grade: gradeLabel });
+                                serverFileNames.set(_pdfKey(basename), { href, grade: _gradeKey(gradeLabel) });
                             });
                         }
                     } catch(_) { /* skip this subfolder */ }
@@ -7228,7 +7252,7 @@ setTimeout(() => {
             const m = msgEl(); if (m) m.textContent = `Matching ${serverFileNames.size} PDFs to students…`;
             all.forEach(s => {
                 const name = getName(s), no = (s['Assessment No'] || s.id || '').toString().trim();
-                const sGrade = getRawGrade(s);
+                const sGrade = _gradeKey(getRawGrade(s));
                 const candidates = [name, name.toUpperCase(), name.toLowerCase(), no,
                     `${no} ${name}`, `${name} ${no}`, `${sGrade} ${name}`]
                     .map(_pdfKey);
@@ -7301,6 +7325,7 @@ setTimeout(() => {
 
     /* ─── Open panel ───────────────────────────────────────── */
     window._openPdfSearchPanel = async function(forceRefresh = false) {
+        window._registerOverlay(window._closePdfSearchPanel);
         searchInput.value = '';
         gradeFilter.value = '';
         clearBtn.style.display = 'none';
@@ -7331,7 +7356,7 @@ setTimeout(() => {
             // for the *same* file. Those two strings never match, so comparing
             // hrefs caused every background-matched student to ALSO show up as a
             // second "no student record" orphan row for the same name/file.
-            const matchedByNameGrade = new Set(matched.map(s => _pdfKey(getName(s)) + '|' + _pdfKey(getRawGrade(s))));
+            const matchedByNameGrade = new Set(matched.map(s => _pdfKey(getName(s)) + '|' + _gradeKey(getRawGrade(s))));
             const matchedByNameOnly  = new Set(matched.map(s => _pdfKey(getName(s))));
             const orphans = [];
             if (window._allServerPdfMap) {
@@ -7343,7 +7368,7 @@ setTimeout(() => {
                     // grade is known, falling back to Name only for files sitting
                     // directly under student_pdf/ with no grade subfolder.
                     const accountedFor = grade
-                        ? matchedByNameGrade.has(key + '|' + _pdfKey(grade))
+                        ? matchedByNameGrade.has(key + '|' + _gradeKey(grade))
                         : matchedByNameOnly.has(key);
                     if (accountedFor) return; // already accounted for by a real student record
                     const displayName = decodeURIComponent(href.split('/').pop()).replace(/\.pdf$/i, '');
@@ -7407,6 +7432,7 @@ setTimeout(() => {
 
     window._closePdfSearchPanel = function() {
         panel.style.display = 'none';
+        window._unregisterOverlay(window._closePdfSearchPanel);
     };
 
     document.addEventListener('keydown', e => {
@@ -7452,6 +7478,12 @@ setTimeout(() => {
     // the same PDF to be counted as both matched AND "unmatched" for the same name.
     function normKey(str) {
         return str.trim().toLowerCase().replace(/\.pdf$/i, '').replace(/\s+/g, ' ');
+    }
+    // Canonical grade key — strips an optional leading "Grade " label so a
+    // server folder named "Grade 1" and a student record whose Grade field is
+    // just "1" (or vice-versa) normalize to the exact same comparable string.
+    function gradeKey(v) {
+        return (v || '').toString().replace(/^Grade\s+/i, '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
     function buildCandidates(s) {
         const name = normName(s);
@@ -7529,7 +7561,7 @@ setTimeout(() => {
                                         subItems.forEach(f => {
                                             if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
                                                 const href = pagesBase + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
-                                                map.set(normKey(f.name), { href, grade: dir.name });
+                                                map.set(normKey(f.name), { href, grade: gradeKey(dir.name) });
                                             }
                                         });
                                     }
@@ -7574,7 +7606,7 @@ setTimeout(() => {
                             [...subHtml.matchAll(/href="([^"]+\.pdf)"/gi)].forEach(m => {
                                 const href     = new URL(m[1], subUrl).href;
                                 const basename = decodeURIComponent(href.split('/').pop());
-                                map.set(normKey(basename), { href, grade: gradeLabel });
+                                map.set(normKey(basename), { href, grade: gradeKey(gradeLabel) });
                             });
                         }
                     } catch(_) { /* skip this subfolder */ }
@@ -7621,7 +7653,7 @@ setTimeout(() => {
         // also being re-listed as a second "unmatched" entry for the same name.
         const accountedKeys = new Set();
         students.forEach(s => {
-            const sGrade = normKey(normGrade(s));
+            const sGrade = gradeKey(normGrade(s));
             const cands = buildCandidates(s);
             for (const c of cands) {
                 const entry = serverMap.get(c);
@@ -7629,7 +7661,7 @@ setTimeout(() => {
                 const href  = entry && typeof entry === 'object' ? entry.href  : entry;
                 const grade = entry && typeof entry === 'object' ? entry.grade : '';
                 if (!href) continue;
-                if (!grade || !sGrade || normKey(grade) === sGrade) {
+                if (!grade || !sGrade || gradeKey(grade) === sGrade) {
                     accountedKeys.add(c);
                     break;
                 }
@@ -7808,7 +7840,7 @@ setTimeout(() => {
                                 subItems.forEach(f => {
                                     if (f.type === 'file' && /\.pdf$/i.test(f.name)) {
                                         const href = pagesBase + encodeURIComponent(dir.name) + '/' + encodeURIComponent(f.name);
-                                        freshMap.set(normKey(f.name), { href, grade: dir.name });
+                                        freshMap.set(normKey(f.name), { href, grade: gradeKey(dir.name) });
                                     }
                                 });
                             }
@@ -7836,6 +7868,7 @@ setTimeout(() => {
 
     /* ── open / close / recheck ───────────────────────────── */
     window._openUnmatchedPdfsModal = async function() {
+        window._registerOverlay(window._closeUnmatchedPdfsModal);
         _isOpen = true;
         modal.style.display = 'flex';
         if (searchInput) searchInput.value = '';
@@ -7846,6 +7879,7 @@ setTimeout(() => {
     window._closeUnmatchedPdfsModal = function() {
         _isOpen = false;
         modal.style.display = 'none';
+        window._unregisterOverlay(window._closeUnmatchedPdfsModal);
     };
 
     window._recheckUnmatched = async function() {
@@ -7857,6 +7891,7 @@ setTimeout(() => {
     let _printGrades    = new Set();
 
     window._openPrintOptions = function() {
+        window._registerOverlay(window._closePrintOptions);
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) { alert('No student data loaded yet.'); return; }
 
@@ -7902,6 +7937,11 @@ setTimeout(() => {
 
         window._updatePrintPreview();
         document.getElementById('print-options-modal').style.display = 'flex';
+    };
+
+    window._closePrintOptions = function() {
+        document.getElementById('print-options-modal').style.display = 'none';
+        window._unregisterOverlay(window._closePrintOptions);
     };
 
     window._setPrintFilter = function(btn) {
@@ -7964,7 +8004,7 @@ setTimeout(() => {
         if (!students.length) { alert('No students match the selected criteria.'); return; }
 
         // Close options dialog
-        document.getElementById('print-options-modal').style.display = 'none';
+        window._closePrintOptions();
 
         const btn = document.getElementById('unmatched-print-btn');
         const setBtn = (txt, dis) => {
@@ -8266,7 +8306,7 @@ setTimeout(() => {
     // Close print-options on backdrop click
     document.getElementById('print-options-modal')?.addEventListener('click', e => {
         if (e.target === document.getElementById('print-options-modal'))
-            document.getElementById('print-options-modal').style.display = 'none';
+            window._closePrintOptions();
     });
 
     // Close on backdrop click or Escape
