@@ -1244,6 +1244,7 @@ toggleBtn.addEventListener('click', () => {
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getDatabase, ref, set, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const sanitizedAppId = appId.replace(/\./g, '_');
@@ -1260,7 +1261,7 @@ toggleBtn.addEventListener('click', () => {
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : customFirebaseConfig;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        let db, auth, userId = null;
+        let db, auth, firestoreDb, userId = null;
         let studentsData = [];
         let currentPage = 1;
         let studentsPerPage = 10;
@@ -1544,6 +1545,7 @@ toggleBtn.addEventListener('click', () => {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getDatabase(app);
+                firestoreDb = getFirestore(app);
                 // Photos are now loaded from the server's ./student_images/ folder, not the DB.
 
                 // Attach AFTER auth is ready
@@ -1552,6 +1554,26 @@ toggleBtn.addEventListener('click', () => {
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
+                        // ── Advanced Admin gate ──────────────────────────────────────
+                        // Only users whose Firestore users/{uid} doc has
+                        // Advancedadmin === true are permitted into Results.html.
+                        // Mirrors the access-control pattern used in index.html.
+                        let allowed = false;
+                        try {
+                            const userDocSnap = await getDoc(doc(firestoreDb, 'users', user.uid));
+                            allowed = userDocSnap.exists() && userDocSnap.data().Advancedadmin === true;
+                        } catch (err) {
+                            console.error('[AdvancedAdmin] Profile check failed:', err);
+                            allowed = false;
+                        }
+
+                        if (!allowed) {
+                            loader.classList.add('hidden');
+                            showModal('⛔ Access restricted to Advanced Admins only.');
+                            await signOut(auth);
+                            return; // onAuthStateChanged will re-fire with user=null and reset the UI
+                        }
+
                         userId = user.uid;
                         console.log("Authenticated with user ID:", userId);
                         const email = user.email;
