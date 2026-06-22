@@ -701,6 +701,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { getDatabase, ref, get, update, onValue }
   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey:"AIzaSyA_41WpdMjHJOU5s3gQ9aieIayZRvUoRLE",
@@ -714,6 +715,7 @@ const firebaseConfig = {
 const fbApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth  = getAuth(fbApp);
 const db    = getDatabase(fbApp);
+const firestoreDb = getFirestore(fbApp);
 
 const DB_CONFIGS = {
   results: {
@@ -1112,12 +1114,30 @@ function initSearch(pan) {
 }
 
 // ── Auth ───────────────────────────────────────────────────────
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   const gate   = document.getElementById('gate');
   const appEl  = document.getElementById('app-content');
   const chip   = document.getElementById('user-chip');
   const signIn = document.getElementById('btn-signin');
   if (user) {
+    // ── Advanced Admin gate ──────────────────────────────────────
+    // Only users whose Firestore users/{uid} doc has Advancedadmin === true
+    // may use this tool — mirrors the access-control pattern used across
+    // the rest of the Kanyadet admin suite.
+    let allowed = false;
+    try {
+      const userDocSnap = await getDoc(doc(firestoreDb, 'users', user.uid));
+      allowed = userDocSnap.exists() && userDocSnap.data().Advancedadmin === true;
+    } catch(err) {
+      console.error('[AdvancedAdmin] Profile check failed:', err);
+      allowed = false;
+    }
+    if (!allowed) {
+      notify('⛔ Access restricted to Advanced Admins only.', 'error');
+      await signOut(auth);
+      return; // onAuthStateChanged will re-fire with user=null and reset the UI
+    }
+
     gate.style.display   = 'none';
     appEl.classList.remove('locked');
     chip.style.display   = 'flex';
