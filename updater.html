@@ -390,6 +390,7 @@ tbody td{padding:10px 13px;vertical-align:middle;color:var(--text);}
     <div class="user-chip" id="user-chip" style="display:none;">
       <img class="user-av" id="user-av" src="" alt="">
       <span class="user-name" id="user-name-label"></span>
+      <button class="btn-signout" id="btn-refresh-cache" title="Student data syncs live in real time — click to confirm" style="background:rgba(41,128,185,.12);border-color:rgba(41,128,185,.3);color:var(--blue-lt);" onclick="forceRefreshSearchCache()">⚡ Live sync</button>
       <button class="btn-signout" onclick="signOutUser()">Sign out</button>
     </div>
   </div>
@@ -698,7 +699,7 @@ tbody td{padding:10px 13px;vertical-align:middle;color:var(--text);}
 import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getDatabase, ref, get, update }
+import { getDatabase, ref, get, update, onValue }
   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
 const firebaseConfig = {
@@ -799,8 +800,14 @@ function _indexRecord(r) {
   }
 })();
 
-async function loadSearchCache() {
-  if (searchCache.loading || searchCache.networkSynced) return;
+// True once the real-time listeners are attached — they stay live for the
+// rest of the page's life, so this only ever needs to happen once.
+let _searchListenersAttached = false;
+let _initialSyncPromise = null;
+
+function loadSearchCache() {
+  if (_searchListenersAttached) return _initialSyncPromise || Promise.resolve();
+  _searchListenersAttached = true;
   searchCache.loading = true;
 
   ['adm','name'].forEach(pan => {
@@ -810,42 +817,65 @@ async function loadSearchCache() {
     });
   });
 
-  // Build into a fresh array — never merge onto stale cached/hydrated records,
-  // so renamed/removed students can't linger as duplicates across sessions.
-  const fresh = [];
-  for (const [key, dbCfg] of Object.entries(DB_CONFIGS)) {
-    try {
-      const snap = await get(ref(db, dbCfg.path));
-      if (snap.exists()) {
-        snap.forEach(child => {
-          const rec = child.val();
-          const name  = String(rec[dbCfg.nameField] || '').trim();
-          const admNo = String(rec[dbCfg.assessmentField] || '').trim();
-          const grade = String(rec[dbCfg.gradeField] || '').trim();
-          if (name || admNo) {
-            // Deduplicate by name+admNo combo
-            const exists = fresh.find(r => r.admNo === admNo && r.name === name);
-            if (!exists) {
-              fresh.push(_indexRecord({ name, admNo, grade, key: child.key, dbKey: key, dbLabel: dbCfg.label }));
+  // Resolves once every configured DB has delivered its first snapshot —
+  // callers that `await loadSearchCache()` only wait for this initial sync.
+  // After that, each DB keeps a live onValue listener attached permanently,
+  // so any future change — from this tool's own update, the main admin app,
+  // or anyone else writing to Firebase — lands in searchCache instantly,
+  // with zero manual refresh or re-fetch required.
+  const pending = new Set(Object.keys(DB_CONFIGS));
+  _initialSyncPromise = new Promise(resolve => {
+    Object.entries(DB_CONFIGS).forEach(([key, dbCfg]) => {
+      onValue(ref(db, dbCfg.path), snap => {
+        const dbRecords = [];
+        if (snap.exists()) {
+          snap.forEach(child => {
+            const rec = child.val();
+            const name  = String(rec[dbCfg.nameField] || '').trim();
+            const admNo = String(rec[dbCfg.assessmentField] || '').trim();
+            const grade = String(rec[dbCfg.gradeField] || '').trim();
+            if (name || admNo) {
+              // Keep one entry per (database, record) — NOT deduped across
+              // databases. The bulk preview/replace and the cross-DB Adm-No
+              // detector both rely on every per-database instance being
+              // present, since the whole point of this tool is reconciling
+              // differences BETWEEN databases for the same student.
+              dbRecords.push(_indexRecord({ name, admNo, grade, key: child.key, dbKey: key, dbLabel: dbCfg.label }));
             }
-          }
-        });
-      }
-      ['adm','name'].forEach(pan => {
-        const el = document.getElementById(`${pan}-badge-${key}`);
-        if (el) el.className = 'search-db-badge loaded';
+          });
+        }
+        // Swap out just this DB's slice, leaving the other DB's records untouched.
+        searchCache.records       = searchCache.records.filter(r => r.dbKey !== key).concat(dbRecords);
+        searchCache.loaded        = true;
+        searchCache.loading       = false;
+        searchCache.networkSynced = true;
+        searchCache.lastSync      = Date.now();
+        _cacheWrite(searchCache.records);
+
+        const el1 = document.getElementById(`adm-badge-${key}`);  if (el1) el1.className = 'search-db-badge loaded';
+        const el2 = document.getElementById(`name-badge-${key}`); if (el2) el2.className = 'search-db-badge loaded';
+
+        if (pending.has(key)) { pending.delete(key); if (pending.size === 0) resolve(); }
+      }, err => {
+        console.warn('Live search-cache listener error:', key, err);
+        if (pending.has(key)) { pending.delete(key); if (pending.size === 0) resolve(); }
       });
-    } catch(e) {
-      console.warn('Search cache load error:', key, e);
-    }
-  }
-  searchCache.records       = fresh;
-  searchCache.loaded        = true;
-  searchCache.loading       = false;
-  searchCache.networkSynced = true;
-  searchCache.lastSync      = Date.now();
-  _cacheWrite(fresh);
+    });
+  });
+  return _initialSyncPromise;
 }
+
+// Manual button for reassurance — data is already always live via the
+// onValue listeners above, so this just confirms current sync status
+// rather than triggering a separate fetch.
+window.forceRefreshSearchCache = async () => {
+  if (!auth.currentUser) { notify('Please sign in first.', 'error'); return; }
+  const btn = document.getElementById('btn-refresh-cache');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Checking…'; }
+  await loadSearchCache();
+  if (btn) { btn.disabled = false; btn.textContent = '⚡ Live sync'; }
+  notify(`✅ Live — ${searchCache.records.length} records synced in real time.`, 'success');
+};
 
 function searchStudents(query) {
   if (!query) return [];
@@ -904,7 +934,7 @@ function renderDropdown(pan, results, query) {
     div.innerHTML = `
       <span class="dropdown-item-adm ${isPurple ? 'purple-adm' : ''}">${highlight(r.admNo || '—', query, isPurple)}</span>
       <span class="dropdown-item-name ${isPurple ? 'purple-mark' : ''}">${highlight(r.name, query, isPurple)}</span>
-      <span class="dropdown-item-grade">Gr ${esc(r.grade)}</span>
+      <span class="dropdown-item-grade">Gr ${esc(r.grade)} · ${esc(r.dbLabel || '')}</span>
     `;
     div.addEventListener('mousedown', e => { e.preventDefault(); selectStudent(pan, r); });
     dd.appendChild(div);
@@ -951,23 +981,16 @@ async function selectStudent(pan, r) {
     // Map: admNo → [dbLabel, ...]
     const found = {};
 
-    for (const [key, dbCfg] of Object.entries(DB_CONFIGS)) {
-      try {
-        const snap = await get(ref(db, dbCfg.path));
-        if (!snap.exists()) continue;
-        snap.forEach(child => {
-          const rec = child.val();
-          const recName = String(rec[dbCfg.nameField] || '').trim().toLowerCase();
-          if (recName === nameLower) {
-            const admNo = String(rec[dbCfg.assessmentField] || '').trim();
-            if (admNo) {
-              if (!found[admNo]) found[admNo] = [];
-              if (!found[admNo].includes(dbCfg.label)) found[admNo].push(dbCfg.label);
-            }
-          }
-        });
-      } catch(e) { console.warn('Scan error:', key, e); }
-    }
+    // Ensure we have data to search before scanning — usually instant
+    // since the cache is hydrated from disk/already synced this session.
+    if (!searchCache.records.length) await loadSearchCache();
+
+    searchCache.records.forEach(rec => {
+      if (rec.name.toLowerCase() === nameLower && rec.admNo) {
+        if (!found[rec.admNo]) found[rec.admNo] = [];
+        if (!found[rec.admNo].includes(rec.dbLabel)) found[rec.admNo].push(rec.dbLabel);
+      }
+    });
 
     scanning.style.display = 'none';
     const nos = Object.keys(found);
@@ -1189,7 +1212,6 @@ window.runPreview = async pan => {
   const isAdm  = pan === 'adm';
   const oldVal = document.getElementById(`${pan}-old`).value.trim();
   const newVal = document.getElementById(`${pan}-new`).value.trim();
-  const field  = isAdm ? 'assessmentField' : 'nameField';
 
   if (!oldVal) { notify(`Enter the ${isAdm ? 'current Assessment No.' : 'current name'}.`, 'error'); return; }
   if (!newVal) { notify(`Enter the ${isAdm ? 'new Assessment No.' : 'corrected name'}.`, 'error'); return; }
@@ -1213,17 +1235,27 @@ window.runPreview = async pan => {
     : [oldVal.toLowerCase()];
 
   try {
-    for (const dbCfg of selectedDBs) {
-      const snap = await get(ref(db, dbCfg.path));
-      if (!snap.exists()) continue;
-      snap.forEach(child => {
-        const rec = child.val();
-        const storedVal = String(rec[dbCfg[field]] || '').trim();
-        if (oldVals.includes(storedVal.toLowerCase())) {
-          state[pan].preview.push({ recordKey: child.key, record: rec, dbConfig: dbCfg, storedVal });
-        }
-      });
-    }
+    // Use the already-loaded search cache instead of re-fetching the whole
+    // DB on every click — this is what makes Preview instant. Only do a live
+    // fetch if there's truly no data yet (first-ever load, nothing cached).
+    if (!searchCache.records.length) await loadSearchCache();
+
+    const selectedSet = new Set(selectedDBs); // dbCfg objects, by reference (same objects as DB_CONFIGS values)
+    searchCache.records.forEach(r => {
+      const dbCfg = DB_CONFIGS[r.dbKey];
+      if (!dbCfg || !selectedSet.has(dbCfg)) return;
+      const checkVal = isAdm ? r.admNo : r.name;
+      if (oldVals.includes((checkVal || '').toLowerCase())) {
+        state[pan].preview.push({
+          recordKey: r.key,
+          // Synthetic record built from the cached fields — sufficient for
+          // both rendering the preview row and the audit-log write in runUpdate.
+          record: { [dbCfg.nameField]: r.name, [dbCfg.assessmentField]: r.admNo, [dbCfg.gradeField]: r.grade },
+          dbConfig: dbCfg,
+          storedVal: checkVal
+        });
+      }
+    });
 
     const tbody = document.getElementById(`${pan}-tbody`);
     const total = state[pan].preview.length;
@@ -1391,9 +1423,9 @@ window.runUpdate = async pan => {
 
   notify(allOk ? `✅ ${ok} record(s) updated!` : `⚠️ ${fail} record(s) failed — nothing changed.`, allOk ? 'success' : 'error');
 
-  // Invalidate cache so re-search shows fresh data
-  searchCache.loaded = false; searchCache.networkSynced = false; searchCache.records = [];
-  _cacheInvalidate();
+  // No manual cache invalidation needed — the live onValue listener attached
+  // in loadSearchCache() will receive this exact write automatically and
+  // update searchCache (and the persisted disk cache) within moments.
 
   // Clear stale preview table/state — it's now out of date.
   state[pan].preview = [];
