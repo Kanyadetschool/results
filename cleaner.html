@@ -1314,7 +1314,8 @@ body::after{
   import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
   import { getDatabase, ref, get, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-  window._fb = { initializeApp, getApps, getDatabase, ref, get, update, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged };
+  import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  window._fb = { initializeApp, getApps, getDatabase, ref, get, update, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, getFirestore, doc, getDoc };
   if(typeof window._fbReady==='function') window._fbReady();
   else window._fbLoaded=true;
 </script>
@@ -1336,7 +1337,7 @@ const DB_PATHS = [
 ];
 
 // ── STATE ────────────────────────────────────────────────────
-let db, auth, fb;
+let db, auth, fb, firestoreDb;
 let allRecords = {};      // { firebaseKey: recordObj }
 let fieldStats = {};      // { fieldName: { count, samples, type } }
 let selectedFields = new Set();
@@ -1384,11 +1385,32 @@ function _initFB(){
   const app = fb.getApps().length===0 ? fb.initializeApp(FB_CONFIG) : fb.getApps()[0];
   db = fb.getDatabase(app);
   auth = fb.getAuth(app);
+  firestoreDb = fb.getFirestore(app);
   // Handle redirect result
   fb.getRedirectResult(auth).catch(()=>{});
-  fb.onAuthStateChanged(auth, user=>{
+  fb.onAuthStateChanged(auth, async user=>{
     document.getElementById('loader').style.display='none';
-    if(user) onSignedIn(user);
+    if(user){
+      // ── Advanced Admin gate ──────────────────────────────────
+      // Only users whose Firestore users/{uid} doc has Advancedadmin === true
+      // may use this tool — mirrors the access-control pattern used across
+      // the rest of the Kanyadet admin suite. Matters even more here since
+      // this tool does bulk DB cleanup/deletion.
+      let allowed = false;
+      try {
+        const userDocSnap = await fb.getDoc(fb.doc(firestoreDb, 'users', user.uid));
+        allowed = userDocSnap.exists() && userDocSnap.data().Advancedadmin === true;
+      } catch(err) {
+        console.error('[AdvancedAdmin] Profile check failed:', err);
+        allowed = false;
+      }
+      if(!allowed){
+        log('⛔ Access restricted to Advanced Admins only.', 'error');
+        await fb.signOut(auth);
+        return; // onAuthStateChanged will re-fire with user=null and reset the UI
+      }
+      onSignedIn(user);
+    }
     else onSignedOut();
   });
   tryLoadLogo();
