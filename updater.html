@@ -737,11 +737,70 @@ const DB_CONFIGS = {
 
 const state = { adm: { preview: [] }, name: { preview: [] } };
 
+// ── INSTANT CACHE (Gmail-style — same pattern as the main admin app) ──
+// Serves last session's student list from localStorage immediately on
+// load, then a fresh background fetch from Firebase quietly replaces it.
+const _CACHE_KEY  = 'kbu_search_cache_v1';
+const _CACHE_META = 'kbu_search_cache_meta_v1';
+const _CACHE_TTL  = 24 * 60 * 60 * 1000; // 24h hard expiry
+
+function _cacheRead() {
+  try {
+    const meta = JSON.parse(localStorage.getItem(_CACHE_META) || 'null');
+    if (!meta || !meta.ts) return null;
+    if (Date.now() - meta.ts > _CACHE_TTL) { _cacheInvalidate(); return null; }
+    const raw = localStorage.getItem(_CACHE_KEY);
+    if (!raw) return null;
+    return { data: JSON.parse(raw), ts: meta.ts };
+  } catch { return null; }
+}
+function _cacheWrite(records) {
+  try {
+    localStorage.setItem(_CACHE_KEY, JSON.stringify(records));
+    localStorage.setItem(_CACHE_META, JSON.stringify({ ts: Date.now(), count: records.length }));
+  } catch(e) { console.warn('[Updater cache] write failed:', e.message); }
+}
+// Call after any destructive op (a real update) so the next load always fetches fresh.
+function _cacheInvalidate() {
+  try { localStorage.removeItem(_CACHE_KEY); localStorage.removeItem(_CACHE_META); } catch {}
+}
+
 // ── Search cache ────────────────────────────────────────────────
-const searchCache = { loaded: false, loading: false, records: [] };
+// networkSynced: true once a real Firebase fetch has completed THIS session —
+// lets us still serve the persisted cache instantly while a fresh fetch runs once in the background.
+const searchCache = { loaded: false, loading: false, networkSynced: false, records: [], lastSync: 0 };
+
+// Adds precomputed lowercase fields once per record, instead of re-lowercasing
+// name/admNo on every keystroke for every record — this is what makes filtering
+// feel instant even on a full keystroke-by-keystroke search (same trick used
+// for the live Student Records search above the table in the main admin app).
+function _indexRecord(r) {
+  r._nameLower = (r.name  || '').toLowerCase();
+  r._admLower  = (r.admNo || '').toLowerCase();
+  return r;
+}
+
+// Hydrate instantly from last session's cache, before Firebase has even responded.
+(function _hydrateSearchCacheFromDisk() {
+  const cached = _cacheRead();
+  if (cached && Array.isArray(cached.data) && cached.data.length) {
+    searchCache.records  = cached.data.map(_indexRecord);
+    searchCache.loaded    = true;
+    searchCache.lastSync  = cached.ts;
+    // Reflect "served from cache" on the DB badges immediately so the UI
+    // never shows a misleading "not loaded yet" state for data we already have.
+    ['adm','name'].forEach(pan => {
+      Object.keys(DB_CONFIGS).forEach(key => {
+        const el = document.getElementById(`${pan}-badge-${key}`);
+        const has = searchCache.records.some(r => r.dbKey === key);
+        if (el && has) el.className = 'search-db-badge loaded';
+      });
+    });
+  }
+})();
 
 async function loadSearchCache() {
-  if (searchCache.loaded || searchCache.loading) return;
+  if (searchCache.loading || searchCache.networkSynced) return;
   searchCache.loading = true;
 
   ['adm','name'].forEach(pan => {
@@ -751,6 +810,9 @@ async function loadSearchCache() {
     });
   });
 
+  // Build into a fresh array — never merge onto stale cached/hydrated records,
+  // so renamed/removed students can't linger as duplicates across sessions.
+  const fresh = [];
   for (const [key, dbCfg] of Object.entries(DB_CONFIGS)) {
     try {
       const snap = await get(ref(db, dbCfg.path));
@@ -762,9 +824,9 @@ async function loadSearchCache() {
           const grade = String(rec[dbCfg.gradeField] || '').trim();
           if (name || admNo) {
             // Deduplicate by name+admNo combo
-            const exists = searchCache.records.find(r => r.admNo === admNo && r.name === name);
+            const exists = fresh.find(r => r.admNo === admNo && r.name === name);
             if (!exists) {
-              searchCache.records.push({ name, admNo, grade, key: child.key, dbKey: key, dbLabel: dbCfg.label });
+              fresh.push(_indexRecord({ name, admNo, grade, key: child.key, dbKey: key, dbLabel: dbCfg.label }));
             }
           }
         });
@@ -777,8 +839,12 @@ async function loadSearchCache() {
       console.warn('Search cache load error:', key, e);
     }
   }
-  searchCache.loaded = true;
-  searchCache.loading = false;
+  searchCache.records       = fresh;
+  searchCache.loaded        = true;
+  searchCache.loading       = false;
+  searchCache.networkSynced = true;
+  searchCache.lastSync      = Date.now();
+  _cacheWrite(fresh);
 }
 
 function searchStudents(query) {
@@ -786,8 +852,8 @@ function searchStudents(query) {
   const q = query.toLowerCase().trim();
   const results = [];
   for (const r of searchCache.records) {
-    const nameMatch = r.name.toLowerCase().includes(q);
-    const admMatch  = r.admNo.toLowerCase().includes(q);
+    const nameMatch = (r._nameLower ?? r.name.toLowerCase()).includes(q);
+    const admMatch  = (r._admLower  ?? r.admNo.toLowerCase()).includes(q);
     if (nameMatch || admMatch) results.push({ ...r, nameMatch, admMatch });
   }
   results.sort((a, b) => {
@@ -974,7 +1040,7 @@ function initSearch(pan) {
 
   inp.addEventListener('focus', () => {
     if (inp.value.trim()) renderDropdown(pan, searchStudents(inp.value.trim()), inp.value.trim());
-    if (!searchCache.loaded && !searchCache.loading && auth.currentUser) loadSearchCache();
+    if (!searchCache.networkSynced && !searchCache.loading && auth.currentUser) loadSearchCache();
   });
 
   inp.addEventListener('blur', () => setTimeout(() => closeDropdown(pan), 150));
@@ -1052,7 +1118,7 @@ window.signInWithGoogle = async () => {
 window.signOutUser = async () => {
   await signOut(auth);
   clearPanel('adm'); clearPanel('name');
-  searchCache.loaded = false; searchCache.loading = false; searchCache.records = [];
+  searchCache.loaded = false; searchCache.loading = false; searchCache.networkSynced = false; searchCache.records = [];
   notify('Signed out.');
 };
 
@@ -1326,7 +1392,8 @@ window.runUpdate = async pan => {
   notify(allOk ? `✅ ${ok} record(s) updated!` : `⚠️ ${fail} record(s) failed — nothing changed.`, allOk ? 'success' : 'error');
 
   // Invalidate cache so re-search shows fresh data
-  searchCache.loaded = false; searchCache.records = [];
+  searchCache.loaded = false; searchCache.networkSynced = false; searchCache.records = [];
+  _cacheInvalidate();
 
   // Clear stale preview table/state — it's now out of date.
   state[pan].preview = [];
