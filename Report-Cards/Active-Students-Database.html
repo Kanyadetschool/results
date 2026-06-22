@@ -3252,15 +3252,20 @@ window._photoPath = _photoPath;
 async function _probeImage(url) {
     if (!url) return false;
     if (_imgExistCache[url] !== undefined) return _imgExistCache[url];
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 10000); // generous, but can never hang forever
     try {
-        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: controller.signal });
         _imgExistCache[url] = res.ok;
         return res.ok;
     } catch(_) {
         _imgExistCache[url] = false;
         return false;
+    } finally {
+        clearTimeout(t);
     }
 }
+window._probeImage = _probeImage;
 
 async function resolveStudentPhoto(name, grade) {
     const url = _photoPath(name, grade);
@@ -3286,13 +3291,17 @@ function _pdfCandidates(name, grade) {
 async function _probePdf(url) {
     if (!url) return false;
     if (_pdfExistCache[url] !== undefined) return _pdfExistCache[url];
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 10000);
     try {
-        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: controller.signal });
         _pdfExistCache[url] = res.ok;
         return res.ok;
     } catch(_) {
         _pdfExistCache[url] = false;
         return false;
+    } finally {
+        clearTimeout(t);
     }
 }
 
@@ -8249,7 +8258,10 @@ setTimeout(() => {
   <div style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:400px;overflow:hidden;border:1px solid var(--border);margin:1rem;">
     <div style="background:var(--navy);padding:.9rem 1.2rem;display:flex;align-items:center;gap:.6rem;">
       <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="var(--gold)" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-      <span style="font-weight:700;color:#fff;font-size:.95rem;">Exporting Birth Certificates</span>
+      <span id="zip-progress-title" style="font-weight:700;color:#fff;font-size:.95rem;flex:1;">Exporting Birth Certificates</span>
+      <button id="zip-progress-close-btn" title="Cancel" style="background:none;border:none;cursor:pointer;padding:.2rem;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.7);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
     </div>
     <div style="padding:1.25rem 1.2rem;display:flex;flex-direction:column;gap:.85rem;">
       <div id="zip-progress-label" style="font-size:.84rem;color:var(--slate);text-align:center;">Preparing…</div>
@@ -8260,6 +8272,15 @@ setTimeout(() => {
     </div>
   </div>
 </div>
+<script>
+// Lets the user back out of a stuck/long-running ZIP export instead of being trapped.
+window._zipExportCancelled = false;
+document.getElementById('zip-progress-close-btn')?.addEventListener('click', () => {
+    window._zipExportCancelled = true;
+    const pm = document.getElementById('zip-progress-modal');
+    if (pm) pm.style.display = 'none';
+});
+</script>
 
 <script>
 // ══════════════════════════════════════════════════
@@ -8324,9 +8345,12 @@ window._bulkExportZip = async function(){
     if (!r.isConfirmed) return;
 
     const pm = document.getElementById('zip-progress-modal');
+    const pt = document.getElementById('zip-progress-title');
     const pf = document.getElementById('zip-progress-fill');
     const pl = document.getElementById('zip-progress-label');
     const ps = document.getElementById('zip-progress-sub');
+    window._zipExportCancelled = false;
+    if (pt) pt.textContent = 'Exporting Birth Certificates';
     if (pm) pm.style.display = 'flex';
 
     try {
@@ -8343,6 +8367,7 @@ window._bulkExportZip = async function(){
         let added = 0;
         // files placed directly into per-grade sub-folders (no outer wrapper)
         for (let i=0;i<withBC.length;i++){
+            if (window._zipExportCancelled) return;
             const s = withBC[i];
             pf.style.width = Math.round(i/withBC.length*85)+'%';
             pl.textContent = 'Fetching '+(i+1)+' of '+withBC.length+'…';
@@ -8382,9 +8407,12 @@ window._bulkExportPhotosZip = async function() {
 
     // Reuse the zip progress modal for the scan phase too
     const pm = document.getElementById('zip-progress-modal');
+    const pt = document.getElementById('zip-progress-title');
     const pf = document.getElementById('zip-progress-fill');
     const pl = document.getElementById('zip-progress-label');
     const ps = document.getElementById('zip-progress-sub');
+    window._zipExportCancelled = false;
+    if (pt) pt.textContent = 'Exporting Student Photos';
     if (pm) pm.style.display = 'flex';
     if (pl) pl.textContent = 'Checking server for photos…';
     if (ps) ps.textContent = '';
@@ -8392,14 +8420,22 @@ window._bulkExportPhotosZip = async function() {
     // ── Probe each student's ./student_images/{Grade}/{Name}.jpg ──
     const withPhoto = [];
     const BATCH = 40;
-    for (let i = 0; i < students.length; i += BATCH) {
-        const batch = students.slice(i, i + BATCH);
-        if (pf) pf.style.width = Math.round(i / students.length * 30) + '%';
-        await Promise.all(batch.map(async s => {
-            const url = _photoPath(s['Official Student Name'], s.Grade);
-            if (url && await _probeImage(url)) withPhoto.push(s);
-        }));
+    try {
+        for (let i = 0; i < students.length; i += BATCH) {
+            if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
+            const batch = students.slice(i, i + BATCH);
+            if (pf) pf.style.width = Math.round(i / students.length * 30) + '%';
+            await Promise.all(batch.map(async s => {
+                const url = _photoPath(s['Official Student Name'], s.Grade);
+                if (url && await _probeImage(url)) withPhoto.push(s);
+            }));
+        }
+    } catch(scanErr) {
+        if (pm) pm.style.display = 'none';
+        showToast('Could not check the server for photos: ' + scanErr.message, 'danger');
+        return;
     }
+    if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
     const total = withPhoto.length;
     if (pm) pm.style.display = 'none';
 
@@ -8447,6 +8483,7 @@ window._bulkExportPhotosZip = async function() {
         let added = 0;
         let done = 0;
         for (const student of withPhoto) {
+            if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
             done++;
             const pct = Math.round((done / total) * 88);
             if (pf) pf.style.width = pct + '%';
