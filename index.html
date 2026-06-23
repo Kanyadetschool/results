@@ -6758,8 +6758,8 @@ function viewStudent(id){
       <div class="stu-av-wrap stu-av-lg" id="${_modalAvId}">${(rec['Official Student Name']||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?'}</div>
       <div>
         <div class="student-meta">
-          <div class="s-name">${rec['Official Student Name']||'—'}</div>
-          <div class="s-detail">UPI: ${rec['UPI']||'N/A'} · Assessment No <span id="${_modalAdmId}">${rec['Assessment No']||'N/A'}</span> · ${rec['Gender']||'N/A'}</div>
+          <div class="s-name">${rec['Official Student Name']||'—'}${rec['Official Student Name']?' <span style="font-size:11px;opacity:.5;font-weight:400;">📋</span>':''}</div>
+          <div class="s-detail">UPI: ${rec['UPI']||'N/A'} · Assessment No <span id="${_modalAdmId}">${rec['Assessment No']||'N/A'}${rec['Assessment No']?' <span style="font-size:10px;opacity:.5;">📋</span>':''}</span> · ${rec['Gender']||'N/A'}</div>
         </div>
         <div class="badge-row">
           <span class="bdg blue">📚 ${rec['Grade']||rec['Term']||'N/A'}</span>
@@ -8307,8 +8307,8 @@ function openRecordsModal(masterId){
   const name = entry['Official Student Name'] || 'Student';
   const adm  = entry['Assessment No'] || 'N/A';
 
-  document.getElementById('rec-modal-name').textContent = name;
-  document.getElementById('rec-modal-sub').innerHTML = 'Assessment No <span id="rec-modal-adm">' + (adm||'N/A') + '</span> · ' + allRecs.length + ' record' + (allRecs.length===1?'':'s');
+  document.getElementById('rec-modal-name').innerHTML = name + (entry['Official Student Name']?' <span style="font-size:11px;opacity:.5;">📋</span>':'');
+  document.getElementById('rec-modal-sub').innerHTML = 'Assessment No <span id="rec-modal-adm">' + (adm||'N/A') + (adm&&adm!=='N/A'?' <span style="font-size:10px;opacity:.5;">📋</span>':'') + '</span> · ' + allRecs.length + ' record' + (allRecs.length===1?'':'s');
   // Set initials instantly, load photo async
   const recAvEl=document.getElementById('rec-modal-av');
   if(recAvEl){
@@ -8790,8 +8790,8 @@ function openProgressModal(masterId){
   const name=entry['Official Student Name']||'Student';
   const grade=entry['Grade']||'';
   const adm=entry['Assessment No']||'';
-  document.getElementById('progress-modal-name').textContent=name+' — Progress';
-  document.getElementById('progress-modal-sub').innerHTML=(adm?'Assessment No <span id="progress-modal-adm">'+adm+'</span> · ':'')+allRecs.length+' term'+( allRecs.length>1?'s':'');
+  document.getElementById('progress-modal-name').innerHTML=name+' — Progress'+(entry['Official Student Name']?' <span style="font-size:11px;opacity:.5;">📋</span>':'');
+  document.getElementById('progress-modal-sub').innerHTML=(adm?'Assessment No <span id="progress-modal-adm">'+adm+' <span style="font-size:10px;opacity:.5;">📋</span></span> · ':'')+allRecs.length+' term'+( allRecs.length>1?'s':'');
 
   // Avatar
   const pmAv=document.getElementById('progress-modal-av');
