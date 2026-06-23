@@ -2513,38 +2513,41 @@ function _applyPhoto(el, src) {
 }
 window._applyPhoto = _applyPhoto; // make patchable by spinner IIFE
 
-// Try loading an image URL; returns {ok, img, src}
+// Try loading an image URL; returns a resolved src string or null (with timeout)
 function _tryImg(src) {
   if (_imgLoadCache[src] !== undefined) {
-    return Promise.resolve(_imgLoadCache[src]);
+    const cached = _imgLoadCache[src];
+    return Promise.resolve(cached ? {ok:true, src:cached} : {ok:false, src});
   }
   return new Promise(resolve => {
     const img = new Image();
-    img.onload  = () => { const r={ok:true,  img, src}; _imgLoadCache[src]=r; resolve(r); };
-    img.onerror = () => { const r={ok:false, img:null, src}; _imgLoadCache[src]=r; resolve(r); };
+    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => {
+      _imgLoadCache[src] = null;
+      resolve({ok:false, src});
+    }, 2500);
+    img.onload  = () => { clearTimeout(timer); _imgLoadCache[src] = src; resolve({ok:true,  src}); };
+    img.onerror = () => { clearTimeout(timer); _imgLoadCache[src] = null; resolve({ok:false, src}); };
     img.src = src;
   });
 }
 
 // Build candidate paths for a student's photo from Grade + Name
-// FIX 2: encode BOTH the grade folder and the name so spaces/special chars
-//         in "Grade 4" don't produce an unencoded space in the URL.
+// Mirrors index.html: checks both ./Report-Cards/student_images/ and ./student_images/
 function _photoPathsFor(name, grade) {
-  const g     = (grade || '').trim();
-  const gEnc  = encodeURIComponent(g);          // "Grade%204"
-  const clean = (name  || '').trim();
-  // Name variants: raw, URI-encoded, underscored spaces
-  const nameVariants = [
-    clean,
-    encodeURIComponent(clean),
-    clean.replace(/ /g, '_'),
+  // Normalise grade the same way index.html does
+  const g        = ((grade || '').match(/Grade\s*\d+/i)?.[0] || grade || '').trim();
+  const cleanName = (name || '').trim();
+  const encGrade  = encodeURIComponent(g);
+  const encName   = encodeURIComponent(cleanName);
+  const paths = [
+    `./Report-Cards/student_images/${g}/${cleanName}.jpg`,
+    `./Report-Cards/student_images/${encGrade}/${encName}.jpg`,
+    `./Report-Cards/student_images/${g}/${encName}.jpg`,
+    `./student_images/${g}/${cleanName}.jpg`,
+    `./student_images/${encGrade}/${encName}.jpg`,
+    `./student_images/${g}/${encName}.jpg`,
   ];
-  const paths = [];
-  nameVariants.forEach(v => {
-    paths.push(`./student_images/${gEnc}/${v}.jpg`);  // encoded grade (safe)
-    if (gEnc !== g) paths.push(`./student_images/${g}/${v}.jpg`); // raw grade fallback
-  });
-  paths.push('./student_images/default.jpg');
   return [...new Set(paths)]; // dedupe
 }
 
@@ -2553,7 +2556,12 @@ async function resolveStudentPhoto(name, grade) {
   const paths = _photoPathsFor(name, grade);
   for (const p of paths) {
     const r = await _tryImg(p);
-    if (r.ok) return p;
+    if (r.ok) return r.src;
+  }
+  // Try default avatars as final fallback
+  for (const def of ['./Report-Cards/student_images/default.jpg', './student_images/default.jpg']) {
+    const r = await _tryImg(def);
+    if (r.ok) return r.src;
   }
   return null;
 }
@@ -2565,11 +2573,8 @@ async function loadPhotoInto(el, name, grade) {
   const normName = (name || '').toLowerCase().trim();
   el.setAttribute('data-photo-name', normName);
   el.setAttribute('data-photo-grade', grade || '');
-  const paths = _photoPathsFor(name, grade);
-  for (const p of paths) {
-    const r = await _tryImg(p);
-    if (r.ok) { window._applyPhoto(el, p); return; }
-  }
+  const src = await resolveStudentPhoto(name, grade);
+  if (src) window._applyPhoto(el, src);
   // No photo found — leave initial letter fallback
 }
 
