@@ -319,16 +319,11 @@
     });
   }
 
-  /* ── Event delegation — catches dynamic images ── */
+  /* ── Event delegation — catches any image click ── */
   document.body.addEventListener('click', (e) => {
-    const img = e.target.closest('img');
-    if (!img) return;
-    /* Skip tiny icons / avatars (< 40px) */
-    if (img.naturalWidth && img.naturalWidth < 40) return;
-    /* Skip explicitly excluded images */
-    if (img.dataset.noPopup !== undefined) return;
+    if (!e.target.matches('img')) return;
     e.preventDefault();
-    openPopup(img);
+    openPopup(e.target);
   });
 
   /* ── Keyboard: Escape closes (SweetAlert2 handles this, but guard anyway) ── */
