@@ -3112,6 +3112,33 @@ function notify(html, type='info', dur=4500){
   if(dur>0) setTimeout(()=>{ d.style.opacity='0'; d.style.transition='opacity .4s'; setTimeout(()=>d.remove(),400); }, dur);
 }
 
+function copyStudentName(name){
+  if(!name) return;
+  const done = ()=>notify(`📋 Copied "${name}" to clipboard`, 'success', 2000);
+  const fail = ()=>notify('Could not copy name to clipboard', 'error', 2500);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(name).then(done).catch(()=>{
+      // Fallback for insecure/older contexts where the Clipboard API is unavailable
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=name; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+        done();
+      }catch(e){ fail(); }
+    });
+  } else {
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=name; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      done();
+    }catch(e){ fail(); }
+  }
+}
+window.copyStudentName=copyStudentName;
+
 function getSubjects(rec){
   if(!rec) return [];
   return Object.keys(rec).filter(k=>{
@@ -6781,6 +6808,15 @@ function viewStudent(id){
   document.getElementById('modal-pdf-btn').onclick=()=>dlStudentPDF(id);
   document.getElementById('student-modal').classList.add('on');
   injectPhoto(_modalAvId, rec['Official Student Name']||'', rec['Grade']||'', rec.id||'');
+  // Click the photo or the name to copy the student's name to the clipboard.
+  {
+    const _name = rec['Official Student Name']||'';
+    const _copyHandler = ()=>copyStudentName(_name);
+    const _avEl = document.getElementById(_modalAvId);
+    if(_avEl){ _avEl.style.cursor='pointer'; _avEl.title='Click to copy name'; _avEl.onclick=_copyHandler; }
+    const _nameEl = document.querySelector('#student-modal-body .s-name');
+    if(_nameEl){ _nameEl.style.cursor='pointer'; _nameEl.title='Click to copy name'; _nameEl.onclick=_copyHandler; }
+  }
   logActivity(`👁 Viewed profile of ${rec['Official Student Name']}`, 'act-blue', currentAdminName);
 }
 window.viewStudent=viewStudent;
