@@ -2495,6 +2495,9 @@ const _imgLoadCache = {};
 // No-op: was used for Firebase photo subscription — not needed with local files
 function _subscribeDbPhotos(dbInst) { /* photos come from disk, not DB */ }
 
+// FIX 1: Expose on window so the spinner patch (and any other code) can
+//         intercept it.  Plain `function` declarations are NOT auto-assigned
+//         to window inside strict/module contexts, so we do it explicitly.
 function _applyPhoto(el, src) {
   if (!el || !src) return;
   if (el.tagName === 'IMG') { if (el.src !== src) el.src = src; return; }
@@ -2508,6 +2511,7 @@ function _applyPhoto(el, src) {
   }
   if (img.src !== src) img.src = src;
 }
+window._applyPhoto = _applyPhoto; // make patchable by spinner IIFE
 
 // Try loading an image URL; returns {ok, img, src}
 function _tryImg(src) {
@@ -2523,17 +2527,23 @@ function _tryImg(src) {
 }
 
 // Build candidate paths for a student's photo from Grade + Name
+// FIX 2: encode BOTH the grade folder and the name so spaces/special chars
+//         in "Grade 4" don't produce an unencoded space in the URL.
 function _photoPathsFor(name, grade) {
-  const g = (grade || '').trim();
-  const clean = (name || '').trim();
-  // Encode variants: raw, URI-encoded, replace spaces with underscores
-  const variants = [
+  const g     = (grade || '').trim();
+  const gEnc  = encodeURIComponent(g);          // "Grade%204"
+  const clean = (name  || '').trim();
+  // Name variants: raw, URI-encoded, underscored spaces
+  const nameVariants = [
     clean,
     encodeURIComponent(clean),
     clean.replace(/ /g, '_'),
   ];
   const paths = [];
-  variants.forEach(v => paths.push(`./student_images/${g}/${v}.jpg`));
+  nameVariants.forEach(v => {
+    paths.push(`./student_images/${gEnc}/${v}.jpg`);  // encoded grade (safe)
+    if (gEnc !== g) paths.push(`./student_images/${g}/${v}.jpg`); // raw grade fallback
+  });
   paths.push('./student_images/default.jpg');
   return [...new Set(paths)]; // dedupe
 }
@@ -2549,6 +2559,7 @@ async function resolveStudentPhoto(name, grade) {
 }
 
 // Load photo into an avatar element using Grade + Name path pattern
+// FIX 3: call window._applyPhoto (not local ref) so the spinner patch works
 async function loadPhotoInto(el, name, grade) {
   if (!el) return;
   const normName = (name || '').toLowerCase().trim();
@@ -2557,7 +2568,7 @@ async function loadPhotoInto(el, name, grade) {
   const paths = _photoPathsFor(name, grade);
   for (const p of paths) {
     const r = await _tryImg(p);
-    if (r.ok) { _applyPhoto(el, p); return; }
+    if (r.ok) { window._applyPhoto(el, p); return; }
   }
   // No photo found — leave initial letter fallback
 }
@@ -3576,35 +3587,26 @@ document.addEventListener('keydown', e=>{
 //  AVATAR SPINNER — show while photo is loading
 // ═══════════════════════════════════════════════════
 (function(){
-  // Patch _applyPhoto to add/remove spinner class
-  const _orig = window._applyPhoto || null;
-
-  function patchApplyPhoto(){
-    if(!window._applyPhoto){ setTimeout(patchApplyPhoto, 100); return; }
-    const orig = window._applyPhoto;
-    window._applyPhoto = function(el, src){
-      if(!el || !src) return;
-      // Start spinner
-      el.classList.add('av-loading');
-      // Call original to inject the img
-      orig(el, src);
-      // Find the img (may have just been created)
-      const img = el.tagName === 'IMG' ? el : el.querySelector('img');
-      if(img){
-        const finish = () => el.classList.remove('av-loading');
-        if(img.complete && img.naturalWidth > 0){
-          finish();
-        } else {
-          img.addEventListener('load',  finish, {once:true});
-          img.addEventListener('error', finish, {once:true});
-        }
+  // Patch window._applyPhoto to add/remove spinner.
+  // window._applyPhoto is set synchronously above, so it's always available here.
+  const orig = window._applyPhoto;
+  window._applyPhoto = function(el, src){
+    if(!el || !src) return;
+    el.classList.add('av-loading');
+    orig(el, src);
+    const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+    if(img){
+      const finish = () => el.classList.remove('av-loading');
+      if(img.complete && img.naturalWidth > 0){
+        finish();
       } else {
-        // Fallback: remove spinner after 3s
-        setTimeout(()=>el.classList.remove('av-loading'), 3000);
+        img.addEventListener('load',  finish, {once:true});
+        img.addEventListener('error', finish, {once:true});
       }
-    };
-  }
-  patchApplyPhoto();
+    } else {
+      setTimeout(()=>el.classList.remove('av-loading'), 3000);
+    }
+  };
 
   // Also add spinner to avatars that have data-photo-name stamped on them
   // (waiting for Firebase photo map to arrive)
