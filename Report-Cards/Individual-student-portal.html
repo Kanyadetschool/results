@@ -2541,9 +2541,6 @@ function _photoPathsFor(name, grade) {
   const encGrade  = encodeURIComponent(g);
   const encName   = encodeURIComponent(cleanName);
   const paths = [
-    `./Report-Cards/student_images/${g}/${cleanName}.jpg`,
-    `./Report-Cards/student_images/${encGrade}/${encName}.jpg`,
-    `./Report-Cards/student_images/${g}/${encName}.jpg`,
     `./student_images/${g}/${cleanName}.jpg`,
     `./student_images/${encGrade}/${encName}.jpg`,
     `./student_images/${g}/${encName}.jpg`,
@@ -2558,11 +2555,9 @@ async function resolveStudentPhoto(name, grade) {
     const r = await _tryImg(p);
     if (r.ok) return r.src;
   }
-  // Try default avatars as final fallback
-  for (const def of ['./Report-Cards/student_images/default.jpg', './student_images/default.jpg']) {
-    const r = await _tryImg(def);
-    if (r.ok) return r.src;
-  }
+  // Fallback to default avatar
+  const def = await _tryImg('./student_images/default.jpg');
+  if (def.ok) return def.src;
   return null;
 }
 
@@ -2597,12 +2592,20 @@ async function loadStudentImg(name, grade, photoURL){
     const r = await loadImg(photoURL.trim());
     if(r.ok) return r;
   }
-  const g = (grade||'').match(/^Grade\s*\d+/i)?.[0] || grade || '';
+  const g = (grade||'').match(/Grade\s*\d+/i)?.[0] || grade || '';
   const cleanName = (name||'').trim();
-  const r2 = await loadImg(`./student_images/${g}/${cleanName}.jpg`);
-  if(r2.ok) return r2;
-  const r3 = await loadImg(`./student_images/${g}/${encodeURIComponent(cleanName)}.jpg`);
-  if(r3.ok) return r3;
+  const encG = encodeURIComponent(g);
+  const encN = encodeURIComponent(cleanName);
+  const paths = [
+    `./student_images/${g}/${cleanName}.jpg`,
+    `./student_images/${encG}/${encN}.jpg`,
+    `./student_images/${g}/${encN}.jpg`,
+    `./student_images/${g}/${cleanName}.jpg`,
+    `./student_images/${g}/${encN}.jpg`,
+  ];
+  for(const p of paths){ const r=await loadImg(p); if(r.ok) return r; }
+  const def = await loadImg('./student_images/default.jpg');
+  if(def.ok) return def;
   return loadImg('./student_images/default.jpg');
 }
 
