@@ -323,6 +323,7 @@
   document.body.addEventListener('click', (e) => {
     if (!e.target.matches('img')) return;
     e.preventDefault();
+    e.stopPropagation(); // stops tr onclick / parent handlers from firing
     openPopup(e.target);
   });
 
