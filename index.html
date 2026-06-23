@@ -3112,16 +3112,16 @@ function notify(html, type='info', dur=4500){
   if(dur>0) setTimeout(()=>{ d.style.opacity='0'; d.style.transition='opacity .4s'; setTimeout(()=>d.remove(),400); }, dur);
 }
 
-function copyStudentName(name){
-  if(!name) return;
-  const done = ()=>notify(`📋 Copied "${name}" to clipboard`, 'success', 2000);
-  const fail = ()=>notify('Could not copy name to clipboard', 'error', 2500);
+function copyToClipboard(text, label='Value'){
+  if(!text) return;
+  const done = ()=>notify(`📋 Copied ${label} "${text}" to clipboard`, 'success', 2000);
+  const fail = ()=>notify(`Could not copy ${label} to clipboard`, 'error', 2500);
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(name).then(done).catch(()=>{
+    navigator.clipboard.writeText(text).then(done).catch(()=>{
       // Fallback for insecure/older contexts where the Clipboard API is unavailable
       try{
         const ta=document.createElement('textarea');
-        ta.value=name; ta.style.position='fixed'; ta.style.opacity='0';
+        ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
         document.body.appendChild(ta); ta.select();
         document.execCommand('copy'); ta.remove();
         done();
@@ -3130,14 +3130,18 @@ function copyStudentName(name){
   } else {
     try{
       const ta=document.createElement('textarea');
-      ta.value=name; ta.style.position='fixed'; ta.style.opacity='0';
+      ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
       document.body.appendChild(ta); ta.select();
       document.execCommand('copy'); ta.remove();
       done();
     }catch(e){ fail(); }
   }
 }
+function copyStudentName(name){ copyToClipboard(name, 'name'); }
+function copyAssessmentNo(no){ copyToClipboard(no, 'Assessment No'); }
 window.copyStudentName=copyStudentName;
+window.copyAssessmentNo=copyAssessmentNo;
+window.copyToClipboard=copyToClipboard;
 
 function getSubjects(rec){
   if(!rec) return [];
@@ -6747,6 +6751,7 @@ function viewStudent(id){
   const subjects=getSubjects(rec);
   const color=barColor(st.avg);
   const _modalAvId='modal_av_'+id;
+  const _modalAdmId='modal_adm_'+id;
   document.getElementById('student-modal-title').textContent=rec['Official Student Name']||'Student Profile';
   document.getElementById('student-modal-body').innerHTML=`
     <div class="student-card">
@@ -6754,7 +6759,7 @@ function viewStudent(id){
       <div>
         <div class="student-meta">
           <div class="s-name">${rec['Official Student Name']||'—'}</div>
-          <div class="s-detail">UPI: ${rec['UPI']||'N/A'} · Assessment No ${rec['Assessment No']||'N/A'} · ${rec['Gender']||'N/A'}</div>
+          <div class="s-detail">UPI: ${rec['UPI']||'N/A'} · Assessment No <span id="${_modalAdmId}">${rec['Assessment No']||'N/A'}</span> · ${rec['Gender']||'N/A'}</div>
         </div>
         <div class="badge-row">
           <span class="bdg blue">📚 ${rec['Grade']||rec['Term']||'N/A'}</span>
@@ -6816,6 +6821,9 @@ function viewStudent(id){
     if(_avEl){ _avEl.style.cursor='pointer'; _avEl.title='Click to copy name'; _avEl.onclick=_copyHandler; }
     const _nameEl = document.querySelector('#student-modal-body .s-name');
     if(_nameEl){ _nameEl.style.cursor='pointer'; _nameEl.title='Click to copy name'; _nameEl.onclick=_copyHandler; }
+    const _admVal = rec['Assessment No']||'';
+    const _admEl = document.getElementById(_modalAdmId);
+    if(_admEl && _admVal){ _admEl.style.cursor='pointer'; _admEl.style.textDecoration='underline dotted'; _admEl.title='Click to copy Assessment No'; _admEl.onclick=(e)=>{ e.stopPropagation(); copyAssessmentNo(_admVal); }; }
   }
   logActivity(`👁 Viewed profile of ${rec['Official Student Name']}`, 'act-blue', currentAdminName);
 }
@@ -8300,7 +8308,7 @@ function openRecordsModal(masterId){
   const adm  = entry['Assessment No'] || 'N/A';
 
   document.getElementById('rec-modal-name').textContent = name;
-  document.getElementById('rec-modal-sub').textContent  = 'Assessment No ' + adm + ' · ' + allRecs.length + ' record' + (allRecs.length===1?'':'s');
+  document.getElementById('rec-modal-sub').innerHTML = 'Assessment No <span id="rec-modal-adm">' + (adm||'N/A') + '</span> · ' + allRecs.length + ' record' + (allRecs.length===1?'':'s');
   // Set initials instantly, load photo async
   const recAvEl=document.getElementById('rec-modal-av');
   if(recAvEl){
@@ -8315,6 +8323,15 @@ function openRecordsModal(masterId){
   renderRecordTabs(allRecs, 0);
   renderRecordContent(allRecs, 0);
   document.getElementById('records-modal').classList.add('on');
+  // Click the photo or the name to copy the student's name to the clipboard.
+  {
+    const _copyHandler = ()=>copyStudentName(name);
+    const _nameEl = document.getElementById('rec-modal-name');
+    if(_nameEl){ _nameEl.style.cursor='pointer'; _nameEl.title='Click to copy name'; _nameEl.onclick=_copyHandler; }
+    if(recAvEl){ recAvEl.style.cursor='pointer'; recAvEl.title='Click to copy name'; recAvEl.onclick=_copyHandler; }
+    const _admEl = document.getElementById('rec-modal-adm');
+    if(_admEl && adm && adm!=='N/A'){ _admEl.style.cursor='pointer'; _admEl.style.textDecoration='underline dotted'; _admEl.title='Click to copy Assessment No'; _admEl.onclick=(e)=>{ e.stopPropagation(); copyAssessmentNo(adm); }; }
+  }
   logActivity('📋 Viewed records for ' + name, 'act-blue', currentAdminName);
 }
 window.openRecordsModal = openRecordsModal;
@@ -8772,8 +8789,9 @@ function openProgressModal(masterId){
   const allRecs=(entry._allRecords||[entry]).sort((a,b)=>getRecordTerm(a).localeCompare(getRecordTerm(b)));
   const name=entry['Official Student Name']||'Student';
   const grade=entry['Grade']||'';
+  const adm=entry['Assessment No']||'';
   document.getElementById('progress-modal-name').textContent=name+' — Progress';
-  document.getElementById('progress-modal-sub').textContent=allRecs.length+' term'+( allRecs.length>1?'s':'');
+  document.getElementById('progress-modal-sub').innerHTML=(adm?'Assessment No <span id="progress-modal-adm">'+adm+'</span> · ':'')+allRecs.length+' term'+( allRecs.length>1?'s':'');
 
   // Avatar
   const pmAv=document.getElementById('progress-modal-av');
@@ -8830,6 +8848,15 @@ function openProgressModal(masterId){
     </table></div>`;
 
   document.getElementById('progress-modal').classList.add('on');
+  // Click the photo or the name to copy the student's name to the clipboard.
+  {
+    const _copyHandler = ()=>copyStudentName(name);
+    const _pmNameEl = document.getElementById('progress-modal-name');
+    if(_pmNameEl){ _pmNameEl.style.cursor='pointer'; _pmNameEl.title='Click to copy name'; _pmNameEl.onclick=_copyHandler; }
+    if(pmAv){ pmAv.style.cursor='pointer'; pmAv.title='Click to copy name'; pmAv.onclick=_copyHandler; }
+    const _admEl = document.getElementById('progress-modal-adm');
+    if(_admEl && adm){ _admEl.style.cursor='pointer'; _admEl.style.textDecoration='underline dotted'; _admEl.title='Click to copy Assessment No'; _admEl.onclick=(e)=>{ e.stopPropagation(); copyAssessmentNo(adm); }; }
+  }
 }
 window.openProgressModal=openProgressModal;
 function closeProgressModal(){document.getElementById('progress-modal').classList.remove('on');}
