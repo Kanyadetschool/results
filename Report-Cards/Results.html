@@ -3149,6 +3149,10 @@ deleteGradeBtn.addEventListener('click', async () => {
 
 
 const exportToPdf = async () => {
+    if (!window.jspdf) {
+        console.error('[PDF Export] jsPDF library not loaded. Check CDN script tag.');
+        throw new Error('jsPDF not available');
+    }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('landscape');
 
@@ -3158,8 +3162,9 @@ const exportToPdf = async () => {
     const includePhoto = document.getElementById('pdf-include-photo-cb')?.checked || false;
 
     // Pre-fetch all photos as base64 data-URLs (needed for jsPDF addImage)
-    const photoDataMap = {}; // keyed by both firebase id and Assessment No → base64 dataURL
+    const photoDataMap = {};
     if (includePhoto) {
+        let loaded = 0, failed = 0;
         await Promise.all(dataToExport.map(async (student) => {
             const sid      = student.id || '';
             const assessNo = String(student['Assessment No'] || '');
@@ -3178,16 +3183,29 @@ const exportToPdf = async () => {
                             c.getContext('2d').drawImage(img, 0, 0);
                             res(c.toDataURL('image/jpeg', 0.8));
                         };
-                        img.onerror = () => res(null);
+                        img.onerror = () => {
+                            failed++;
+                            console.warn(`[PDF Export] Photo load failed for "${name}" (${assessNo})`);
+                            res(null);
+                        };
                         img.src = src;
                     });
                     if (dataUrl) {
                         if (sid)      photoDataMap[sid]      = dataUrl;
                         if (assessNo) photoDataMap[assessNo] = dataUrl;
+                        loaded++;
                     }
+                } else {
+                    console.info(`[PDF Export] No photo for "${name}" (${assessNo}) — skipped.`);
                 }
-            } catch(e) { /* no photo for this student */ }
+            } catch(e) {
+                failed++;
+                console.error(`[PDF Export] Error fetching photo for "${name}":`, e);
+            }
         }));
+        console.log(`[PDF Export] Photos done: ${loaded} loaded, ${failed} failed / ${dataToExport.length} total.`);
+        const msg = document.getElementById('pdf-progress-msg');
+        if (msg) msg.textContent = 'Building PDF layout...';
     }
 
     if (dataToExport.length === 0) {
@@ -3727,27 +3745,122 @@ const exportToPdf = async () => {
 
         const pdfExportOptions = document.getElementById('pdf-export-options');
 
-        // Show PDF options panel when hovering/selecting PDF, hide for others
-        printPdfBtn.addEventListener('mouseenter', () => pdfExportOptions.style.display = 'block');
-        printExcelBtn.addEventListener('mouseenter', () => pdfExportOptions.style.display = 'none');
-        printWordBtn.addEventListener('mouseenter', () => pdfExportOptions.style.display = 'none');
-        // Also toggle on click so it stays visible when you click PDF
-        printPdfBtn.addEventListener('click', () => { pdfExportOptions.style.display = 'block'; });
+        // ── PDF button: FIRST click = reveal options only (not export yet) ────────
+        // SECOND click (after options shown) = run export
+        let pdfOptionsRevealed = false;
+
+        // Visual active/pressed scale on every export button
+        [printExcelBtn, printPdfBtn, printWordBtn].forEach(btn => {
+            btn.addEventListener('mousedown', () => { btn.style.transform = 'scale(0.94)'; });
+            btn.addEventListener('mouseup',   () => { btn.style.transform = ''; });
+            btn.addEventListener('mouseleave',() => { btn.style.transform = ''; });
+        });
+
+        printPdfBtn.addEventListener('click', () => {
+            if (!pdfOptionsRevealed) {
+                // First click: show the options panel, do NOT export yet
+                pdfExportOptions.style.display = 'block';
+                pdfOptionsRevealed = true;
+
+                // Highlight the PDF button to show it's "selected / waiting for confirm"
+                printPdfBtn.style.background = 'var(--navy)';
+                printPdfBtn.style.color = '#fff';
+                printPdfBtn.style.boxShadow = '0 0 0 3px rgba(30,64,128,.35)';
+
+                // Add a small hint under the checkbox
+                let hint = document.getElementById('pdf-photo-hint');
+                if (!hint) {
+                    hint = document.createElement('p');
+                    hint.id = 'pdf-photo-hint';
+                    hint.style.cssText = 'margin-top:.55rem;font-size:.78rem;color:var(--navy-lt);font-weight:600;';
+                    hint.textContent = '✓ Options set? Click PDF again to export.';
+                    pdfExportOptions.appendChild(hint);
+                }
+                hint.style.display = 'block';
+
+                console.log('[PDF Export] Options panel opened. Awaiting confirmation click.');
+                return; // <-- stop here, do NOT export
+            }
+
+            // Second click: actually run the export
+            console.log('[PDF Export] Export triggered. Include photo:', document.getElementById('pdf-include-photo-cb')?.checked);
+            runPdfExport();
+        });
+
+        async function runPdfExport() {
+            // Disable button & show spinner feedback
+            printPdfBtn.disabled = true;
+            const origLabel = printPdfBtn.innerHTML;
+            const includePhoto = document.getElementById('pdf-include-photo-cb')?.checked || false;
+
+            // Show a toast-style progress bar inside the modal
+            let progressEl = document.getElementById('pdf-progress-bar-wrap');
+            if (!progressEl) {
+                progressEl = document.createElement('div');
+                progressEl.id = 'pdf-progress-bar-wrap';
+                progressEl.style.cssText = 'margin-bottom:.85rem;padding:.65rem .85rem;background:#eef3fb;border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--navy);font-weight:600;display:flex;align-items:center;gap:.6rem;';
+                progressEl.innerHTML = `
+                    <svg style="animation:spin 1s linear infinite;width:15px;height:15px;flex-shrink:0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="rgba(13,31,53,.2)" stroke-width="3"/>
+                        <path d="M12 2a10 10 0 0110 10" stroke="var(--navy-lt)" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                    <span id="pdf-progress-msg">${includePhoto ? 'Loading student photos…' : 'Building PDF…'}</span>`;
+                pdfExportOptions.parentNode.insertBefore(progressEl, pdfExportOptions);
+            } else {
+                progressEl.style.display = 'flex';
+                document.getElementById('pdf-progress-msg').textContent = includePhoto ? 'Loading student photos…' : 'Building PDF…';
+            }
+
+            printPdfBtn.innerHTML = `<svg style="animation:spin 1s linear infinite;width:13px;height:13px" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.35)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg> Exporting…`;
+
+            try {
+                await exportToPdf();
+                document.getElementById('pdf-progress-msg').textContent = '✓ PDF saved!';
+                setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 2000);
+                console.log('[PDF Export] Completed successfully.');
+            } catch (err) {
+                console.error('[PDF Export] ❌ Export failed:', err);
+                document.getElementById('pdf-progress-msg').textContent = '❌ Export failed — check console.';
+                progressEl.style.background = '#fee2e2';
+                progressEl.style.borderColor = '#fca5a5';
+                progressEl.style.color = 'var(--danger)';
+                setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 4000);
+            } finally {
+                printPdfBtn.disabled = false;
+                printPdfBtn.innerHTML = origLabel;
+            }
+        }
+
+        // Photo checkbox: show a preview of what "include photo" means
+        document.getElementById('pdf-include-photo-cb').addEventListener('change', function () {
+            const hint = document.getElementById('pdf-photo-hint');
+            if (this.checked) {
+                console.log('[PDF Export] "Include photo" checked — photos will be embedded in the PDF.');
+                if (hint) hint.textContent = '📷 Photos will be embedded. Click PDF again to export.';
+            } else {
+                console.log('[PDF Export] "Include photo" unchecked — export without photos.');
+                if (hint) hint.textContent = '✓ Options set? Click PDF again to export.';
+            }
+        });
 
         printExcelBtn.addEventListener('click', exportToExcel);
-        printPdfBtn.addEventListener('click', exportToPdf);
         printWordBtn.addEventListener('click', exportToWord);
 
-        // Reset checkbox & panel when modal opens
-        const _origOpenExportModal = openExportModal;
-        // Patch: hide PDF options panel each time modal opens
-        printModal.addEventListener('transitionend', () => {});
-        document.querySelectorAll('[data-open-export]').forEach(() => {});
-        // Use MutationObserver to reset when modal becomes visible
+        // Reset state when modal closes/opens
         new MutationObserver(() => {
             if (!printModal.classList.contains('hidden')) {
+                // Modal just opened — reset everything
                 pdfExportOptions.style.display = 'none';
+                pdfOptionsRevealed = false;
                 document.getElementById('pdf-include-photo-cb').checked = false;
+                printPdfBtn.style.background = '';
+                printPdfBtn.style.color = '';
+                printPdfBtn.style.boxShadow = '';
+                const hint = document.getElementById('pdf-photo-hint');
+                if (hint) hint.style.display = 'none';
+                const prog = document.getElementById('pdf-progress-bar-wrap');
+                if (prog) prog.style.display = 'none';
+                console.log('[Export Modal] Opened and reset.');
             }
         }).observe(printModal, { attributes: true, attributeFilter: ['class'] });
 
