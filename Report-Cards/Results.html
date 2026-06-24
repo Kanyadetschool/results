@@ -3488,7 +3488,7 @@ const exportToPdf = async () => {
     const term = dataToExport[0]['Term'] || 'N/A';
 
     const title = `P O BOX 45 - 40139, AKALA, KENYA`;
-    const subtitle = `PARAMETER: ${selectedGrade || 'All Grades'} | Academic Year: ${new Date().getFullYear()}`;
+    const subtitle = `LEVEL: ${selectedGrade || 'All Grades'} | Term: ${term} | Academic Year: ${new Date().getFullYear()}`;
     const totalStudents = dataToExport.length;
     
     // Load and process logo image to make it completely white
@@ -4132,6 +4132,241 @@ const exportToPdf = async () => {
                 console.log('[Export Modal] Opened and reset.');
             }
         }).observe(printModal, { attributes: true, attributeFilter: ['class'] });
+
+        // ══════════════════════════════════════════════════════════════════════
+        // KEYBOARD SHORTCUTS
+        // ══════════════════════════════════════════════════════════════════════
+        (function initShortcuts() {
+
+            // ── Shortcut toast ────────────────────────────────────────────────
+            const toast = document.createElement('div');
+            toast.id = 'shortcut-toast';
+            toast.style.cssText = `
+                position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%) translateY(12px);
+                background:var(--navy);color:#fff;font-family:'DM Sans',sans-serif;
+                font-size:.78rem;font-weight:600;padding:.42rem 1rem;border-radius:999px;
+                box-shadow:0 4px 18px rgba(0,0,0,.28);z-index:9999;
+                opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+                display:flex;align-items:center;gap:.45rem;white-space:nowrap;`;
+            document.body.appendChild(toast);
+            let _toastTimer;
+            function showToast(msg, icon = '⌨️') {
+                toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(-50%) translateY(0)';
+                clearTimeout(_toastTimer);
+                _toastTimer = setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(-50%) translateY(12px)';
+                }, 1600);
+            }
+
+            // ── Help panel ────────────────────────────────────────────────────
+            const helpOverlay = document.createElement('div');
+            helpOverlay.id = 'shortcuts-help-overlay';
+            helpOverlay.style.cssText = `
+                position:fixed;inset:0;z-index:10000;background:rgba(13,31,53,.65);
+                backdrop-filter:blur(6px);display:flex;align-items:center;
+                justify-content:center;padding:1rem;opacity:0;pointer-events:none;
+                transition:opacity .22s;`;
+            helpOverlay.innerHTML = `
+            <div style="background:var(--surface);border-radius:18px;box-shadow:0 24px 80px rgba(13,31,53,.4);
+                        max-width:540px;width:100%;padding:1.75rem 2rem;border:1px solid var(--border);
+                        max-height:90vh;overflow-y:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+                    <div style="font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:800;color:var(--navy);">Keyboard Shortcuts</div>
+                    <button id="help-close-btn" style="width:30px;height:30px;border-radius:50%;border:none;
+                        background:var(--surface3);color:var(--slate);cursor:pointer;font-size:1rem;
+                        display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem 1.5rem;">
+                    ${[
+                        ['/', 'Focus search'],
+                        ['Esc', 'Clear search / close modals'],
+                        ['Ctrl + E', 'Open export modal'],
+                        ['Ctrl + G', 'Toggle group by grade'],
+                        ['Ctrl + Shift + F', 'Toggle column filters'],
+                        ['Ctrl + K', 'Fit columns to data'],
+                        ['Ctrl + \\\\', 'Clear all filters'],
+                        ['[ / ]', 'Prev / next grade'],
+                        ['Ctrl + U', 'Show/hide upload section'],
+                        ['?', 'Show this help panel'],
+                    ].map(([k, d]) => `
+                        <div style="display:flex;align-items:center;justify-content:flex-end;">
+                            <kbd style="background:var(--navy);color:#fff;border-radius:6px;
+                                padding:.2rem .5rem;font-size:.72rem;font-family:'DM Sans',sans-serif;
+                                font-weight:700;white-space:nowrap;letter-spacing:.03em;">${k}</kbd>
+                        </div>
+                        <div style="font-size:.82rem;color:var(--text2);display:flex;align-items:center;">${d}</div>
+                    `).join('')}
+                </div>
+                <p style="margin-top:1.1rem;font-size:.72rem;color:var(--slate-lt);text-align:center;">
+                    Shortcuts are disabled when typing in an input field.
+                </p>
+            </div>`;
+            document.body.appendChild(helpOverlay);
+
+            function openHelp()  { helpOverlay.style.opacity = '1'; helpOverlay.style.pointerEvents = 'all'; }
+            function closeHelp() { helpOverlay.style.opacity = '0'; helpOverlay.style.pointerEvents = 'none'; }
+            helpOverlay.addEventListener('click', e => { if (e.target === helpOverlay) closeHelp(); });
+            document.getElementById('help-close-btn').addEventListener('click', closeHelp);
+
+            // ── Helpers ───────────────────────────────────────────────────────
+            function isTyping(e) {
+                const t = e.target;
+                return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+            }
+            function isModalOpen() {
+                const printModal  = document.getElementById('print-modal');
+                const editOverlay = document.getElementById('edit-drawer-overlay');
+                const pdfModal    = document.getElementById('pdf-modal-backdrop');
+                const helpOvl     = document.getElementById('shortcuts-help-overlay');
+                return (printModal  && !printModal.classList.contains('hidden'))  ||
+                       (editOverlay && editOverlay.classList.contains('open'))    ||
+                       (pdfModal    && !pdfModal.classList.contains('hidden'))    ||
+                       (helpOvl     && helpOvl.style.pointerEvents === 'all');
+            }
+            function cycleGrade(dir) {
+                const sel = document.getElementById('grade-filter-select');
+                if (!sel) return;
+                const opts = sel.options;
+                let idx = sel.selectedIndex + dir;
+                if (idx < 0) idx = opts.length - 1;
+                if (idx >= opts.length) idx = 0;
+                sel.selectedIndex = idx;
+                sel.dispatchEvent(new Event('change'));
+                showToast(opts[idx].text || 'All Grades', '🎓');
+            }
+
+            // ── Master keydown handler ─────────────────────────────────────────
+            document.addEventListener('keydown', function(e) {
+                const ctrl  = e.ctrlKey || e.metaKey;
+                const shift = e.shiftKey;
+                const key   = e.key;
+
+                // Always handle Escape (even in inputs)
+                if (key === 'Escape') {
+                    // Close help first if open
+                    if (helpOverlay.style.pointerEvents === 'all') { closeHelp(); e.preventDefault(); return; }
+                    // Close print modal
+                    const printModal = document.getElementById('print-modal');
+                    if (printModal && !printModal.classList.contains('hidden')) {
+                        document.getElementById('close-print-modal-btn')?.click();
+                        e.preventDefault(); return;
+                    }
+                    // Close edit drawer
+                    const editOverlay = document.getElementById('edit-drawer-overlay');
+                    if (editOverlay && editOverlay.classList.contains('open')) {
+                        document.getElementById('drawer-cancel-btn')?.click();
+                        e.preventDefault(); return;
+                    }
+                    // Close PDF modal
+                    const pdfModal = document.getElementById('pdf-modal-backdrop');
+                    if (pdfModal && !pdfModal.classList.contains('hidden')) {
+                        document.getElementById('close-pdf-modal-btn')?.click();
+                        e.preventDefault(); return;
+                    }
+                    // Clear search
+                    const searchInput = document.getElementById('search-input');
+                    if (searchInput && searchInput.value) {
+                        searchInput.value = '';
+                        searchInput.dispatchEvent(new Event('input'));
+                        document.getElementById('search-clear-btn')?.click();
+                        showToast('Search cleared', '✕');
+                        e.preventDefault(); return;
+                    }
+                    return;
+                }
+
+                // Ctrl+E → open export modal (even if typing)
+                if (ctrl && !shift && key === 'e') {
+                    const printModal = document.getElementById('print-modal');
+                    if (printModal && printModal.classList.contains('hidden')) {
+                        // Find and click the export button (print-all-btn or print-grade-btn, whichever is visible)
+                        const gradeBtn = document.getElementById('print-grade-btn');
+                        const allBtn   = document.getElementById('print-all-btn');
+                        const btn = (gradeBtn && !gradeBtn.classList.contains('hidden')) ? gradeBtn : allBtn;
+                        if (btn) btn.click();
+                        showToast('Export modal', '📤');
+                        e.preventDefault(); return;
+                    }
+                }
+
+                // Block other shortcuts while a modal is open or user is typing (except / in non-input)
+                if (isModalOpen()) return;
+
+                // / → focus search (only if not already in an input)
+                if (key === '/' && !isTyping(e)) {
+                    const searchInput = document.getElementById('search-input');
+                    if (searchInput) { searchInput.focus(); searchInput.select(); e.preventDefault(); return; }
+                }
+
+                // ? → help (only if not typing)
+                if (key === '?' && !isTyping(e)) {
+                    openHelp(); e.preventDefault(); return;
+                }
+
+                // [ / ] → cycle grade (not typing)
+                if (key === '[' && !isTyping(e)) { cycleGrade(-1); e.preventDefault(); return; }
+                if (key === ']' && !isTyping(e)) { cycleGrade(+1); e.preventDefault(); return; }
+
+                // Ctrl shortcuts (work even if typing, but not in search input to avoid conflicts)
+                if (ctrl) {
+                    // Ctrl+G → group by grade
+                    if (!shift && key === 'g') {
+                        document.getElementById('tab-toggle-group')?.click();
+                        showToast('Group by grade toggled', '⊞');
+                        e.preventDefault(); return;
+                    }
+                    // Ctrl+Shift+F → toggle column filters
+                    if (shift && key === 'F') {
+                        document.getElementById('tab-toggle-filters')?.click();
+                        showToast('Column filters toggled', '🔍');
+                        e.preventDefault(); return;
+                    }
+                    // Ctrl+K → fit columns
+                    if (!shift && key === 'k') {
+                        document.getElementById('tab-fit-cols')?.click();
+                        showToast('Columns fitted', '↔');
+                        e.preventDefault(); return;
+                    }
+                    // Ctrl+\ → clear filters
+                    if (!shift && key === '\\') {
+                        document.getElementById('tab-clear-filters')?.click();
+                        showToast('Filters cleared', '✕');
+                        e.preventDefault(); return;
+                    }
+                    // Ctrl+U → toggle upload section
+                    if (!shift && key === 'u') {
+                        const grid = document.querySelector('.two-col-grid');
+                        if (grid) {
+                            const shown = grid.style.display !== 'none';
+                            grid.style.display = shown ? 'none' : '';
+                            showToast(shown ? 'Upload section hidden' : 'Upload section shown', '📁');
+                        }
+                        e.preventDefault(); return;
+                    }
+                }
+            });
+
+            // ── ? badge in topbar ─────────────────────────────────────────────
+            const badge = document.createElement('button');
+            badge.title = 'Keyboard shortcuts (?)';
+            badge.style.cssText = `
+                width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+                background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);
+                font-size:.82rem;font-weight:700;cursor:pointer;display:flex;
+                align-items:center;justify-content:center;transition:background .15s;
+                font-family:'DM Sans',sans-serif;flex-shrink:0;`;
+            badge.textContent = '?';
+            badge.addEventListener('mouseenter', () => badge.style.background = 'rgba(255,255,255,.2)');
+            badge.addEventListener('mouseleave', () => badge.style.background = 'rgba(255,255,255,.1)');
+            badge.addEventListener('click', openHelp);
+            const topbarRight = document.querySelector('.topbar-right');
+            if (topbarRight) topbarRight.insertBefore(badge, topbarRight.firstChild);
+
+            console.log('[Shortcuts] Keyboard shortcuts ready. Press ? for help.');
+        })();
 
         setupFirebase(); // module scripts are deferred — DOM is always ready
     </script>
