@@ -720,6 +720,14 @@
             font-family: 'DM Sans', sans-serif !important;
         }
 
+        /* Row hover → shows it is clickable (opens edit drawer) */
+        #tabulator-table .tabulator-row { cursor: pointer !important; }
+        #tabulator-table .tabulator-row:hover .tabulator-cell:not(.tabulator-frozen) {
+            background: #e8effa !important;
+        }
+        /* Image cell keeps default cursor since it opens PDF */
+        #tabulator-table .tabulator-cell[tabulator-field="Image"] { cursor: default !important; }
+
         /* Scrollbar */
         #tabulator-table .tabulator-tableholder::-webkit-scrollbar { height: 7px; width: 7px; }
         #tabulator-table .tabulator-tableholder::-webkit-scrollbar-track { background: var(--surface2); }
@@ -934,11 +942,20 @@
                 <div class="toolbar">
                     <div class="toolbar-title">Student Records</div>
 
-                    <div class="search-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <div class="search-wrap" style="position:relative;flex:1;min-width:200px;max-width:360px;">
+                        <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--slate-lt);pointer-events:none;transition:color .15s">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
-                        <input id="search-input" type="text" placeholder="Search students…" onfocus="this.select()">
+                        <input id="search-input" type="text" placeholder="Search students…" onfocus="this.select()"
+                            style="padding-right:5.5rem;">
+                        <span id="search-count-pill" style="display:none;position:absolute;right:2rem;top:50%;transform:translateY(-50%);
+                            background:var(--navy);color:#fff;font-size:.68rem;font-weight:700;
+                            padding:.15rem .55rem;border-radius:999px;pointer-events:none;white-space:nowrap;"></span>
+                        <button id="search-clear-btn" title="Clear search"
+                            style="display:none;position:absolute;right:.45rem;top:50%;transform:translateY(-50%);
+                            width:20px;height:20px;border-radius:50%;border:none;background:var(--slate-lt);
+                            color:#fff;font-size:.7rem;cursor:pointer;align-items:center;justify-content:center;
+                            line-height:1;padding:0;transition:background .15s;">✕</button>
                     </div>
 
                     <select id="grade-filter-select" style="width:auto;padding:.45rem .75rem;min-width:120px;">
@@ -2349,38 +2366,111 @@ gradeFilterSelect.addEventListener('change', () => {
             renderStudents(filteredStudents, { field: 'Search', value: searchTerm });
         };
 
-      searchInput.addEventListener('input', (e) => {
-    const searchTerm = e.target.value.trim();
-    const selectedGrade = gradeFilterSelect.value;
+      // ── Search: debounced live filter + count pill + clear button ─────────────
+        const searchClearBtn = document.getElementById('search-clear-btn');
+        const searchCountPill = document.getElementById('search-count-pill');
+        const searchIcon = document.getElementById('search-icon');
 
-    if (tabulatorTable) {
-        tabulatorTable.clearFilter(true);
-        if (selectedGrade) tabulatorTable.addFilter('Grade', '=', selectedGrade);
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            tabulatorTable.addFilter((data) => {
-                return Object.entries(data).some(([k, v]) => {
-                    if (k === 'id' || k === '_actions') return false;
-                    return String(v).toLowerCase().includes(lower);
-                });
-            });
-        }
-        setTimeout(updateCountBadge, 30);
-    } else {
-        let filteredStudents = selectedGrade ? studentsData.filter(s => s.Grade === selectedGrade) : studentsData;
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            filteredStudents = filteredStudents.filter(s =>
-                Object.entries(s).some(([k, v]) => k !== 'id' && String(v).toLowerCase().includes(lower))
-            );
-        }
-        const ctx = selectedGrade && searchTerm
-            ? { field: 'Grade + Search', value: `${selectedGrade} - "${searchTerm}"` }
-            : searchTerm ? { field: 'Search', value: searchTerm }
-            : selectedGrade ? { field: 'Grade', value: selectedGrade } : null;
-        renderStudents(filteredStudents, ctx);
-    }
-});
+        let _searchDebounce = null;
+
+        const applySearchFilter = (searchTerm) => {
+            const selectedGrade = gradeFilterSelect.value;
+            if (tabulatorTable) {
+                tabulatorTable.clearFilter(true);
+                if (selectedGrade) tabulatorTable.addFilter('Grade', '=', selectedGrade);
+                if (searchTerm) {
+                    const lower = searchTerm.toLowerCase();
+                    tabulatorTable.addFilter((data) => {
+                        return Object.entries(data).some(([k, v]) => {
+                            if (k === 'id' || k === '_actions') return false;
+                            return String(v).toLowerCase().includes(lower);
+                        });
+                    });
+                }
+                // Update pill after Tabulator settles
+                setTimeout(() => {
+                    updateCountBadge();
+                    if (searchTerm) {
+                        try {
+                            let count = 0;
+                            try { count = tabulatorTable.getData('active').length; }
+                            catch(e2) { count = tabulatorTable.getDataCount(); }
+                            searchCountPill.textContent = `${count} match${count !== 1 ? 'es' : ''}`;
+                            searchCountPill.style.display = 'inline-block';
+                        } catch(e) { searchCountPill.style.display = 'none'; }
+                    } else {
+                        searchCountPill.style.display = 'none';
+                    }
+                }, 60);
+            } else {
+                let filteredStudents = selectedGrade ? studentsData.filter(s => s.Grade === selectedGrade) : studentsData;
+                if (searchTerm) {
+                    const lower = searchTerm.toLowerCase();
+                    filteredStudents = filteredStudents.filter(s =>
+                        Object.entries(s).some(([k, v]) => k !== 'id' && String(v).toLowerCase().includes(lower))
+                    );
+                }
+                const ctx = selectedGrade && searchTerm
+                    ? { field: 'Grade + Search', value: `${selectedGrade} - "${searchTerm}"` }
+                    : searchTerm ? { field: 'Search', value: searchTerm }
+                    : selectedGrade ? { field: 'Grade', value: selectedGrade } : null;
+                renderStudents(filteredStudents, ctx);
+                // Count pill for non-tabulator path
+                if (searchTerm) {
+                    searchCountPill.textContent = `${filteredStudents.length} match${filteredStudents.length !== 1 ? 'es' : ''}`;
+                    searchCountPill.style.display = 'inline-block';
+                } else {
+                    searchCountPill.style.display = 'none';
+                }
+            }
+        };
+
+        searchInput.addEventListener('input', (e) => {
+            const raw = e.target.value;
+            const searchTerm = raw.trim();
+
+            // Toggle clear button & icon color
+            if (raw.length > 0) {
+                searchClearBtn.style.display = 'flex';
+                if (searchIcon) searchIcon.style.color = 'var(--navy-lt)';
+                searchInput.style.borderColor = 'var(--navy-lt)';
+                searchInput.style.boxShadow = '0 0 0 3px rgba(30,64,128,.1)';
+            } else {
+                searchClearBtn.style.display = 'none';
+                searchCountPill.style.display = 'none';
+                if (searchIcon) searchIcon.style.color = '';
+                searchInput.style.borderColor = '';
+                searchInput.style.boxShadow = '';
+            }
+
+            // Debounce: 200ms for Tabulator (fast), immediate for small datasets
+            clearTimeout(_searchDebounce);
+            const delay = studentsData.length > 500 ? 250 : 80;
+            _searchDebounce = setTimeout(() => applySearchFilter(searchTerm), delay);
+        });
+
+        // Clear button
+        searchClearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            searchClearBtn.style.display = 'none';
+            searchCountPill.style.display = 'none';
+            if (searchIcon) searchIcon.style.color = '';
+            searchInput.style.borderColor = '';
+            searchInput.style.boxShadow = '';
+            searchInput.focus();
+            applySearchFilter('');
+        });
+
+        // Clear search when grade filter changes
+        const _origGradeChange = gradeFilterSelect.onchange;
+        gradeFilterSelect.addEventListener('change', () => {
+            searchInput.value = '';
+            searchClearBtn.style.display = 'none';
+            searchCountPill.style.display = 'none';
+            if (searchIcon) searchIcon.style.color = '';
+            searchInput.style.borderColor = '';
+            searchInput.style.boxShadow = '';
+        });
 
         
 
@@ -2605,12 +2695,20 @@ gradeFilterSelect.addEventListener('change', () => {
                 clipboardCopyRowRange: 'selected',
                 clipboardCopyStyled: false,
 
-                // Row click → PDF
+                // Row click → open edit drawer; photo click → PDF viewer
                 rowClick: (e, row) => {
+                    // Don't intercept action buttons (Edit/Delete)
                     if (e.target.closest('.action-wrap')) return;
-                    if (e.target.tagName === 'IMG') return;
                     const d = row.getData();
-                    openLocalPDF(d['Assessment No'], d['Official Student Name'] || '');
+                    // Photo thumbnail click → open PDF viewer (existing behaviour)
+                    if (e.target.tagName === 'IMG') {
+                        openLocalPDF(d['Assessment No'], d['Official Student Name'] || '');
+                        return;
+                    }
+                    // Any other cell click → open the edit drawer
+                    if (d.id) {
+                        editStudent(d.id);
+                    }
                 },
 
                 dataFiltered: updateCountBadge,
