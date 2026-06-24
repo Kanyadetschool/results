@@ -300,6 +300,12 @@
         }
         .btn-del:hover { background: var(--danger); color: #fff; }
 
+        /* ══ SEARCH DROPDOWN ════════════════════════════════ */
+        #search-dropdown::-webkit-scrollbar { width: 5px; }
+        #search-dropdown::-webkit-scrollbar-track { background: var(--surface2); }
+        #search-dropdown::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+        #search-dropdown > div:last-child { border-bottom: none !important; }
+
         /* ══ STUDENT PHOTO ════════════════════════════════ */
         .student-image {
             width: 34px; height: 34px; object-fit: cover;
@@ -942,20 +948,25 @@
                 <div class="toolbar">
                     <div class="toolbar-title">Student Records</div>
 
-                    <div class="search-wrap" style="position:relative;flex:1;min-width:200px;max-width:360px;">
-                        <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--slate-lt);pointer-events:none;transition:color .15s">
+                    <div class="search-wrap" id="search-wrap" style="position:relative;flex:1;min-width:220px;max-width:400px;">
+                        <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--slate-lt);pointer-events:none;transition:color .15s;z-index:1;">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
-                        <input id="search-input" type="text" placeholder="Search students…" onfocus="this.select()"
-                            style="padding-right:5.5rem;">
-                        <span id="search-count-pill" style="display:none;position:absolute;right:2rem;top:50%;transform:translateY(-50%);
-                            background:var(--navy);color:#fff;font-size:.68rem;font-weight:700;
-                            padding:.15rem .55rem;border-radius:999px;pointer-events:none;white-space:nowrap;"></span>
-                        <button id="search-clear-btn" title="Clear search"
+                        <input id="search-input" type="text" placeholder="Search by name, grade, score…"
+                            autocomplete="off" spellcheck="false"
+                            style="padding-right:2.2rem;">
+                        <button id="search-clear-btn" title="Clear"
                             style="display:none;position:absolute;right:.45rem;top:50%;transform:translateY(-50%);
                             width:20px;height:20px;border-radius:50%;border:none;background:var(--slate-lt);
                             color:#fff;font-size:.7rem;cursor:pointer;align-items:center;justify-content:center;
-                            line-height:1;padding:0;transition:background .15s;">✕</button>
+                            line-height:1;padding:0;transition:background .15s;z-index:2;">✕</button>
+                        <!-- Live suggestion dropdown -->
+                        <div id="search-dropdown" style="
+                            display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                            background:var(--surface);border:1.5px solid var(--navy-lt);
+                            border-radius:10px;box-shadow:0 8px 32px rgba(13,31,53,.18);
+                            z-index:9999;overflow:hidden;max-height:340px;overflow-y:auto;">
+                        </div>
                     </div>
 
                     <select id="grade-filter-select" style="width:auto;padding:.45rem .75rem;min-width:120px;">
@@ -2366,13 +2377,188 @@ gradeFilterSelect.addEventListener('change', () => {
             renderStudents(filteredStudents, { field: 'Search', value: searchTerm });
         };
 
-      // ── Search: debounced live filter + count pill + clear button ─────────────
-        const searchClearBtn = document.getElementById('search-clear-btn');
-        const searchCountPill = document.getElementById('search-count-pill');
-        const searchIcon = document.getElementById('search-icon');
+      // ══════════════════════════════════════════════════════════════════════════
+        // LIVE SEARCH  — dropdown suggestions + table filter
+        // ══════════════════════════════════════════════════════════════════════════
+        const searchClearBtn  = document.getElementById('search-clear-btn');
+        const searchIcon      = document.getElementById('search-icon');
+        const searchDropdown  = document.getElementById('search-dropdown');
 
-        let _searchDebounce = null;
+        let _searchDebounce   = null;
+        let _dropdownIndex    = -1;   // keyboard nav
+        let _ddItems          = [];   // current suggestion elements
 
+        // ── Highlight matching text ────────────────────────────────────────────
+        const highlight = (text, term) => {
+            if (!term) return text;
+            const idx = text.toLowerCase().indexOf(term.toLowerCase());
+            if (idx === -1) return text;
+            return text.slice(0, idx)
+                + `<mark style="background:var(--gold-dim);color:var(--navy);font-weight:700;border-radius:2px;padding:0 1px">${text.slice(idx, idx + term.length)}</mark>`
+                + text.slice(idx + term.length);
+        };
+
+        // ── Close dropdown ─────────────────────────────────────────────────────
+        const closeDropdown = () => {
+            searchDropdown.style.display = 'none';
+            searchDropdown.innerHTML = '';
+            _dropdownIndex = -1;
+            _ddItems = [];
+        };
+
+        // ── Open dropdown with matches ─────────────────────────────────────────
+        const openDropdown = (matches, term) => {
+            searchDropdown.innerHTML = '';
+            _dropdownIndex = -1;
+            _ddItems = [];
+
+            if (matches.length === 0) {
+                searchDropdown.innerHTML =
+                    `<div style="padding:.75rem 1rem;color:var(--slate);font-size:.82rem;font-style:italic">No students found</div>`;
+                searchDropdown.style.display = 'block';
+                return;
+            }
+
+            // Header row showing count
+            const header = document.createElement('div');
+            header.style.cssText = 'padding:.45rem 1rem .35rem;font-size:.7rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface2);';
+            header.textContent = `${matches.length} student${matches.length !== 1 ? 's' : ''} found`;
+            searchDropdown.appendChild(header);
+
+            matches.slice(0, 40).forEach((student, i) => {
+                const name  = student['Official Student Name'] || student['Assessment No'] || '—';
+                const grade = student.Grade || '';
+                const assNo = student['Assessment No'] || '';
+                const id    = student.id;
+
+                const item = document.createElement('div');
+                item.dataset.idx = i;
+                item.style.cssText = `
+                    display:flex;align-items:center;gap:.75rem;
+                    padding:.55rem .9rem;cursor:pointer;
+                    border-bottom:1px solid var(--border);
+                    transition:background .1s;user-select:none;`;
+
+                // Avatar
+                const avatarWrap = document.createElement('div');
+                avatarWrap.style.cssText = 'width:34px;height:34px;border-radius:7px;overflow:hidden;flex-shrink:0;background:var(--surface3);border:1.5px solid var(--border);';
+                const avatarImg = document.createElement('img');
+                avatarImg.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                avatarImg.src = './student_images/default.jpg';
+                avatarImg.alt = name;
+                avatarImg.onerror = () => { avatarImg.src = './student_images/default.jpg'; };
+                resolveStudentPhoto(name, id, grade).then(src => { avatarImg.src = src; });
+                avatarWrap.appendChild(avatarImg);
+
+                // Text
+                const textWrap = document.createElement('div');
+                textWrap.style.cssText = 'flex:1;min-width:0;';
+                textWrap.innerHTML = `
+                    <div style="font-size:.84rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${highlight(name, term)}</div>
+                    <div style="font-size:.72rem;color:var(--slate);margin-top:.05rem;">${highlight(grade, term)}${assNo ? ` · No. ${highlight(assNo, term)}` : ''}</div>`;
+
+                // Edit icon badge
+                const badge = document.createElement('div');
+                badge.title = 'Open edit drawer';
+                badge.style.cssText = 'flex-shrink:0;width:26px;height:26px;border-radius:6px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;opacity:.7;transition:opacity .15s;';
+                badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z"/></svg>`;
+
+                item.appendChild(avatarWrap);
+                item.appendChild(textWrap);
+                item.appendChild(badge);
+
+                // Hover state
+                item.addEventListener('mouseenter', () => {
+                    item.style.background = '#eef3fb';
+                    badge.style.opacity = '1';
+                    _dropdownIndex = i;
+                    _ddItems.forEach((el, j) => el.style.outline = j === i ? '2px solid var(--navy-lt)' : 'none');
+                });
+                item.addEventListener('mouseleave', () => {
+                    item.style.background = '';
+                    badge.style.opacity = '.7';
+                });
+
+                // Click → open edit drawer & fill input with name
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // prevent input blur before click fires
+                });
+                item.addEventListener('click', () => {
+                    searchInput.value = name;
+                    closeDropdown();
+                    resetSearchVisuals(true);
+                    // Scroll row into view in Tabulator then open drawer
+                    if (id) {
+                        applySearchFilter(name); // filter table to just this student
+                        setTimeout(() => editStudent(id), 80);
+                    }
+                });
+
+                _ddItems.push(item);
+                searchDropdown.appendChild(item);
+            });
+
+            if (matches.length > 40) {
+                const more = document.createElement('div');
+                more.style.cssText = 'padding:.5rem 1rem;font-size:.75rem;color:var(--slate);text-align:center;background:var(--surface2);';
+                more.textContent = `+ ${matches.length - 40} more — keep typing to narrow results`;
+                searchDropdown.appendChild(more);
+            }
+
+            searchDropdown.style.display = 'block';
+        };
+
+        // ── Keyboard navigation (↑↓ Enter Escape) ─────────────────────────────
+        searchInput.addEventListener('keydown', (e) => {
+            if (searchDropdown.style.display === 'none') return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _dropdownIndex = Math.min(_dropdownIndex + 1, _ddItems.length - 1);
+                _ddItems.forEach((el, i) => {
+                    el.style.background = i === _dropdownIndex ? '#eef3fb' : '';
+                    el.style.outline = i === _dropdownIndex ? '2px solid var(--navy-lt)' : 'none';
+                });
+                if (_ddItems[_dropdownIndex]) _ddItems[_dropdownIndex].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _dropdownIndex = Math.max(_dropdownIndex - 1, 0);
+                _ddItems.forEach((el, i) => {
+                    el.style.background = i === _dropdownIndex ? '#eef3fb' : '';
+                    el.style.outline = i === _dropdownIndex ? '2px solid var(--navy-lt)' : 'none';
+                });
+                if (_ddItems[_dropdownIndex]) _ddItems[_dropdownIndex].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                if (_dropdownIndex >= 0 && _ddItems[_dropdownIndex]) {
+                    _ddItems[_dropdownIndex].click();
+                }
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+
+        // Close dropdown on click outside
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('search-wrap')?.contains(e.target)) {
+                closeDropdown();
+            }
+        });
+
+        // ── Visual reset helpers ───────────────────────────────────────────────
+        const resetSearchVisuals = (hasValue) => {
+            if (hasValue) {
+                searchClearBtn.style.display = 'flex';
+                if (searchIcon) searchIcon.style.color = 'var(--navy-lt)';
+                searchInput.style.borderColor = 'var(--navy-lt)';
+                searchInput.style.boxShadow = '0 0 0 3px rgba(30,64,128,.1)';
+            } else {
+                searchClearBtn.style.display = 'none';
+                if (searchIcon) searchIcon.style.color = '';
+                searchInput.style.borderColor = '';
+                searchInput.style.boxShadow = '';
+            }
+        };
+
+        // ── Apply filter to Tabulator / renderStudents ─────────────────────────
         const applySearchFilter = (searchTerm) => {
             const selectedGrade = gradeFilterSelect.value;
             if (tabulatorTable) {
@@ -2387,23 +2573,11 @@ gradeFilterSelect.addEventListener('change', () => {
                         });
                     });
                 }
-                // Update pill after Tabulator settles
-                setTimeout(() => {
-                    updateCountBadge();
-                    if (searchTerm) {
-                        try {
-                            let count = 0;
-                            try { count = tabulatorTable.getData('active').length; }
-                            catch(e2) { count = tabulatorTable.getDataCount(); }
-                            searchCountPill.textContent = `${count} match${count !== 1 ? 'es' : ''}`;
-                            searchCountPill.style.display = 'inline-block';
-                        } catch(e) { searchCountPill.style.display = 'none'; }
-                    } else {
-                        searchCountPill.style.display = 'none';
-                    }
-                }, 60);
+                setTimeout(updateCountBadge, 60);
             } else {
-                let filteredStudents = selectedGrade ? studentsData.filter(s => s.Grade === selectedGrade) : studentsData;
+                let filteredStudents = selectedGrade
+                    ? studentsData.filter(s => s.Grade === selectedGrade)
+                    : studentsData;
                 if (searchTerm) {
                     const lower = searchTerm.toLowerCase();
                     filteredStudents = filteredStudents.filter(s =>
@@ -2415,61 +2589,58 @@ gradeFilterSelect.addEventListener('change', () => {
                     : searchTerm ? { field: 'Search', value: searchTerm }
                     : selectedGrade ? { field: 'Grade', value: selectedGrade } : null;
                 renderStudents(filteredStudents, ctx);
-                // Count pill for non-tabulator path
-                if (searchTerm) {
-                    searchCountPill.textContent = `${filteredStudents.length} match${filteredStudents.length !== 1 ? 'es' : ''}`;
-                    searchCountPill.style.display = 'inline-block';
-                } else {
-                    searchCountPill.style.display = 'none';
-                }
             }
         };
 
+        // ── Main input handler ─────────────────────────────────────────────────
         searchInput.addEventListener('input', (e) => {
             const raw = e.target.value;
-            const searchTerm = raw.trim();
+            const term = raw.trim();
 
-            // Toggle clear button & icon color
-            if (raw.length > 0) {
-                searchClearBtn.style.display = 'flex';
-                if (searchIcon) searchIcon.style.color = 'var(--navy-lt)';
-                searchInput.style.borderColor = 'var(--navy-lt)';
-                searchInput.style.boxShadow = '0 0 0 3px rgba(30,64,128,.1)';
-            } else {
-                searchClearBtn.style.display = 'none';
-                searchCountPill.style.display = 'none';
-                if (searchIcon) searchIcon.style.color = '';
-                searchInput.style.borderColor = '';
-                searchInput.style.boxShadow = '';
+            resetSearchVisuals(raw.length > 0);
+
+            if (!term) {
+                closeDropdown();
+                applySearchFilter('');
+                return;
             }
 
-            // Debounce: 200ms for Tabulator (fast), immediate for small datasets
+            // Build suggestions from studentsData
+            const lower = term.toLowerCase();
+            const selectedGrade = gradeFilterSelect.value;
+            const pool = selectedGrade ? studentsData.filter(s => s.Grade === selectedGrade) : studentsData;
+            const matches = pool.filter(s =>
+                Object.entries(s).some(([k, v]) =>
+                    k !== 'id' && k !== '_actions' && String(v).toLowerCase().includes(lower)
+                )
+            );
+
+            openDropdown(matches, term);
+
+            // Also filter the underlying table (debounced slightly)
             clearTimeout(_searchDebounce);
-            const delay = studentsData.length > 500 ? 250 : 80;
-            _searchDebounce = setTimeout(() => applySearchFilter(searchTerm), delay);
+            _searchDebounce = setTimeout(() => applySearchFilter(term), 120);
         });
 
-        // Clear button
+        // Show dropdown again on focus if there's already a value
+        searchInput.addEventListener('focus', (e) => {
+            if (searchInput.value.trim()) searchInput.dispatchEvent(new Event('input'));
+        });
+
+        // ── Clear button ───────────────────────────────────────────────────────
         searchClearBtn.addEventListener('click', () => {
             searchInput.value = '';
-            searchClearBtn.style.display = 'none';
-            searchCountPill.style.display = 'none';
-            if (searchIcon) searchIcon.style.color = '';
-            searchInput.style.borderColor = '';
-            searchInput.style.boxShadow = '';
+            closeDropdown();
+            resetSearchVisuals(false);
             searchInput.focus();
             applySearchFilter('');
         });
 
-        // Clear search when grade filter changes
-        const _origGradeChange = gradeFilterSelect.onchange;
+        // ── Grade filter change → clear search ────────────────────────────────
         gradeFilterSelect.addEventListener('change', () => {
             searchInput.value = '';
-            searchClearBtn.style.display = 'none';
-            searchCountPill.style.display = 'none';
-            if (searchIcon) searchIcon.style.color = '';
-            searchInput.style.borderColor = '';
-            searchInput.style.boxShadow = '';
+            closeDropdown();
+            resetSearchVisuals(false);
         });
 
         
