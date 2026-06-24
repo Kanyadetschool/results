@@ -3488,7 +3488,7 @@ const exportToPdf = async () => {
     const term = dataToExport[0]['Term'] || 'N/A';
 
     const title = `P O BOX 45 - 40139, AKALA, KENYA`;
-    const subtitle = `LEVEL: ${selectedGrade || 'All Grades'} | Term: ${term} | Academic Year: ${new Date().getFullYear()}`;
+    const subtitle = `PARAMETER: ${selectedGrade || 'All Grades'} | Academic Year: ${new Date().getFullYear()}`;
     const totalStudents = dataToExport.length;
     
     // Load and process logo image to make it completely white
