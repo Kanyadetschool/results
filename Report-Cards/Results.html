@@ -300,22 +300,11 @@
         }
         .btn-del:hover { background: var(--danger); color: #fff; }
 
-        /* ── Inline table search dropdown ── */
-        #table-search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 340px; overflow: visible; }
-        #table-search-wrap svg.search-icon { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--slate-lt); pointer-events: none; z-index: 1; }
-        #search-input { padding-left: 2.1rem; width: 100%; }
-        #table-search-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1.5px solid var(--navy-lt); border-radius: 10px; box-shadow: 0 8px 32px rgba(13,31,53,.18); z-index: 9999; overflow: hidden; display: none; max-height: 320px; overflow-y: auto; }
-        #table-search-dropdown.open { display: block; }
-        .tsd-result { display: flex; align-items: center; gap: .65rem; padding: .55rem .85rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s; }
-        .tsd-result:last-child { border-bottom: none; }
-        .tsd-result:hover, .tsd-result.tsd-hover { background: var(--surface2); }
-        .tsd-result-avatar { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--surface3); border: 1px solid var(--border); }
-        .tsd-result-name { font-weight: 600; font-size: .83rem; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tsd-result-meta { font-size: .72rem; color: var(--slate); margin-top: .05rem; }
-        .tsd-result mark { background: rgba(240,165,0,.35); color: var(--navy); border-radius: 2px; padding: 0 1px; font-style: normal; }
-        .tsd-empty { padding: .85rem 1rem; text-align: center; color: var(--slate-lt); font-size: .82rem; }
-        .tsd-footer { padding: .4rem .85rem; font-size: .7rem; color: var(--slate-lt); border-top: 1px solid var(--border); background: var(--surface2); display: flex; gap: .75rem; }
-        #search-input.tsd-active { border-color: var(--navy-lt) !important; box-shadow: 0 0 0 3px rgba(30,64,128,.1); border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+        /* ══ SEARCH DROPDOWN ════════════════════════════════ */
+        #search-dropdown::-webkit-scrollbar { width: 5px; }
+        #search-dropdown::-webkit-scrollbar-track { background: var(--surface2); }
+        #search-dropdown::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+        #search-dropdown > div:last-child { border-bottom: none !important; }
 
         /* ══ STUDENT PHOTO ════════════════════════════════ */
         .student-image {
@@ -959,10 +948,25 @@
                 <div class="toolbar">
                     <div class="toolbar-title">Student Records</div>
 
-                    <div id="table-search-wrap">
-                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                        <input id="search-input" type="text" placeholder="Search students…" autocomplete="off">
-                        <div id="table-search-dropdown"></div>
+                    <div class="search-wrap" id="search-wrap" style="position:relative;flex:1;min-width:220px;max-width:400px;">
+                        <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--slate-lt);pointer-events:none;transition:color .15s;z-index:1;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input id="search-input" type="text" placeholder="Search by name, grade, score…"
+                            autocomplete="off" spellcheck="false"
+                            style="padding-right:2.2rem;">
+                        <button id="search-clear-btn" title="Clear"
+                            style="display:none;position:absolute;right:.45rem;top:50%;transform:translateY(-50%);
+                            width:20px;height:20px;border-radius:50%;border:none;background:var(--slate-lt);
+                            color:#fff;font-size:.7rem;cursor:pointer;align-items:center;justify-content:center;
+                            line-height:1;padding:0;transition:background .15s;z-index:2;">✕</button>
+                        <!-- Live suggestion dropdown -->
+                        <div id="search-dropdown" style="
+                            display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                            background:var(--surface);border:1.5px solid var(--navy-lt);
+                            border-radius:10px;box-shadow:0 8px 32px rgba(13,31,53,.18);
+                            z-index:9999;overflow:hidden;max-height:340px;overflow-y:auto;">
+                        </div>
                     </div>
 
                     <select id="grade-filter-select" style="width:auto;padding:.45rem .75rem;min-width:120px;">
@@ -1683,7 +1687,6 @@ toggleBtn.addEventListener('click', () => {
                             );
                             studentsData        = students;
                             window.studentsData = students;
-                            _buildSearchCache && _buildSearchCache(students);
                             currentPage         = 1;
                             populateFilters(students);
                             renderStudents(students);
@@ -2374,150 +2377,271 @@ gradeFilterSelect.addEventListener('change', () => {
             renderStudents(filteredStudents, { field: 'Search', value: searchTerm });
         };
 
-        // ── Build _searchCache on every student for fast substring matching ─────
-        const _buildSearchCache = (students) => {
-            students.forEach(s => {
-                s._searchCache = Object.values(s)
-                    .filter(v => v !== null && v !== undefined && typeof v !== 'object')
-                    .join(' ').toLowerCase();
+      // ══════════════════════════════════════════════════════════════════════════
+        // LIVE SEARCH  — dropdown suggestions + table filter
+        // ══════════════════════════════════════════════════════════════════════════
+        const searchClearBtn  = document.getElementById('search-clear-btn');
+        const searchIcon      = document.getElementById('search-icon');
+        const searchDropdown  = document.getElementById('search-dropdown');
+
+        let _searchDebounce   = null;
+        let _dropdownIndex    = -1;   // keyboard nav
+        let _ddItems          = [];   // current suggestion elements
+
+        // ── Highlight matching text ────────────────────────────────────────────
+        const highlight = (text, term) => {
+            if (!term) return text;
+            const idx = text.toLowerCase().indexOf(term.toLowerCase());
+            if (idx === -1) return text;
+            return text.slice(0, idx)
+                + `<mark style="background:var(--gold-dim);color:var(--navy);font-weight:700;border-radius:2px;padding:0 1px">${text.slice(idx, idx + term.length)}</mark>`
+                + text.slice(idx + term.length);
+        };
+
+        // ── Close dropdown ─────────────────────────────────────────────────────
+        const closeDropdown = () => {
+            searchDropdown.style.display = 'none';
+            searchDropdown.innerHTML = '';
+            _dropdownIndex = -1;
+            _ddItems = [];
+        };
+
+        // ── Open dropdown with matches ─────────────────────────────────────────
+        const openDropdown = (matches, term) => {
+            searchDropdown.innerHTML = '';
+            _dropdownIndex = -1;
+            _ddItems = [];
+
+            if (matches.length === 0) {
+                searchDropdown.innerHTML =
+                    `<div style="padding:.75rem 1rem;color:var(--slate);font-size:.82rem;font-style:italic">No students found</div>`;
+                searchDropdown.style.display = 'block';
+                return;
+            }
+
+            // Header row showing count
+            const header = document.createElement('div');
+            header.style.cssText = 'padding:.45rem 1rem .35rem;font-size:.7rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface2);';
+            header.textContent = `${matches.length} student${matches.length !== 1 ? 's' : ''} found`;
+            searchDropdown.appendChild(header);
+
+            matches.slice(0, 40).forEach((student, i) => {
+                const name  = student['Official Student Name'] || student['Assessment No'] || '—';
+                const grade = student.Grade || '';
+                const assNo = student['Assessment No'] || '';
+                const id    = student.id;
+
+                const item = document.createElement('div');
+                item.dataset.idx = i;
+                item.style.cssText = `
+                    display:flex;align-items:center;gap:.75rem;
+                    padding:.55rem .9rem;cursor:pointer;
+                    border-bottom:1px solid var(--border);
+                    transition:background .1s;user-select:none;`;
+
+                // Avatar
+                const avatarWrap = document.createElement('div');
+                avatarWrap.style.cssText = 'width:34px;height:34px;border-radius:7px;overflow:hidden;flex-shrink:0;background:var(--surface3);border:1.5px solid var(--border);';
+                const avatarImg = document.createElement('img');
+                avatarImg.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                avatarImg.src = './student_images/default.jpg';
+                avatarImg.alt = name;
+                avatarImg.onerror = () => { avatarImg.src = './student_images/default.jpg'; };
+                resolveStudentPhoto(name, id, grade).then(src => { avatarImg.src = src; });
+                avatarWrap.appendChild(avatarImg);
+
+                // Text
+                const textWrap = document.createElement('div');
+                textWrap.style.cssText = 'flex:1;min-width:0;';
+                textWrap.innerHTML = `
+                    <div style="font-size:.84rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${highlight(name, term)}</div>
+                    <div style="font-size:.72rem;color:var(--slate);margin-top:.05rem;">${highlight(grade, term)}${assNo ? ` · No. ${highlight(assNo, term)}` : ''}</div>`;
+
+                // Edit icon badge
+                const badge = document.createElement('div');
+                badge.title = 'Open edit drawer';
+                badge.style.cssText = 'flex-shrink:0;width:26px;height:26px;border-radius:6px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;opacity:.7;transition:opacity .15s;';
+                badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z"/></svg>`;
+
+                item.appendChild(avatarWrap);
+                item.appendChild(textWrap);
+                item.appendChild(badge);
+
+                // Hover state
+                item.addEventListener('mouseenter', () => {
+                    item.style.background = '#eef3fb';
+                    badge.style.opacity = '1';
+                    _dropdownIndex = i;
+                    _ddItems.forEach((el, j) => el.style.outline = j === i ? '2px solid var(--navy-lt)' : 'none');
+                });
+                item.addEventListener('mouseleave', () => {
+                    item.style.background = '';
+                    badge.style.opacity = '.7';
+                });
+
+                // Click → open edit drawer & fill input with name
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // prevent input blur before click fires
+                });
+                item.addEventListener('click', () => {
+                    searchInput.value = name;
+                    closeDropdown();
+                    resetSearchVisuals(true);
+                    // Scroll row into view in Tabulator then open drawer
+                    if (id) {
+                        applySearchFilter(name); // filter table to just this student
+                        setTimeout(() => editStudent(id), 80);
+                    }
+                });
+
+                _ddItems.push(item);
+                searchDropdown.appendChild(item);
             });
-        };
 
-        // ── Table-search dropdown (live results; table updates only on select) ─
-        const _tsd = document.getElementById('table-search-dropdown');
-        let _tsdHoverIdx = -1;
-        let _tsdResults  = [];
-
-        const _hlTsd = (text, q) => {
-            if (!q) return String(text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            const safe = String(text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            return safe.replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'), '<mark>$1</mark>');
-        };
-
-        const _tsdRender = (hits, term) => {
-            _tsdResults  = hits;
-            _tsdHoverIdx = -1;
-            if (!hits.length) {
-                _tsd.innerHTML = `<div class="tsd-empty">No students match "<strong>${term}</strong>"</div>`;
-            } else {
-                _tsd.innerHTML = hits.map((s, i) => {
-                    const name  = s['Official Student Name'] || '';
-                    const grade = s.Grade || '';
-                    const assNo = s['Assessment No'] || '';
-                    const imgSrc = `./student_images/${grade}/${name}.jpg`;
-                    return `<div class="tsd-result" data-idx="${i}"
-                        onmouseenter="this.classList.add('tsd-hover')" onmouseleave="this.classList.remove('tsd-hover')"
-                        onclick="window._tsdSelect(${i})">
-                        <img class="tsd-result-avatar" src="${imgSrc}" onerror="this.src='./student_images/default.jpg'">
-                        <div style="flex:1;min-width:0;">
-                            <div class="tsd-result-name">${_hlTsd(name, term)}</div>
-                            <div class="tsd-result-meta">${_hlTsd(grade, term)}${grade && assNo ? ' · ' : ''}${_hlTsd(assNo, term)}</div>
-                        </div>
-                    </div>`;
-                }).join('') +
-                `<div class="tsd-footer"><span>↑↓ navigate</span><span>Enter select</span><span>Esc clear</span></div>`;
+            if (matches.length > 40) {
+                const more = document.createElement('div');
+                more.style.cssText = 'padding:.5rem 1rem;font-size:.75rem;color:var(--slate);text-align:center;background:var(--surface2);';
+                more.textContent = `+ ${matches.length - 40} more — keep typing to narrow results`;
+                searchDropdown.appendChild(more);
             }
-            _tsd.classList.add('open');
-            searchInput.classList.add('tsd-active');
+
+            searchDropdown.style.display = 'block';
         };
 
-        const _tsdClose = () => {
-            _tsd.classList.remove('open');
-            searchInput.classList.remove('tsd-active');
-            _tsdHoverIdx = -1;
-        };
-
-        // Called when user picks a result — only NOW update table
-        window._tsdSelect = (idx) => {
-            const s = _tsdResults[idx];
-            if (!s) return;
-            _tsdClose();
-            searchInput.value = s['Official Student Name'] || s['Assessment No'] || '';
-            // Filter table to just this student
-            currentFilteredStudents = [s];
-            if (tabulatorTable) {
-                tabulatorTable.clearFilter(true);
-                const grade = gradeFilterSelect.value;
-                if (grade) tabulatorTable.addFilter('Grade', '=', grade);
-                const lower = searchInput.value.toLowerCase();
-                tabulatorTable.addFilter(data => (data._searchCache || '').includes(lower));
-                setTimeout(updateCountBadge, 60);
-            } else {
-                renderStudents([s]);
-            }
-            // Open edit drawer for selected student
-            if (s.id) setTimeout(() => editStudent(s.id), 80);
-        };
-
-        // Keyboard navigation
+        // ── Keyboard navigation (↑↓ Enter Escape) ─────────────────────────────
         searchInput.addEventListener('keydown', (e) => {
-            if (!_tsd.classList.contains('open')) return;
+            if (searchDropdown.style.display === 'none') return;
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                _tsdHoverIdx = Math.min(_tsdHoverIdx + 1, _tsdResults.length - 1);
+                _dropdownIndex = Math.min(_dropdownIndex + 1, _ddItems.length - 1);
+                _ddItems.forEach((el, i) => {
+                    el.style.background = i === _dropdownIndex ? '#eef3fb' : '';
+                    el.style.outline = i === _dropdownIndex ? '2px solid var(--navy-lt)' : 'none';
+                });
+                if (_ddItems[_dropdownIndex]) _ddItems[_dropdownIndex].scrollIntoView({ block: 'nearest' });
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                _tsdHoverIdx = Math.max(_tsdHoverIdx - 1, 0);
+                _dropdownIndex = Math.max(_dropdownIndex - 1, 0);
+                _ddItems.forEach((el, i) => {
+                    el.style.background = i === _dropdownIndex ? '#eef3fb' : '';
+                    el.style.outline = i === _dropdownIndex ? '2px solid var(--navy-lt)' : 'none';
+                });
+                if (_ddItems[_dropdownIndex]) _ddItems[_dropdownIndex].scrollIntoView({ block: 'nearest' });
             } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (_tsdHoverIdx >= 0) window._tsdSelect(_tsdHoverIdx);
-                else if (_tsdResults.length === 1) window._tsdSelect(0);
-                return;
+                if (_dropdownIndex >= 0 && _ddItems[_dropdownIndex]) {
+                    _ddItems[_dropdownIndex].click();
+                }
             } else if (e.key === 'Escape') {
-                e.preventDefault();
-                _tsdClose();
-                searchInput.value = '';
-                applySearchFilter();
-                return;
-            } else { return; }
-            _tsd.querySelectorAll('.tsd-result').forEach((el, i) => el.classList.toggle('tsd-hover', i === _tsdHoverIdx));
+                closeDropdown();
+            }
         });
 
-        // Auto-clear on focus for fast typing
-        searchInput.addEventListener('focus', () => {
-            searchInput.select();
+        // Close dropdown on click outside
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('search-wrap')?.contains(e.target)) {
+                closeDropdown();
+            }
         });
 
-        // Close dropdown on outside click
-        document.addEventListener('mousedown', (e) => {
-            if (!document.getElementById('table-search-wrap')?.contains(e.target)) _tsdClose();
-        });
-
-        // ── Apply grade + search filters to table ──────────────────────────────
-        const applySearchFilter = () => {
-            const grade = gradeFilterSelect.value;
-            const term  = searchInput.value.trim().toLowerCase();
-            let filtered = studentsData;
-            if (grade) filtered = filtered.filter(s => s.Grade === grade);
-            if (term)  filtered = filtered.filter(s => (s._searchCache || '').includes(term));
-            currentFilteredStudents = filtered;
-            if (tabulatorTable) {
-                tabulatorTable.clearFilter(true);
-                if (grade) tabulatorTable.addFilter('Grade', '=', grade);
-                if (term) tabulatorTable.addFilter(data => (data._searchCache || '').includes(term));
-                setTimeout(updateCountBadge, 60);
+        // ── Visual reset helpers ───────────────────────────────────────────────
+        const resetSearchVisuals = (hasValue) => {
+            if (hasValue) {
+                searchClearBtn.style.display = 'flex';
+                if (searchIcon) searchIcon.style.color = 'var(--navy-lt)';
+                searchInput.style.borderColor = 'var(--navy-lt)';
+                searchInput.style.boxShadow = '0 0 0 3px rgba(30,64,128,.1)';
             } else {
-                const ctx = grade && term
-                    ? { field: 'Grade + Search', value: `${grade} - "${term}"` }
-                    : term ? { field: 'Search', value: term }
-                    : grade ? { field: 'Grade', value: grade } : null;
-                renderStudents(filtered, ctx);
+                searchClearBtn.style.display = 'none';
+                if (searchIcon) searchIcon.style.color = '';
+                searchInput.style.borderColor = '';
+                searchInput.style.boxShadow = '';
             }
         };
 
-        // Main input handler — dropdown only while typing, no table update
-        let _searchDebounce = null;
-        searchInput.addEventListener('input', () => {
-            const term = searchInput.value.trim().toLowerCase();
-            if (!term) { _tsdClose(); applySearchFilter(); return; }
-            const grade = gradeFilterSelect.value;
-            const pool  = grade ? studentsData.filter(s => s.Grade === grade) : studentsData;
-            const hits  = pool.filter(s => (s._searchCache || '').includes(term)).slice(0, 10);
-            _tsdRender(hits, term);
+        // ── Apply filter to Tabulator / renderStudents ─────────────────────────
+        const applySearchFilter = (searchTerm) => {
+            const selectedGrade = gradeFilterSelect.value;
+            if (tabulatorTable) {
+                tabulatorTable.clearFilter(true);
+                if (selectedGrade) tabulatorTable.addFilter('Grade', '=', selectedGrade);
+                if (searchTerm) {
+                    const lower = searchTerm.toLowerCase();
+                    tabulatorTable.addFilter((data) => {
+                        return Object.entries(data).some(([k, v]) => {
+                            if (k === 'id' || k === '_actions') return false;
+                            return String(v).toLowerCase().includes(lower);
+                        });
+                    });
+                }
+                setTimeout(updateCountBadge, 60);
+            } else {
+                let filteredStudents = selectedGrade
+                    ? studentsData.filter(s => s.Grade === selectedGrade)
+                    : studentsData;
+                if (searchTerm) {
+                    const lower = searchTerm.toLowerCase();
+                    filteredStudents = filteredStudents.filter(s =>
+                        Object.entries(s).some(([k, v]) => k !== 'id' && String(v).toLowerCase().includes(lower))
+                    );
+                }
+                const ctx = selectedGrade && searchTerm
+                    ? { field: 'Grade + Search', value: `${selectedGrade} - "${searchTerm}"` }
+                    : searchTerm ? { field: 'Search', value: searchTerm }
+                    : selectedGrade ? { field: 'Grade', value: selectedGrade } : null;
+                renderStudents(filteredStudents, ctx);
+            }
+        };
+
+        // ── Main input handler ─────────────────────────────────────────────────
+        searchInput.addEventListener('input', (e) => {
+            const raw = e.target.value;
+            const term = raw.trim();
+
+            resetSearchVisuals(raw.length > 0);
+
+            if (!term) {
+                closeDropdown();
+                applySearchFilter('');
+                return;
+            }
+
+            // Build suggestions from studentsData
+            const lower = term.toLowerCase();
+            const selectedGrade = gradeFilterSelect.value;
+            const pool = selectedGrade ? studentsData.filter(s => s.Grade === selectedGrade) : studentsData;
+            const matches = pool.filter(s =>
+                Object.entries(s).some(([k, v]) =>
+                    k !== 'id' && k !== '_actions' && String(v).toLowerCase().includes(lower)
+                )
+            );
+
+            openDropdown(matches, term);
+
+            // Also filter the underlying table (debounced slightly)
+            clearTimeout(_searchDebounce);
+            _searchDebounce = setTimeout(() => applySearchFilter(term), 120);
         });
 
-        // Grade change → close dropdown, refilter
-        gradeFilterSelect.addEventListener('change', () => { _tsdClose(); applySearchFilter(); });
+        // Show dropdown again on focus if there's already a value
+        searchInput.addEventListener('focus', (e) => {
+            if (searchInput.value.trim()) searchInput.dispatchEvent(new Event('input'));
+        });
+
+        // ── Clear button ───────────────────────────────────────────────────────
+        searchClearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            closeDropdown();
+            resetSearchVisuals(false);
+            searchInput.focus();
+            applySearchFilter('');
+        });
+
+        // ── Grade filter change → clear search ────────────────────────────────
+        gradeFilterSelect.addEventListener('change', () => {
+            searchInput.value = '';
+            closeDropdown();
+            resetSearchVisuals(false);
+        });
 
         
 
