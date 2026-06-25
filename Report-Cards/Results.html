@@ -4930,13 +4930,17 @@ const exportToPdf = async () => {
                     const termIdx = headers.indexOf('Term');
 
                     // ── Build cross-check maps from live studentsData ──────────────
-                    // Map 1: by DB key (Term value used as Firebase key)
+                    // Map 1: by Firebase DB key — s.id IS the key (Term value used at upload time)
+                    //         also index by Term field directly as a fallback
                     const existingByKey = {};
-                    // Map 2: by normalised Name+Term+Grade — catches duplicates with different keys
+                    // Map 2: by normalised Name+Term+Grade — catches duplicates regardless of key
                     const existingByNTG = {};
                     (studentsData || []).forEach(s => {
-                        const dbKey = String(s['Assessment No'] || s.id || '').trim();
-                        if (dbKey) existingByKey[dbKey] = s;
+                        // s.id is the Firebase node key (= Term value set at upload)
+                        const byId   = String(s.id   || '').trim();
+                        const byTerm = String(s['Term'] || '').trim();
+                        if (byId)   existingByKey[byId]   = s;
+                        if (byTerm) existingByKey[byTerm] = s;
                         const ntg = [
                             (s['Official Student Name'] || '').trim().toLowerCase(),
                             String(s['Term']  || '').trim().toLowerCase(),
@@ -4970,8 +4974,13 @@ const exportToPdf = async () => {
                         let existingRecord = null;
 
                         if (exactMatch) {
-                            // Same key exists — check if data changed
-                            const changed = headers.some(h => String(obj[h] ?? '') !== String(exactMatch[h] ?? ''));
+                            // Same key exists — compare normalised values (handle 93.0 vs "93" etc.)
+                            const norm = v => {
+                                const s = String(v ?? '').trim();
+                                const n = parseFloat(s);
+                                return (!isNaN(n) && String(n) === s.replace(/\.0+$/, '')) ? String(n) : s;
+                            };
+                            const changed = headers.some(h => norm(obj[h]) !== norm(exactMatch[h]));
                             status = changed ? 'update' : 'same';
                             existingRecord = exactMatch;
                         } else if (ntgMatches.length > 0) {
