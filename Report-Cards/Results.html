@@ -23,7 +23,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.0/firebase-app-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.0/firebase-auth-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.0/firebase-firestore-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.0/firebase-firestore-compat.js"></script>
     <script src="https://cdn.firebase.com/libs/firebaseui/2.5.1/firebaseui.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https:./css/swalOnly.css">
@@ -1086,7 +1085,6 @@
 
             <!-- Format buttons -->
             <div id="export-buttons-section">
-                <div id="export-buttons-section">
                     <p class="section-label">Choose Format</p>
                     <div style="display:flex;justify-content:center;gap:.75rem;margin-bottom:1.25rem;">
                         <button id="print-excel-btn" class="export-fmt-btn">
@@ -1102,7 +1100,6 @@
                             Word
                         </button>
                     </div>
-                </div>
             </div>
 
             <button id="close-print-modal-btn" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:.25rem;">Cancel</button>
@@ -4190,6 +4187,8 @@ const exportToPdf = async () => {
                         ['Ctrl + \\\\', 'Clear all filters'],
                         ['[ / ]', 'Prev / next grade'],
                         ['Ctrl + U', 'Show/hide upload section'],
+                        ['Ctrl + N', 'Focus new manual entry form'],
+                        ['1 – 9', 'Jump directly to Grade 1–9'],
                         ['?', 'Show this help panel'],
                     ].map(([k, d]) => `
                         <div style="display:flex;align-items:center;justify-content:flex-end;">
@@ -4346,6 +4345,32 @@ const exportToPdf = async () => {
                         }
                         e.preventDefault(); return;
                     }
+                    // Ctrl+N → focus first manual entry field
+                    if (!shift && key === 'n') {
+                        const grid = document.querySelector('.two-col-grid');
+                        if (grid) grid.style.display = '';
+                        const firstInput = document.querySelector('#manual-form input');
+                        if (firstInput) {
+                            firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            setTimeout(() => firstInput.focus(), 300);
+                            showToast('New entry form', '✏️');
+                        }
+                        e.preventDefault(); return;
+                    }
+                }
+
+                // 1–9 keys → jump to Grade 1–9 (not typing)
+                if (!isTyping(e) && !ctrl && /^[1-9]$/.test(key)) {
+                    const sel = document.getElementById('grade-filter-select');
+                    if (!sel) return;
+                    const target = `Grade ${key}`;
+                    const opt = Array.from(sel.options).find(o => o.value === target || o.text === target);
+                    if (opt) {
+                        sel.value = opt.value;
+                        sel.dispatchEvent(new Event('change'));
+                        showToast(target, '🎓');
+                        e.preventDefault();
+                    }
                 }
             });
 
@@ -4366,6 +4391,811 @@ const exportToPdf = async () => {
             if (topbarRight) topbarRight.insertBefore(badge, topbarRight.firstChild);
 
             console.log('[Shortcuts] Keyboard shortcuts ready. Press ? for help.');
+        })();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Sort memory — persist last sort to localStorage
+        // ══════════════════════════════════════════════════════════════════════
+        const SORT_KEY = 'kanyadet_results_sort';
+        function saveSortState(field, dir) {
+            try { localStorage.setItem(SORT_KEY, JSON.stringify({ field, dir })); } catch(e) {}
+        }
+        function loadSortState() {
+            try { return JSON.parse(localStorage.getItem(SORT_KEY) || 'null'); } catch(e) { return null; }
+        }
+        // Hook into renderStudents — after Tabulator builds, apply saved sort and listen for changes
+        const _origRenderStudents = renderStudents;
+        window.renderStudents = function(students, activeFilter = null) {
+            _origRenderStudents(students, activeFilter);
+            if (!tabulatorTable) return;
+            // Apply saved sort
+            const saved = loadSortState();
+            if (saved && saved.field && saved.dir) {
+                try { tabulatorTable.setSort(saved.field, saved.dir); } catch(e) {}
+            }
+            // Listen for sort changes
+            tabulatorTable.on('dataSorted', (sorters) => {
+                if (sorters && sorters.length > 0) {
+                    saveSortState(sorters[0].field, sorters[0].dir);
+                }
+            });
+        };
+        // point internal references to the wrapped version
+        window._renderStudentsAlias = renderStudents;
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Search history — last 5 searches shown on empty focus
+        // ══════════════════════════════════════════════════════════════════════
+        const SEARCH_HIST_KEY = 'kanyadet_search_history';
+        function getSearchHistory() {
+            try { return JSON.parse(localStorage.getItem(SEARCH_HIST_KEY) || '[]'); } catch(e) { return []; }
+        }
+        function pushSearchHistory(term) {
+            if (!term || term.length < 2) return;
+            try {
+                let hist = getSearchHistory().filter(h => h !== term);
+                hist.unshift(term);
+                hist = hist.slice(0, 5);
+                localStorage.setItem(SEARCH_HIST_KEY, JSON.stringify(hist));
+            } catch(e) {}
+        }
+
+        // Show history dropdown when input focused + empty
+        const _searchInputEl = document.getElementById('search-input');
+        const _searchDropdownEl = document.getElementById('search-dropdown');
+        if (_searchInputEl && _searchDropdownEl) {
+            _searchInputEl.addEventListener('focus', () => {
+                if (_searchInputEl.value.trim()) return; // existing logic handles non-empty
+                const hist = getSearchHistory();
+                if (!hist.length) return;
+                _searchDropdownEl.innerHTML = '';
+                const hdr = document.createElement('div');
+                hdr.style.cssText = 'padding:.4rem 1rem .3rem;font-size:.7rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;';
+                hdr.innerHTML = `<span>Recent searches</span><button id="clear-hist-btn" style="font-size:.68rem;color:var(--danger);background:none;border:none;cursor:pointer;font-weight:700;font-family:inherit;">Clear</button>`;
+                _searchDropdownEl.appendChild(hdr);
+                hdr.querySelector('#clear-hist-btn').addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    try { localStorage.removeItem(SEARCH_HIST_KEY); } catch(e2) {}
+                    _searchDropdownEl.style.display = 'none';
+                    _searchDropdownEl.innerHTML = '';
+                });
+                hist.forEach(term => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display:flex;align-items:center;gap:.65rem;padding:.5rem .9rem;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;';
+                    item.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="var(--slate-lt)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span style="font-size:.83rem;color:var(--text2);flex:1;">${term}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="var(--slate-lt)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M7 7h10v10"/></svg>`;
+                    item.addEventListener('mouseenter', () => item.style.background = '#eef3fb');
+                    item.addEventListener('mouseleave', () => item.style.background = '');
+                    item.addEventListener('mousedown', (e) => { e.preventDefault(); });
+                    item.addEventListener('click', () => {
+                        _searchInputEl.value = term;
+                        _searchInputEl.dispatchEvent(new Event('input'));
+                        _searchDropdownEl.style.display = 'none';
+                    });
+                    _searchDropdownEl.appendChild(item);
+                });
+                _searchDropdownEl.style.display = 'block';
+            });
+            // Save term on Enter or when dropdown item clicked
+            _searchInputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && _searchInputEl.value.trim()) {
+                    pushSearchHistory(_searchInputEl.value.trim());
+                }
+            });
+            // Also save when user blurs with a value
+            _searchInputEl.addEventListener('blur', () => {
+                const v = _searchInputEl.value.trim();
+                if (v.length >= 2) pushSearchHistory(v);
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Bulk select + delete toolbar
+        // ══════════════════════════════════════════════════════════════════════
+        (function initBulkDelete() {
+            // Inject a "Delete Selected" button into tab-toolbar, hidden by default
+            const tabToolbar = document.getElementById('tab-toolbar');
+            if (!tabToolbar) return;
+            const bulkBtn = document.createElement('button');
+            bulkBtn.id = 'tab-bulk-delete-btn';
+            bulkBtn.className = 'tab-toolbar-btn';
+            bulkBtn.style.cssText = 'display:none;background:var(--danger-lt);color:var(--danger);border-color:#fca5a5;';
+            bulkBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"/></svg> <span id="bulk-del-label">Delete 0 selected</span>`;
+            tabToolbar.insertBefore(bulkBtn, document.getElementById('tab-count-badge'));
+
+            // Watch Tabulator row selection via event delegation — update button visibility
+            let _selectionWatcher = null;
+            function attachSelectionWatcher() {
+                if (!tabulatorTable) return;
+                clearInterval(_selectionWatcher);
+                _selectionWatcher = setInterval(() => {
+                    try {
+                        const sel = tabulatorTable.getSelectedData ? tabulatorTable.getSelectedData() : [];
+                        const n = sel.length;
+                        if (n > 0) {
+                            bulkBtn.style.display = 'inline-flex';
+                            document.getElementById('bulk-del-label').textContent = `Delete ${n} selected`;
+                        } else {
+                            bulkBtn.style.display = 'none';
+                        }
+                    } catch(e) {}
+                }, 300);
+            }
+            // Re-attach after every renderStudents call (table is rebuilt each time)
+            const _prevRender = window.renderStudents || renderStudents;
+            const _patchedRender = function(students, activeFilter = null) {
+                _prevRender(students, activeFilter);
+                setTimeout(attachSelectionWatcher, 400);
+            };
+            window.renderStudents = _patchedRender;
+
+            bulkBtn.addEventListener('click', async () => {
+                if (!tabulatorTable) return;
+                let selected;
+                try { selected = tabulatorTable.getSelectedData(); } catch(e) { return; }
+                if (!selected || selected.length === 0) return;
+                const names = selected.slice(0, 3).map(s => s['Official Student Name'] || s['Assessment No'] || s.id).join(', ');
+                const more = selected.length > 3 ? ` and ${selected.length - 3} more` : '';
+                const ok = await Swal.fire({
+                    icon: 'warning',
+                    title: `Delete ${selected.length} student${selected.length !== 1 ? 's' : ''}?`,
+                    html: `<div style="font-size:.88rem;color:var(--text2)">${names}${more}</div><div style="margin-top:.6rem;font-size:.8rem;color:var(--danger)">Records will be moved to DeletedResults.</div>`,
+                    showCancelButton: true,
+                    confirmButtonText: `Delete ${selected.length}`,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonText: 'Cancel',
+                    customClass: { popup: 'swal2-popup' }
+                });
+                if (!ok.isConfirmed) return;
+                const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+                const userEmail = auth?.currentUser?.email || 'unknown';
+                let deleted = 0;
+                for (const s of selected) {
+                    try {
+                        const id = s.id;
+                        const sRef = fbRef(db, `Results/${sanitizedAppId}/students/${id}`);
+                        const dRef = fbRef(db, `DeletedResults/${sanitizedAppId}/artifacts/${id}`);
+                        const snap = await fbGet(sRef);
+                        if (snap.exists()) await fbSet(dRef, { ...snap.val(), deletedAt: new Date().toISOString(), deletedBy: userEmail });
+                        await fbRemove(sRef);
+                        studentsData = studentsData.filter(x => x.id !== id);
+                        deleted++;
+                    } catch(err) { console.error('[BulkDelete]', err); }
+                }
+                if (tabulatorTable) {
+                    tabulatorTable.replaceData(studentsData.map(s => ({ ...s, _actions: '' })));
+                    updateCountBadge();
+                }
+                showModal(`✓ Deleted ${deleted} student record${deleted !== 1 ? 's' : ''}.`);
+                bulkBtn.style.display = 'none';
+            });
+        })();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Grade comparison chart modal
+        // ══════════════════════════════════════════════════════════════════════
+        (function initGradeChart() {
+            // Add button to tab-toolbar
+            const tabToolbar = document.getElementById('tab-toolbar');
+            if (!tabToolbar) return;
+            const chartBtn = document.createElement('button');
+            chartBtn.id = 'tab-grade-chart-btn';
+            chartBtn.className = 'tab-toolbar-btn';
+            chartBtn.title = 'Grade comparison chart';
+            chartBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg> Grade Chart`;
+            tabToolbar.insertBefore(chartBtn, document.getElementById('tab-count-badge'));
+
+            // Build modal
+            const chartModal = document.createElement('div');
+            chartModal.id = 'grade-chart-modal';
+            chartModal.style.cssText = 'display:none;position:fixed;inset:0;z-index:5000;background:rgba(13,31,53,.6);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:1rem;';
+            chartModal.innerHTML = `
+                <div style="background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);max-width:700px;width:100%;padding:1.75rem;border:1px solid var(--border);max-height:90vh;overflow-y:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+                        <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:800;color:var(--navy);">Grade Average Comparison</div>
+                        <button id="close-chart-modal" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--surface3);color:var(--slate);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+                    </div>
+                    <div style="margin-bottom:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;" id="chart-subject-pills"></div>
+                    <div style="position:relative;height:320px;"><canvas id="grade-compare-canvas"></canvas></div>
+                    <p style="margin-top:.75rem;font-size:.72rem;color:var(--slate-lt);text-align:center;">Average score per grade for the selected subject. Only grades with data are shown.</p>
+                </div>`;
+            document.body.appendChild(chartModal);
+
+            let _chartInstance = null;
+            function renderGradeChart(subjectKey) {
+                const grades = {};
+                (studentsData || []).forEach(s => {
+                    const g = s.Grade || 'No Grade';
+                    const v = parseFloat(s[subjectKey]);
+                    if (isNaN(v)) return;
+                    if (!grades[g]) grades[g] = { sum: 0, count: 0 };
+                    grades[g].sum += v;
+                    grades[g].count++;
+                });
+                const labels = Object.keys(grades).sort();
+                const data = labels.map(g => +(grades[g].sum / grades[g].count).toFixed(1));
+                const colors = ['#0d1f35','#1e4080','#276749','#2b6cb0','#d69e2e','#c53030','#6b46c1','#b7791f','#2c7a7b'];
+                if (_chartInstance) _chartInstance.destroy();
+                const ctx = document.getElementById('grade-compare-canvas');
+                if (!ctx) return;
+                _chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: subjectKey,
+                            data,
+                            backgroundColor: labels.map((_, i) => colors[i % colors.length] + 'cc'),
+                            borderColor: labels.map((_, i) => colors[i % colors.length]),
+                            borderWidth: 2, borderRadius: 6,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: ctx => ` Avg: ${ctx.parsed.y}` } }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,.05)' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            chartBtn.addEventListener('click', () => {
+                if (!studentsData || studentsData.length === 0) { showModal('No student data loaded yet.'); return; }
+                // Build subject pills
+                const subjCols = getSubjectColumns(studentsData);
+                const pillsEl = document.getElementById('chart-subject-pills');
+                pillsEl.innerHTML = '';
+                let activePill = null;
+                subjCols.forEach((s, i) => {
+                    const pill = document.createElement('button');
+                    pill.textContent = s;
+                    pill.style.cssText = 'padding:.28rem .75rem;border-radius:999px;border:1.5px solid var(--border2);font-size:.75rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:var(--surface);color:var(--text2);';
+                    pill.addEventListener('click', () => {
+                        if (activePill) { activePill.style.background = 'var(--surface)'; activePill.style.color = 'var(--text2)'; activePill.style.borderColor = 'var(--border2)'; }
+                        pill.style.background = 'var(--navy)'; pill.style.color = '#fff'; pill.style.borderColor = 'var(--navy)';
+                        activePill = pill;
+                        renderGradeChart(s);
+                    });
+                    pillsEl.appendChild(pill);
+                    if (i === 0) setTimeout(() => pill.click(), 50);
+                });
+                chartModal.style.display = 'flex';
+            });
+            document.getElementById('close-chart-modal').addEventListener('click', () => { chartModal.style.display = 'none'; });
+            chartModal.addEventListener('click', (e) => { if (e.target === chartModal) chartModal.style.display = 'none'; });
+        })();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Per-student result card modal (single click = view, edit btn = edit)
+        // ══════════════════════════════════════════════════════════════════════
+        (function initStudentCard() {
+            const LEVEL_META = {
+                EE1:{ label:'Exceeding Expectation 1', color:'#276749', bg:'#f0fff4' },
+                EE2:{ label:'Exceeding Expectation 2', color:'#38a169', bg:'#f0fff4' },
+                ME1:{ label:'Meeting Expectation 1',   color:'#2b6cb0', bg:'#ebf8ff' },
+                ME2:{ label:'Meeting Expectation 2',   color:'#4299e1', bg:'#ebf8ff' },
+                AE1:{ label:'Approaching Expectation 1',color:'#d69e2e', bg:'#fffff0' },
+                AE2:{ label:'Approaching Expectation 2',color:'#ed8936', bg:'#fffff0' },
+                BE1:{ label:'Below Expectation 1',     color:'#e53e3e', bg:'#fff5f5' },
+                BE2:{ label:'Below Expectation 2',     color:'#c53030', bg:'#fff5f5' },
+            };
+
+            // Build modal DOM
+            const cardModal = document.createElement('div');
+            cardModal.id = 'student-card-modal';
+            cardModal.style.cssText = 'display:none;position:fixed;inset:0;z-index:4500;background:rgba(13,31,53,.6);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem;';
+            cardModal.innerHTML = `
+                <div id="student-card-box" style="background:var(--surface);border-radius:20px;box-shadow:var(--shadow-lg);max-width:520px;width:100%;max-height:90vh;overflow-y:auto;border:1px solid var(--border);opacity:0;transform:scale(.9) translateY(20px);transition:opacity .28s cubic-bezier(.34,1.56,.64,1),transform .28s cubic-bezier(.34,1.56,.64,1);">
+                    <!-- Header -->
+                    <div id="sc-header" style="padding:1.5rem;background:var(--navy);border-radius:20px 20px 0 0;display:flex;align-items:center;gap:1rem;">
+                        <img id="sc-avatar" src="./student_images/default.jpg" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.3);flex-shrink:0;">
+                        <div style="flex:1;min-width:0;">
+                            <div id="sc-name" style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:800;color:#fff;line-height:1.2;"></div>
+                            <div id="sc-meta" style="font-size:.77rem;color:rgba(255,255,255,.55);margin-top:.2rem;"></div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;">
+                            <button id="sc-edit-btn" style="padding:.4rem .9rem;border-radius:8px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s;">✏️ Edit</button>
+                            <button id="sc-close-btn" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;">✕</button>
+                        </div>
+                    </div>
+                    <!-- Level badge -->
+                    <div id="sc-level-wrap" style="padding:.85rem 1.5rem;border-bottom:1px solid var(--border);"></div>
+                    <!-- Scores grid -->
+                    <div id="sc-scores" style="padding:1.1rem 1.5rem;display:grid;grid-template-columns:1fr 1fr;gap:.55rem;border-bottom:1px solid var(--border);"></div>
+                    <!-- Totals -->
+                    <div id="sc-totals" style="padding:.9rem 1.5rem;display:flex;gap:1.5rem;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--surface2);"></div>
+                    <!-- Print individual button -->
+                    <div style="padding:.9rem 1.5rem;display:flex;gap:.6rem;">
+                        <button id="sc-print-btn" style="flex:1;padding:.6rem;border-radius:9px;border:none;background:var(--navy);color:#fff;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:.4rem;transition:background .15s;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print Result Card
+                        </button>
+                    </div>
+                </div>`;
+            document.body.appendChild(cardModal);
+
+            function openCard(id) {
+                const s = (window.studentsData || studentsData || []).find(x => x.id === id);
+                if (!s) return;
+                const name    = s['Official Student Name'] || s['Assessment No'] || id;
+                const grade   = s.Grade || '—';
+                const term    = s.Term  || '—';
+                const assNo   = s['Assessment No'] || '—';
+                const gender  = s.Gender || '';
+                const level   = s.Level || '';
+                const lm      = LEVEL_META[level] || { label: level, color: 'var(--slate)', bg: 'var(--surface2)' };
+
+                // Avatar
+                const avatar = document.getElementById('sc-avatar');
+                avatar.src = './student_images/default.jpg';
+                resolveStudentPhoto(name, id, grade).then(src => { if (avatar) avatar.src = src; });
+
+                document.getElementById('sc-name').textContent = name;
+                document.getElementById('sc-meta').textContent = [grade, `Term ${term}`, gender, `No. ${assNo}`].filter(Boolean).join(' · ');
+
+                // Level badge
+                const lw = document.getElementById('sc-level-wrap');
+                lw.innerHTML = level
+                    ? `<div style="display:inline-flex;align-items:center;gap:.65rem;background:${lm.bg};border:1.5px solid ${lm.color}30;border-radius:10px;padding:.55rem 1rem;">
+                        <span style="font-size:1.05rem;font-weight:900;color:${lm.color};letter-spacing:.03em;">${level}</span>
+                        <span style="font-size:.8rem;font-weight:600;color:${lm.color};">${lm.label}</span>
+                       </div>`
+                    : `<span style="font-size:.8rem;color:var(--slate-lt);">Level not available</span>`;
+
+                // Scores
+                const subjCols = getSubjectColumns([s]);
+                const scoresEl = document.getElementById('sc-scores');
+                if (subjCols.length === 0) {
+                    scoresEl.innerHTML = '<div style="grid-column:1/-1;color:var(--slate-lt);font-size:.82rem;font-style:italic;">No subject scores recorded.</div>';
+                } else {
+                    scoresEl.innerHTML = subjCols.map(subj => {
+                        const v = parseFloat(s[subj]);
+                        const display = isNaN(v) ? '—' : v;
+                        let scoreColor = 'var(--slate)';
+                        if (!isNaN(v)) { if (v >= 75) scoreColor = '#276749'; else if (v >= 58) scoreColor = '#2b6cb0'; else if (v >= 41) scoreColor = '#d69e2e'; else scoreColor = '#e53e3e'; }
+                        const pct = isNaN(v) ? 0 : Math.min(100, v);
+                        return `<div style="background:var(--surface2);border-radius:8px;padding:.55rem .75rem;border:1px solid var(--border);">
+                            <div style="font-size:.7rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${subj}">${subj}</div>
+                            <div style="display:flex;align-items:center;gap:.5rem;">
+                                <span style="font-size:1.05rem;font-weight:800;color:${scoreColor};">${display}</span>
+                                <div style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${scoreColor};border-radius:2px;transition:width .4s;"></div></div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+
+                // Totals
+                const total = s['Total Marks'];
+                const avg   = s['Perc Avrg'];
+                const totEl = document.getElementById('sc-totals');
+                totEl.innerHTML = [
+                    total !== undefined && total !== '' ? `<div><div style="font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;">Total Marks</div><div style="font-size:1.35rem;font-weight:800;color:var(--navy);">${total}</div></div>` : '',
+                    avg !== undefined && avg !== ''     ? `<div><div style="font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;">Average %</div><div style="font-size:1.35rem;font-weight:800;color:var(--navy);">${avg}</div></div>` : '',
+                    subjCols.length ? `<div><div style="font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;">Subjects</div><div style="font-size:1.35rem;font-weight:800;color:var(--navy);">${subjCols.length}</div></div>` : '',
+                ].join('');
+
+                // Wire buttons
+                document.getElementById('sc-edit-btn').onclick = () => { closeCard(); setTimeout(() => editStudent(id), 120); };
+                document.getElementById('sc-print-btn').onclick = () => printStudentCard(s);
+                document.getElementById('sc-close-btn').onclick = closeCard;
+
+                // Animate in
+                cardModal.style.display = 'flex';
+                const box = document.getElementById('student-card-box');
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    box.style.opacity = '1';
+                    box.style.transform = 'scale(1) translateY(0)';
+                }));
+            }
+
+            function closeCard() {
+                const box = document.getElementById('student-card-box');
+                if (box) { box.style.opacity = '0'; box.style.transform = 'scale(.9) translateY(20px)'; }
+                setTimeout(() => { cardModal.style.display = 'none'; }, 280);
+            }
+
+            cardModal.addEventListener('click', (e) => { if (e.target === cardModal) closeCard(); });
+
+            // Expose globally so Tabulator rowClick can call it
+            window.openStudentCard = openCard;
+
+            // Patch Tabulator rowClick: single click = card, double click still opens edit drawer
+            // We hook into renderStudents to override rowClick after each table rebuild
+            const _origRender2 = window.renderStudents || renderStudents;
+            window.renderStudents = function(students, activeFilter = null) {
+                _origRender2(students, activeFilter);
+                if (!tabulatorTable) return;
+                // Remove existing rowClick and replace with card-first behaviour
+                tabulatorTable.off('rowClick');
+                tabulatorTable.on('rowClick', (e, row) => {
+                    if (e.target.closest('.action-wrap')) return;
+                    const d = row.getData();
+                    if (e.target.tagName === 'IMG') { openLocalPDF(d['Assessment No'], d['Official Student Name'] || ''); return; }
+                    if (d.id) openStudentCard(d.id);
+                });
+                tabulatorTable.on('rowDblClick', (e, row) => {
+                    if (e.target.closest('.action-wrap')) return;
+                    const d = row.getData();
+                    if (d.id) { closeCard(); setTimeout(() => editStudent(d.id), 50); }
+                });
+            };
+        })();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Import preview/diff before committing to Firebase
+        // ══════════════════════════════════════════════════════════════════════
+        (function initImportPreview() {
+            const fileInputEl = document.getElementById('file-input');
+            if (!fileInputEl) return;
+
+            // Build preview modal
+            const previewModal = document.createElement('div');
+            previewModal.id = 'import-preview-modal';
+            previewModal.style.cssText = 'display:none;position:fixed;inset:0;z-index:6000;background:rgba(13,31,53,.65);backdrop-filter:blur(5px);align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;';
+            previewModal.innerHTML = `
+                <div style="background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);max-width:820px;width:100%;border:1px solid var(--border);margin:auto;">
+                    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--navy);border-radius:18px 18px 0 0;">
+                        <div style="font-family:'Playfair Display',serif;font-size:1rem;font-weight:800;color:#fff;">Import Preview</div>
+                        <button id="close-preview-btn" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;">✕</button>
+                    </div>
+                    <div style="padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);">
+                        <div id="preview-summary" style="display:flex;gap:1rem;flex-wrap:wrap;"></div>
+                    </div>
+                    <div style="padding:.75rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:center;font-size:.8rem;color:var(--slate);">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d1fae5;border:1.5px solid #059669;"></span> New record
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1.5px solid #2b6cb0;margin-left:.75rem;"></span> Will update existing
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1.5px solid var(--border2);margin-left:.75rem;"></span> Unchanged
+                    </div>
+                    <div style="max-height:45vh;overflow-y:auto;padding:.5rem 0;" id="preview-table-wrap"></div>
+                    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.6rem;background:var(--surface2);border-radius:0 0 18px 18px;">
+                        <button id="preview-commit-btn" style="flex:1;padding:.65rem;border-radius:9px;border:none;background:var(--success);color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;">✓ Commit Import</button>
+                        <button id="preview-cancel-btn" style="padding:.65rem 1.25rem;border-radius:9px;border:1.5px solid var(--border2);background:transparent;color:var(--slate);font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(previewModal);
+
+            let _pendingRows = []; // { key, data, status: 'new'|'update'|'same' }
+
+            function closePreview() { previewModal.style.display = 'none'; _pendingRows = []; fileInputEl.value = ''; }
+            document.getElementById('close-preview-btn').addEventListener('click', closePreview);
+            document.getElementById('preview-cancel-btn').addEventListener('click', closePreview);
+            previewModal.addEventListener('click', e => { if (e.target === previewModal) closePreview(); });
+
+            // Override the file input change handler — intercept before it writes to Firebase
+            fileInputEl.addEventListener('change', async (event) => {
+                // This fires AFTER the existing handler — but the existing handler also listens.
+                // We re-read the file and show a preview; the original handler is replaced.
+            }, false);
+
+            // Replace the original handler fully by cloning the element
+            const newFileInput = fileInputEl.cloneNode(true);
+            fileInputEl.parentNode.replaceChild(newFileInput, fileInputEl);
+
+            newFileInput.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const statusMsg = document.getElementById('status-message');
+                try {
+                    const data = await new Promise((res, rej) => {
+                        const r = new FileReader();
+                        r.onload = e => res(e.target.result);
+                        r.onerror = e => rej(e);
+                        r.readAsArrayBuffer(file);
+                    });
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    if (jsonRows.length < 2) throw new Error('File must contain a header row and at least one data row.');
+                    const headers = jsonRows[0].map(h => String(h).trim());
+                    if (!headers.includes('Term')) throw new Error("Excel file must have a column titled 'Term'.");
+                    const termIdx = headers.indexOf('Term');
+
+                    // Build preview rows
+                    const existingMap = {};
+                    (studentsData || []).forEach(s => { existingMap[String(s['Assessment No'] || s.id)] = s; });
+
+                    _pendingRows = [];
+                    jsonRows.slice(1).forEach(row => {
+                        const term = row[termIdx]; if (!term) return;
+                        const key = String(term).trim();
+                        const obj = {};
+                        headers.forEach((h, i) => { obj[h] = row[i]; });
+                        const existing = existingMap[key];
+                        let status = 'new';
+                        if (existing) {
+                            const changed = headers.some(h => String(obj[h] ?? '') !== String(existing[h] ?? ''));
+                            status = changed ? 'update' : 'same';
+                        }
+                        _pendingRows.push({ key, data: obj, status });
+                    });
+
+                    // Summary chips
+                    const newCount    = _pendingRows.filter(r => r.status === 'new').length;
+                    const updateCount = _pendingRows.filter(r => r.status === 'update').length;
+                    const sameCount   = _pendingRows.filter(r => r.status === 'same').length;
+                    document.getElementById('preview-summary').innerHTML = [
+                        `<div style="padding:.4rem 1rem;border-radius:8px;background:#d1fae5;color:#065f46;font-size:.8rem;font-weight:700;">${newCount} new</div>`,
+                        updateCount ? `<div style="padding:.4rem 1rem;border-radius:8px;background:#dbeafe;color:#1e40af;font-size:.8rem;font-weight:700;">${updateCount} updates</div>` : '',
+                        sameCount   ? `<div style="padding:.4rem 1rem;border-radius:8px;background:var(--surface2);color:var(--slate);font-size:.8rem;font-weight:700;">${sameCount} unchanged</div>` : '',
+                        `<div style="padding:.4rem 1rem;border-radius:8px;background:var(--surface3);color:var(--text2);font-size:.8rem;font-weight:700;">${_pendingRows.length} total rows</div>`,
+                    ].join('');
+
+                    // Table (show first 60, summarise rest)
+                    const colsToShow = headers.slice(0, 6);
+                    const rowsToShow = _pendingRows.slice(0, 60);
+                    const rowsBg = { new: '#f0fff4', update: '#eff6ff', same: 'var(--surface2)' };
+                    const rowsBd = { new: '#059669', update: '#2b6cb0', same: 'var(--border2)' };
+                    document.getElementById('preview-table-wrap').innerHTML = `
+                        <table style="width:100%;border-collapse:collapse;font-size:.78rem;font-family:'DM Sans',sans-serif;">
+                            <thead><tr style="background:var(--navy);">
+                                <th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">Status</th>
+                                ${colsToShow.map(h => `<th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">${h}</th>`).join('')}
+                            </tr></thead>
+                            <tbody>
+                                ${rowsToShow.map(r => `<tr style="border-bottom:1px solid ${rowsBd[r.status]}22;background:${rowsBg[r.status]};">
+                                    <td style="padding:.45rem .75rem;"><span style="font-size:.7rem;font-weight:700;color:${rowsBd[r.status]};text-transform:uppercase;">${r.status}</span></td>
+                                    ${colsToShow.map(h => `<td style="padding:.45rem .75rem;color:var(--text2);">${r.data[h] ?? ''}</td>`).join('')}
+                                </tr>`).join('')}
+                                ${_pendingRows.length > 60 ? `<tr><td colspan="${colsToShow.length + 1}" style="padding:.6rem .75rem;color:var(--slate);font-style:italic;text-align:center;font-size:.75rem;">… and ${_pendingRows.length - 60} more rows</td></tr>` : ''}
+                            </tbody>
+                        </table>`;
+
+                    previewModal.style.display = 'flex';
+
+                } catch(err) {
+                    if (statusMsg) { statusMsg.textContent = `Error: ${err.message}`; statusMsg.classList.remove('hidden'); }
+                    console.error('[ImportPreview]', err);
+                    newFileInput.value = '';
+                }
+            });
+
+            // Commit
+            document.getElementById('preview-commit-btn').addEventListener('click', async () => {
+                const commitBtn = document.getElementById('preview-commit-btn');
+                commitBtn.disabled = true; commitBtn.textContent = 'Uploading…';
+                try {
+                    const { ref: fbRef, set: fbSet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+                    const toWrite = _pendingRows.filter(r => r.status !== 'same');
+                    for (const r of toWrite) {
+                        await fbSet(fbRef(db, `Results/${sanitizedAppId}/students/${r.key}`), r.data);
+                    }
+                    closePreview();
+                    showModal(`✓ Imported ${toWrite.length} record${toWrite.length !== 1 ? 's' : ''} successfully.`);
+                } catch(err) {
+                    console.error('[ImportPreview commit]', err);
+                    showModal(`Import failed: ${err.message}`);
+                } finally {
+                    commitBtn.disabled = false; commitBtn.textContent = '✓ Commit Import';
+                }
+            });
+        })();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Print individual student result card as PDF
+        // ══════════════════════════════════════════════════════════════════════
+        window.printStudentCard = function(student) {
+            if (!student) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+            const pw = doc.internal.pageSize.width;
+            const LEVEL_META = {
+                EE1:'Exceeding Expectation 1', EE2:'Exceeding Expectation 2',
+                ME1:'Meeting Expectation 1',   ME2:'Meeting Expectation 2',
+                AE1:'Approaching Expectation 1',AE2:'Approaching Expectation 2',
+                BE1:'Below Expectation 1',      BE2:'Below Expectation 2',
+            };
+            const level = student.Level || '';
+            const name  = student['Official Student Name'] || student['Assessment No'] || 'Student';
+            const grade = student.Grade || '—';
+            const term  = student.Term  || '—';
+            const assNo = student['Assessment No'] || '—';
+            const subjCols = getSubjectColumns([student]);
+
+            // Header band
+            doc.setFillColor(13, 31, 53);
+            doc.rect(0, 0, pw, 28, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(13);
+            doc.setFont(undefined, 'bold');
+            doc.text('Kanyadet Pri & Junior School', pw / 2, 10, { align: 'center' });
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.text('Student Assessment Result Card', pw / 2, 17, { align: 'center' });
+            doc.setFontSize(8);
+            doc.setTextColor(200, 200, 200);
+            doc.text(`${grade}  ·  Term ${term}  ·  No. ${assNo}`, pw / 2, 24, { align: 'center' });
+
+            // Name
+            doc.setTextColor(13, 31, 53);
+            doc.setFontSize(13);
+            doc.setFont(undefined, 'bold');
+            doc.text(name, pw / 2, 38, { align: 'center' });
+
+            // Level badge
+            if (level) {
+                const lLabel = LEVEL_META[level] || level;
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(30, 64, 128);
+                doc.text(`${level} — ${lLabel}`, pw / 2, 46, { align: 'center' });
+            }
+
+            // Score table
+            let y = 54;
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            doc.setFillColor(240, 165, 0);
+            doc.rect(10, y, pw - 20, 6, 'F');
+            doc.setTextColor(13, 31, 53);
+            doc.text('Subject', 12, y + 4.2);
+            doc.text('Score', pw - 12, y + 4.2, { align: 'right' });
+            y += 7;
+            doc.setFont(undefined, 'normal');
+            subjCols.forEach((subj, i) => {
+                const v = student[subj];
+                const display = (v !== undefined && v !== '' && v !== '-') ? String(v) : '—';
+                if (i % 2 === 0) {
+                    doc.setFillColor(246, 248, 251);
+                    doc.rect(10, y - 0.5, pw - 20, 5.5, 'F');
+                }
+                doc.setTextColor(60, 60, 60);
+                doc.text(subj, 12, y + 3.5);
+                doc.text(display, pw - 12, y + 3.5, { align: 'right' });
+                y += 5.5;
+            });
+
+            // Totals
+            y += 3;
+            doc.setFont(undefined, 'bold');
+            doc.setFillColor(13, 31, 53);
+            doc.rect(10, y, pw - 20, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(9);
+            const totalTxt = student['Total Marks'] !== undefined ? `Total: ${student['Total Marks']}` : '';
+            const avgTxt   = student['Perc Avrg']   !== undefined ? `Average: ${student['Perc Avrg']}%` : '';
+            doc.text([totalTxt, avgTxt].filter(Boolean).join('   '), pw / 2, y + 4.8, { align: 'center' });
+
+            // Footer
+            const ph = doc.internal.pageSize.height;
+            doc.setTextColor(150, 150, 150);
+            doc.setFontSize(7);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Generated: ${new Date().toLocaleDateString()}  ·  ICT Dept — Kanyadet School`, pw / 2, ph - 6, { align: 'center' });
+
+            const fileName = `Result_${name.replace(/\s+/g, '_')}_${grade.replace(/\s+/g, '')}_T${term}.pdf`;
+            doc.save(fileName);
+        };
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Undo last delete (8-second snackbar)
+        // ══════════════════════════════════════════════════════════════════════
+        (function initUndoDelete() {
+            // Snackbar DOM
+            const snackbar = document.createElement('div');
+            snackbar.id = 'undo-snackbar';
+            snackbar.style.cssText = `
+                position:fixed;bottom:1.5rem;right:1.5rem;z-index:9500;
+                background:var(--navy);color:#fff;
+                font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;
+                padding:.7rem 1.1rem;border-radius:12px;
+                box-shadow:0 6px 24px rgba(0,0,0,.3);
+                display:flex;align-items:center;gap:.75rem;
+                opacity:0;transform:translateY(12px);pointer-events:none;
+                transition:opacity .22s,transform .22s;
+                min-width:260px;max-width:360px;`;
+            snackbar.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,.7)" stroke-width="2" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span id="undo-msg" style="flex:1;"></span>
+                <button id="undo-btn" style="padding:.3rem .8rem;border-radius:7px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s;flex-shrink:0;">Undo</button>
+                <div id="undo-progress" style="position:absolute;bottom:0;left:0;height:3px;background:var(--gold);border-radius:0 0 12px 12px;width:100%;transition:width linear;"></div>`;
+            document.body.appendChild(snackbar);
+
+            let _undoTimer = null;
+            let _undoPayload = null; // { id, data, studentName }
+
+            function showUndoSnackbar(payload, durationMs = 8000) {
+                _undoPayload = payload;
+                clearTimeout(_undoTimer);
+                document.getElementById('undo-msg').textContent = `Deleted "${payload.studentName}"`;
+                const prog = document.getElementById('undo-progress');
+                prog.style.transition = 'none';
+                prog.style.width = '100%';
+                snackbar.style.opacity = '1';
+                snackbar.style.transform = 'translateY(0)';
+                snackbar.style.pointerEvents = 'all';
+                // Animate progress bar draining
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    prog.style.transition = `width ${durationMs}ms linear`;
+                    prog.style.width = '0%';
+                }));
+                _undoTimer = setTimeout(hideSnackbar, durationMs);
+            }
+
+            function hideSnackbar() {
+                snackbar.style.opacity = '0';
+                snackbar.style.transform = 'translateY(12px)';
+                snackbar.style.pointerEvents = 'none';
+                _undoPayload = null;
+            }
+
+            document.getElementById('undo-btn').addEventListener('click', async () => {
+                if (!_undoPayload) return;
+                clearTimeout(_undoTimer);
+                hideSnackbar();
+                const { id, data } = _undoPayload;
+                try {
+                    const { ref: fbRef, set: fbSet, remove: fbRemove } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+                    // Restore to main DB
+                    const restoreData = { ...data };
+                    delete restoreData.deletedAt;
+                    delete restoreData.deletedBy;
+                    await fbSet(fbRef(db, `Results/${sanitizedAppId}/students/${id}`), restoreData);
+                    // Remove from DeletedResults
+                    await fbRemove(fbRef(db, `DeletedResults/${sanitizedAppId}/artifacts/${id}`));
+                    // Add back to local data
+                    studentsData.push({ id, ...restoreData });
+                    window.studentsData = studentsData;
+                    if (tabulatorTable) {
+                        tabulatorTable.addRow({ id, ...restoreData, _actions: '' });
+                        updateCountBadge();
+                    }
+                    showModal(`✓ Restored "${data['Official Student Name'] || id}".`);
+                } catch(err) {
+                    console.error('[Undo delete]', err);
+                    showModal(`Undo failed: ${err.message}`);
+                }
+            });
+
+            // Patch deleteStudent to show snackbar
+            const _origDelete = window.deleteStudent;
+            window.deleteStudent = async function(id) {
+                // Capture student data before deletion
+                const s = studentsData.find(x => x.id === id);
+                if (!s) { if (_origDelete) return _origDelete(id); return; }
+                const studentName = s['Official Student Name'] || s['Assessment No'] || id;
+                // Confirm dialog
+                const ok = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Delete student?',
+                    html: `<div style="font-size:.88rem;color:var(--text2)">${studentName}</div><div style="margin-top:.5rem;font-size:.8rem;color:var(--slate);">Record will be moved to DeletedResults. You can undo within 8 seconds.</div>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Delete',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonText: 'Cancel',
+                });
+                if (!ok.isConfirmed) return;
+
+                try {
+                    const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+                    const studentRef = fbRef(db, `Results/${sanitizedAppId}/students/${id}`);
+                    const deletedRef = fbRef(db, `DeletedResults/${sanitizedAppId}/artifacts/${id}`);
+                    const snap = await fbGet(studentRef);
+                    let snapshotData = s;
+                    if (snap.exists()) snapshotData = snap.val();
+                    const userEmail = auth?.currentUser?.email || 'unknown';
+                    await fbSet(deletedRef, { ...snapshotData, deletedAt: new Date().toISOString(), deletedBy: userEmail });
+                    await fbRemove(studentRef);
+                    studentsData = studentsData.filter(x => x.id !== id);
+                    window.studentsData = studentsData;
+                    if (tabulatorTable) {
+                        const row = tabulatorTable.getRow(id);
+                        if (row) row.delete();
+                        else tabulatorTable.replaceData(studentsData.map(x => ({ ...x, _actions: '' })));
+                        updateCountBadge();
+                    }
+                    showUndoSnackbar({ id, data: snapshotData, studentName });
+                } catch(err) {
+                    console.error('[deleteStudent patched]', err);
+                    showModal(`Error deleting: ${err.message}`);
+                }
+            };
         })();
 
         setupFirebase(); // module scripts are deferred — DOM is always ready
