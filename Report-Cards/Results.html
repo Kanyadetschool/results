@@ -4880,23 +4880,15 @@ const exportToPdf = async () => {
                     <div style="padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);">
                         <div id="preview-summary" style="display:flex;gap:1rem;flex-wrap:wrap;"></div>
                     </div>
-                    <div style="padding:.65rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.75rem;align-items:center;font-size:.78rem;color:var(--slate);flex-wrap:wrap;">
-                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d1fae5;border:1.5px solid #059669;"></span>New</span>
-                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1.5px solid #2b6cb0;"></span>Update</span>
-                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fff1f2;border:1.5px solid #dc2626;"></span>Duplicate</span>
-                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1.5px solid var(--border2);"></span>Unchanged</span>
+                    <div style="padding:.75rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:center;font-size:.8rem;color:var(--slate);">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d1fae5;border:1.5px solid #059669;"></span> New record
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1.5px solid #2b6cb0;margin-left:.75rem;"></span> Will update existing
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1.5px solid var(--border2);margin-left:.75rem;"></span> Unchanged
                     </div>
-                    <div style="max-height:40vh;overflow-y:auto;padding:.5rem 0;" id="preview-table-wrap"></div>
-                    <div style="padding:.9rem 1.5rem;border-top:1px solid var(--border);background:var(--surface2);border-radius:0 0 18px 18px;">
-                        <div style="display:flex;gap:.5rem;margin-bottom:.55rem;">
-                            <button id="preview-new-only-btn" style="flex:1;padding:.6rem .5rem;border-radius:9px;border:1.5px solid #059669;background:#f0fff4;color:#065f46;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;">
-                                ✦ New records only
-                            </button>
-                            <button id="preview-overwrite-btn" style="flex:1;padding:.6rem .5rem;border-radius:9px;border:1.5px solid #2b6cb0;background:#eff6ff;color:#1e40af;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;">
-                                ↺ New + overwrite existing
-                            </button>
-                        </div>
-                        <button id="preview-cancel-btn" style="width:100%;padding:.55rem;border-radius:9px;border:1.5px solid var(--border2);background:transparent;color:var(--slate);font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+                    <div style="max-height:45vh;overflow-y:auto;padding:.5rem 0;" id="preview-table-wrap"></div>
+                    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.6rem;background:var(--surface2);border-radius:0 0 18px 18px;">
+                        <button id="preview-commit-btn" style="flex:1;padding:.65rem;border-radius:9px;border:none;background:var(--success);color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;">✓ Commit Import</button>
+                        <button id="preview-cancel-btn" style="padding:.65rem 1.25rem;border-radius:9px;border:1.5px solid var(--border2);background:transparent;color:var(--slate);font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
                     </div>
                 </div>`;
             document.body.appendChild(previewModal);
@@ -4938,17 +4930,13 @@ const exportToPdf = async () => {
                     const termIdx = headers.indexOf('Term');
 
                     // ── Build cross-check maps from live studentsData ──────────────
-                    // Map 1: by Firebase DB key — s.id IS the key (Term value used at upload time)
-                    //         also index by Term field directly as a fallback
+                    // Map 1: by DB key (Term value used as Firebase key)
                     const existingByKey = {};
-                    // Map 2: by normalised Name+Term+Grade — catches duplicates regardless of key
+                    // Map 2: by normalised Name+Term+Grade — catches duplicates with different keys
                     const existingByNTG = {};
                     (studentsData || []).forEach(s => {
-                        // s.id is the Firebase node key (= Term value set at upload)
-                        const byId   = String(s.id   || '').trim();
-                        const byTerm = String(s['Term'] || '').trim();
-                        if (byId)   existingByKey[byId]   = s;
-                        if (byTerm) existingByKey[byTerm] = s;
+                        const dbKey = String(s['Assessment No'] || s.id || '').trim();
+                        if (dbKey) existingByKey[dbKey] = s;
                         const ntg = [
                             (s['Official Student Name'] || '').trim().toLowerCase(),
                             String(s['Term']  || '').trim().toLowerCase(),
@@ -4982,13 +4970,8 @@ const exportToPdf = async () => {
                         let existingRecord = null;
 
                         if (exactMatch) {
-                            // Same key exists — compare normalised values (handle 93.0 vs "93" etc.)
-                            const norm = v => {
-                                const s = String(v ?? '').trim();
-                                const n = parseFloat(s);
-                                return (!isNaN(n) && String(n) === s.replace(/\.0+$/, '')) ? String(n) : s;
-                            };
-                            const changed = headers.some(h => norm(obj[h]) !== norm(exactMatch[h]));
+                            // Same key exists — check if data changed
+                            const changed = headers.some(h => String(obj[h] ?? '') !== String(exactMatch[h] ?? ''));
                             status = changed ? 'update' : 'same';
                             existingRecord = exactMatch;
                         } else if (ntgMatches.length > 0) {
@@ -5046,121 +5029,80 @@ const exportToPdf = async () => {
             });
 
             // Commit — with hard duplicate block + overwrite confirm
-            // ── Shared write function ─────────────────────────────────────────
-            async function executeImport(rowsToWrite, label) {
-                const commitBtns = [
-                    document.getElementById('preview-new-only-btn'),
-                    document.getElementById('preview-overwrite-btn'),
-                ];
-                commitBtns.forEach(b => { if (b) { b.disabled = true; b.style.opacity = '.6'; } });
+            document.getElementById('preview-commit-btn').addEventListener('click', async () => {
+                const commitBtn = document.getElementById('preview-commit-btn');
+
+                // ── STEP 1: Block true duplicates (same Name+Term+Grade, different key) ──
+                const dupRows = _pendingRows.filter(r => r.status === 'duplicate');
+                if (dupRows.length > 0) {
+                    const lines = dupRows.slice(0, 8).map(r => {
+                        const ex = r.existingRecord;
+                        return `<div style="display:flex;justify-content:space-between;gap:.5rem;padding:.28rem .65rem;background:#fee2e2;border-radius:6px;font-size:.79rem;color:#991b1b;margin-bottom:.2rem;">
+                            <strong>${r.data['Official Student Name']||'—'}</strong>
+                            <span>${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}</span>
+                            <span style="color:#9ca3af;font-size:.7rem;">DB No.${ex?(ex['Assessment No']||ex.id):'?'}</span>
+                        </div>`;
+                    }).join('');
+                    const more = dupRows.length > 8 ? `<div style="font-size:.74rem;color:var(--slate);margin-top:.3rem;">… and ${dupRows.length-8} more</div>` : '';
+                    const res = await Swal.fire({
+                        icon: 'error',
+                        title: `${dupRows.length} Duplicate${dupRows.length!==1?'s':''} in File`,
+                        html: `<div style="text-align:left;max-height:210px;overflow-y:auto;">${lines}${more}</div>
+                            <div style="margin-top:.8rem;font-size:.82rem;color:var(--text2);">
+                                These students already exist in the database with the same <strong>Name · Grade · Term</strong>.<br>
+                                Choose: skip them and import the rest, or cancel to fix the file.
+                            </div>`,
+                        showCancelButton: true,
+                        confirmButtonText: `Skip ${dupRows.length} duplicate${dupRows.length!==1?'s':''}, import rest`,
+                        cancelButtonText: 'Cancel — fix file first',
+                        confirmButtonColor: '#d97706',
+                        cancelButtonColor: '#6b7280',
+                        reverseButtons: true,
+                    });
+                    if (!res.isConfirmed) return;
+                    // Strip duplicates — they will NOT be written
+                    _pendingRows = _pendingRows.filter(r => r.status !== 'duplicate');
+                }
+
+                // ── STEP 2: Confirm overwrites (same key, changed data) ──────
+                const updateRows = _pendingRows.filter(r => r.status === 'update');
+                if (updateRows.length > 0) {
+                    const lines = updateRows.slice(0, 6).map(r =>
+                        `<div style="padding:.28rem .65rem;background:#eff6ff;border-radius:6px;font-size:.79rem;color:#1e40af;margin-bottom:.2rem;">
+                            <strong>${r.data['Official Student Name']||'—'}</strong> · ${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}
+                        </div>`
+                    ).join('');
+                    const more = updateRows.length > 6 ? `<div style="font-size:.74rem;color:var(--slate);margin-top:.25rem;">… and ${updateRows.length-6} more</div>` : '';
+                    const ok = await Swal.fire({
+                        icon: 'warning',
+                        title: `${updateRows.length} Record${updateRows.length!==1?'s':''} Will Be Overwritten`,
+                        html: `<div style="text-align:left;max-height:180px;overflow-y:auto;">${lines}${more}</div>
+                            <div style="margin-top:.7rem;font-size:.82rem;color:var(--text2);">New scores will replace existing values in the database.</div>`,
+                        showCancelButton: true,
+                        confirmButtonText: `Overwrite ${updateRows.length} & Import`,
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc2626',
+                        reverseButtons: true,
+                    });
+                    if (!ok.isConfirmed) return;
+                }
+
+                // ── STEP 3: Write ─────────────────────────────────────────────
+                commitBtn.disabled = true; commitBtn.textContent = 'Uploading…';
                 try {
                     const { ref: fbRef, set: fbSet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-                    for (const r of rowsToWrite) {
+                    const toWrite = _pendingRows.filter(r => r.status !== 'same');
+                    for (const r of toWrite) {
                         await fbSet(fbRef(db, `Results/${sanitizedAppId}/students/${r.key}`), r.data);
                     }
                     closePreview();
-                    showModal(`✓ ${label}: ${rowsToWrite.length} record${rowsToWrite.length !== 1 ? 's' : ''} saved.`);
+                    showModal(`✓ Imported ${toWrite.length} record${toWrite.length !== 1 ? 's' : ''} successfully.`);
                 } catch(err) {
                     console.error('[ImportPreview commit]', err);
                     showModal(`Import failed: ${err.message}`);
                 } finally {
-                    commitBtns.forEach(b => { if (b) { b.disabled = false; b.style.opacity = '1'; } });
+                    commitBtn.disabled = false; commitBtn.textContent = '✓ Commit Import';
                 }
-            }
-
-            // ── ACTION A: New records only ────────────────────────────────────
-            document.getElementById('preview-new-only-btn').addEventListener('click', async () => {
-                const newRows = _pendingRows.filter(r => r.status === 'new');
-                const dupRows = _pendingRows.filter(r => r.status === 'duplicate');
-                const skipped = _pendingRows.filter(r => r.status === 'update' || r.status === 'same' || r.status === 'duplicate').length;
-
-                if (newRows.length === 0) {
-                    await Swal.fire({
-                        icon: 'info',
-                        title: 'No New Records',
-                        text: 'All rows in this file already exist in the database. Nothing to import.',
-                        confirmButtonColor: '#1e4080',
-                    });
-                    return;
-                }
-
-                // Warn about duplicates being skipped
-                let dupNote = '';
-                if (dupRows.length > 0) {
-                    dupNote = `<div style="margin-top:.6rem;padding:.4rem .75rem;background:#fee2e2;border-radius:7px;font-size:.79rem;color:#991b1b;">
-                        ⚠ ${dupRows.length} duplicate${dupRows.length!==1?'s':''} will be skipped (same Name·Grade·Term already in DB)
-                    </div>`;
-                }
-
-                const ok = await Swal.fire({
-                    icon: 'question',
-                    title: 'Import New Records Only',
-                    html: `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
-                        <div style="display:flex;gap:1rem;justify-content:center;margin-bottom:.75rem;flex-wrap:wrap;">
-                            <span style="padding:.3rem .8rem;background:#d1fae5;border-radius:7px;font-weight:700;color:#065f46;">✦ ${newRows.length} will be saved</span>
-                            <span style="padding:.3rem .8rem;background:var(--surface3);border-radius:7px;font-weight:700;color:var(--slate);">${skipped} skipped</span>
-                        </div>
-                        Existing records will <strong>not</strong> be touched.${dupNote}
-                    </div>`,
-                    showCancelButton: true,
-                    confirmButtonText: `Save ${newRows.length} new record${newRows.length!==1?'s':''}`,
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#059669',
-                    reverseButtons: true,
-                });
-                if (!ok.isConfirmed) return;
-                await executeImport(newRows, 'New records imported');
-            });
-
-            // ── ACTION B: New + overwrite existing ───────────────────────────
-            document.getElementById('preview-overwrite-btn').addEventListener('click', async () => {
-                const newRows    = _pendingRows.filter(r => r.status === 'new');
-                const updateRows = _pendingRows.filter(r => r.status === 'update');
-                const dupRows    = _pendingRows.filter(r => r.status === 'duplicate');
-                const toWrite    = [...newRows, ...updateRows];
-
-                if (toWrite.length === 0) {
-                    await Swal.fire({
-                        icon: 'info',
-                        title: 'Nothing to Import',
-                        text: 'No new or changed records found. All rows are either identical to the database or flagged as duplicates.',
-                        confirmButtonColor: '#1e4080',
-                    });
-                    return;
-                }
-
-                // Build overwrite list preview
-                const updateLines = updateRows.slice(0, 6).map(r =>
-                    `<div style="padding:.25rem .65rem;background:#eff6ff;border-radius:5px;font-size:.78rem;color:#1e40af;margin-bottom:.18rem;">
-                        <strong>${r.data['Official Student Name']||'—'}</strong> · ${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}
-                    </div>`
-                ).join('');
-                const moreUpdates = updateRows.length > 6
-                    ? `<div style="font-size:.73rem;color:var(--slate);">… and ${updateRows.length-6} more</div>` : '';
-                const dupNote = dupRows.length > 0
-                    ? `<div style="margin-top:.55rem;padding:.4rem .75rem;background:#fee2e2;border-radius:7px;font-size:.79rem;color:#991b1b;">
-                        ⚠ ${dupRows.length} duplicate${dupRows.length!==1?'s':''} will still be skipped (same Name·Grade·Term, different key)
-                    </div>` : '';
-
-                const ok = await Swal.fire({
-                    icon: 'warning',
-                    title: 'New + Overwrite Existing',
-                    html: `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
-                        <div style="display:flex;gap:.75rem;justify-content:center;margin-bottom:.7rem;flex-wrap:wrap;">
-                            <span style="padding:.3rem .8rem;background:#d1fae5;border-radius:7px;font-weight:700;color:#065f46;">✦ ${newRows.length} new</span>
-                            ${updateRows.length ? `<span style="padding:.3rem .8rem;background:#eff6ff;border-radius:7px;font-weight:700;color:#1e40af;">↺ ${updateRows.length} overwrite</span>` : ''}
-                        </div>
-                        ${updateRows.length ? `<div style="text-align:left;max-height:160px;overflow-y:auto;margin-bottom:.3rem;">${updateLines}${moreUpdates}</div>` : ''}
-                        Overwritten records will have their scores <strong style="color:var(--danger);">replaced</strong> with values from this file.${dupNote}
-                    </div>`,
-                    showCancelButton: true,
-                    confirmButtonText: `Import ${toWrite.length} record${toWrite.length!==1?'s':''}`,
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#2b6cb0',
-                    reverseButtons: true,
-                });
-                if (!ok.isConfirmed) return;
-                await executeImport(toWrite, 'Import complete');
             });
         })();
 
