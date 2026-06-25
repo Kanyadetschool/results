@@ -24,7 +24,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.0/firebase-auth-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.0/firebase-firestore-compat.js"></script>
     <script src="https://cdn.firebase.com/libs/firebaseui/2.5.1/firebaseui.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https:./css/swalOnly.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
@@ -1049,6 +1048,23 @@
          MODALS
     ══════════════════════════════════════ -->
 
+
+    <!-- kanDialog: shared confirm/alert modal (replaces SweetAlert) -->
+    <div id="kan-dialog-backdrop" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);backdrop-filter:blur(3px);align-items:center;justify-content:center;">
+      <div id="kan-dialog-box" style="background:var(--surface,#fff);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.22);padding:2rem 1.75rem 1.5rem;max-width:420px;width:calc(100% - 2rem);text-align:center;animation:kanPop .18s cubic-bezier(.34,1.56,.64,1) both;">
+        <div id="kan-dialog-icon" style="width:52px;height:52px;border-radius:50%;margin:0 auto .9rem;display:flex;align-items:center;justify-content:center;font-size:1.5rem;"></div>
+        <div id="kan-dialog-title" style="font-size:1.05rem;font-weight:700;color:var(--navy,#1e3a5f);margin-bottom:.45rem;"></div>
+        <div id="kan-dialog-text"  style="font-size:.87rem;color:var(--text2,#64748b);line-height:1.6;margin-bottom:1.35rem;"></div>
+        <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap;">
+          <button id="kan-dialog-cancel" style="flex:1;min-width:90px;padding:.55rem 1rem;border-radius:9px;border:1.5px solid var(--border,#e2e8f0);background:var(--surface2,#f8fafc);color:var(--text,#334155);font-size:.88rem;font-weight:600;cursor:pointer;transition:background .15s;">Cancel</button>
+          <button id="kan-dialog-confirm" style="flex:1;min-width:90px;padding:.55rem 1rem;border-radius:9px;border:none;background:#dc2626;color:#fff;font-size:.88rem;font-weight:600;cursor:pointer;transition:background .15s;"></button>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes kanPop { from { opacity:0; transform:scale(.88) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    </style>
+
     <!-- Simple message modal -->
     <div id="message-modal" class="modal-backdrop hidden">
         <div class="modal-box" style="max-width:360px;text-align:center;">
@@ -1934,22 +1950,17 @@ gradeFilterSelect.addEventListener('change', () => {
                 });
                 if (dupMatches.length > 0) {
                     const ex = dupMatches[0];
-                    const proceed = await Swal.fire({
-                        icon: 'warning',
-                        title: 'Duplicate Record Detected',
-                        html: `<div style="font-size:.88rem;line-height:1.7;color:var(--text2);">
+                    const proceed = await kanConfirmAsync(
+                        'Duplicate Record Detected',
+                        `<div style="font-size:.88rem;line-height:1.7;color:var(--text2);">
                             A record already exists for<br>
                             <strong style="color:var(--navy);font-size:1rem;">${ex['Official Student Name'] || '—'}</strong><br>
                             <span style="font-size:.8rem;color:var(--slate);">${ex.Grade || '—'} &nbsp;·&nbsp; Term ${ex.Term || '—'} &nbsp;·&nbsp; No. ${ex['Assessment No'] || ex.id}</span><br><br>
                             Proceeding will <strong style="color:var(--danger);">overwrite</strong> that record.
                         </div>`,
-                        showCancelButton: true,
-                        confirmButtonText: 'Overwrite & Save',
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#dc2626',
-                        reverseButtons: true,
-                    });
-                    if (!proceed.isConfirmed) return;
+                        'Overwrite & Save', 'warning', '#dc2626'
+                    );
+                    if (!proceed) return;
                 }
             }
 
@@ -3021,7 +3032,7 @@ gradeFilterSelect.addEventListener('change', () => {
             const updatedData = {};
             inputs.forEach(inp => { updatedData[inp.dataset.field] = inp.value.trim(); });
             if (!updatedData['Assessment No']) {
-                Swal.fire({ icon: 'warning', title: 'Required', text: '"Assessment No" cannot be empty.', confirmButtonColor: '#1e4080' });
+                kanAlert('Required', '"Assessment No" cannot be empty.', 'warning');
                 return;
             }
             drawerSaveBtn.classList.add('saving');
@@ -4574,17 +4585,12 @@ const exportToPdf = async () => {
                 if (!selected || selected.length === 0) return;
                 const names = selected.slice(0, 3).map(s => s['Official Student Name'] || s['Assessment No'] || s.id).join(', ');
                 const more = selected.length > 3 ? ` and ${selected.length - 3} more` : '';
-                const ok = await Swal.fire({
-                    icon: 'warning',
-                    title: `Delete ${selected.length} student${selected.length !== 1 ? 's' : ''}?`,
-                    html: `<div style="font-size:.88rem;color:var(--text2)">${names}${more}</div><div style="margin-top:.6rem;font-size:.8rem;color:var(--danger)">Records will be moved to DeletedResults.</div>`,
-                    showCancelButton: true,
-                    confirmButtonText: `Delete ${selected.length}`,
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonText: 'Cancel',
-                    customClass: { popup: 'swal2-popup' }
-                });
-                if (!ok.isConfirmed) return;
+                const ok = await kanConfirmAsync(
+                    `Delete ${selected.length} student${selected.length !== 1 ? 's' : ''}?`,
+                    `<div style="font-size:.88rem;color:var(--text2)">${names}${more}</div><div style="margin-top:.6rem;font-size:.8rem;color:var(--danger)">Records will be moved to DeletedResults.</div>`,
+                    `Delete ${selected.length}`, 'warning', '#dc2626'
+                );
+                if (!ok) return;
                 const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
                 const userEmail = auth?.currentUser?.email || 'unknown';
                 let deleted = 0;
@@ -5079,12 +5085,7 @@ const exportToPdf = async () => {
                 const skipped = _pendingRows.filter(r => r.status === 'update' || r.status === 'same' || r.status === 'duplicate').length;
 
                 if (newRows.length === 0) {
-                    await Swal.fire({
-                        icon: 'info',
-                        title: 'No New Records',
-                        text: 'All rows in this file already exist in the database. Nothing to import.',
-                        confirmButtonColor: '#1e4080',
-                    });
+                    await kanAlert('No New Records', 'All rows in this file already exist in the database. Nothing to import.', 'info');
                     return;
                 }
 
@@ -5096,23 +5097,18 @@ const exportToPdf = async () => {
                     </div>`;
                 }
 
-                const ok = await Swal.fire({
-                    icon: 'question',
-                    title: 'Import New Records Only',
-                    html: `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
+                const ok = await kanConfirmAsync(
+                    'Import New Records Only',
+                    `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
                         <div style="display:flex;gap:1rem;justify-content:center;margin-bottom:.75rem;flex-wrap:wrap;">
                             <span style="padding:.3rem .8rem;background:#d1fae5;border-radius:7px;font-weight:700;color:#065f46;">✦ ${newRows.length} will be saved</span>
                             <span style="padding:.3rem .8rem;background:var(--surface3);border-radius:7px;font-weight:700;color:var(--slate);">${skipped} skipped</span>
                         </div>
                         Existing records will <strong>not</strong> be touched.${dupNote}
                     </div>`,
-                    showCancelButton: true,
-                    confirmButtonText: `Save ${newRows.length} new record${newRows.length!==1?'s':''}`,
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#059669',
-                    reverseButtons: true,
-                });
-                if (!ok.isConfirmed) return;
+                    `Save ${newRows.length} new record${newRows.length!==1?'s':''}`, 'question', '#059669'
+                );
+                if (!ok) return;
                 await executeImport(newRows, 'New records imported');
             });
 
@@ -5124,12 +5120,7 @@ const exportToPdf = async () => {
                 const toWrite    = [...newRows, ...updateRows];
 
                 if (toWrite.length === 0) {
-                    await Swal.fire({
-                        icon: 'info',
-                        title: 'Nothing to Import',
-                        text: 'No new or changed records found. All rows are either identical to the database or flagged as duplicates.',
-                        confirmButtonColor: '#1e4080',
-                    });
+                    await kanAlert('Nothing to Import', 'No new or changed records found. All rows are either identical to the database or flagged as duplicates.', 'info');
                     return;
                 }
 
@@ -5146,10 +5137,9 @@ const exportToPdf = async () => {
                         ⚠ ${dupRows.length} duplicate${dupRows.length!==1?'s':''} will still be skipped (same Name·Grade·Term, different key)
                     </div>` : '';
 
-                const ok = await Swal.fire({
-                    icon: 'warning',
-                    title: 'New + Overwrite Existing',
-                    html: `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
+                const ok = await kanConfirmAsync(
+                    'New + Overwrite Existing',
+                    `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
                         <div style="display:flex;gap:.75rem;justify-content:center;margin-bottom:.7rem;flex-wrap:wrap;">
                             <span style="padding:.3rem .8rem;background:#d1fae5;border-radius:7px;font-weight:700;color:#065f46;">✦ ${newRows.length} new</span>
                             ${updateRows.length ? `<span style="padding:.3rem .8rem;background:#eff6ff;border-radius:7px;font-weight:700;color:#1e40af;">↺ ${updateRows.length} overwrite</span>` : ''}
@@ -5157,13 +5147,9 @@ const exportToPdf = async () => {
                         ${updateRows.length ? `<div style="text-align:left;max-height:160px;overflow-y:auto;margin-bottom:.3rem;">${updateLines}${moreUpdates}</div>` : ''}
                         Overwritten records will have their scores <strong style="color:var(--danger);">replaced</strong> with values from this file.${dupNote}
                     </div>`,
-                    showCancelButton: true,
-                    confirmButtonText: `Import ${toWrite.length} record${toWrite.length!==1?'s':''}`,
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#2b6cb0',
-                    reverseButtons: true,
-                });
-                if (!ok.isConfirmed) return;
+                    `Import ${toWrite.length} record${toWrite.length!==1?'s':''}`, 'warning', '#2b6cb0'
+                );
+                if (!ok) return;
                 await executeImport(toWrite, 'Import complete');
             });
         })();
@@ -5352,16 +5338,12 @@ const exportToPdf = async () => {
                 if (!s) { if (_origDelete) return _origDelete(id); return; }
                 const studentName = s['Official Student Name'] || s['Assessment No'] || id;
                 // Confirm dialog
-                const ok = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Delete student?',
-                    html: `<div style="font-size:.88rem;color:var(--text2)">${studentName}</div><div style="margin-top:.5rem;font-size:.8rem;color:var(--slate);">Record will be moved to DeletedResults. You can undo within 8 seconds.</div>`,
-                    showCancelButton: true,
-                    confirmButtonText: 'Delete',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonText: 'Cancel',
-                });
-                if (!ok.isConfirmed) return;
+                const ok = await kanConfirmAsync(
+                    'Delete student?',
+                    `<div style="font-size:.88rem;color:var(--text2)">${studentName}</div><div style="margin-top:.5rem;font-size:.8rem;color:var(--slate);">Record will be moved to DeletedResults. You can undo within 8 seconds.</div>`,
+                    'Delete', 'warning', '#dc2626'
+                );
+                if (!ok) return;
 
                 try {
                     const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
@@ -5622,21 +5604,16 @@ const exportToPdf = async () => {
                 if (!group) return;
                 const s = group.records[recordIdx];
                 const name = s['Official Student Name'] || id;
-                const ok = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Delete Duplicate?',
-                    html: `<div style="font-size:.88rem;color:var(--text2);">
+                const ok = await kanConfirmAsync(
+                    'Delete Duplicate?',
+                    `<div style="font-size:.88rem;color:var(--text2);">
                         <strong>${name}</strong><br>
                         <span style="font-size:.78rem;color:var(--slate);">DB key: <code>${id}</code></span><br><br>
                         Record will be moved to DeletedResults.
                     </div>`,
-                    showCancelButton: true,
-                    confirmButtonText: 'Delete',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonText: 'Cancel',
-                    reverseButtons: true,
-                });
-                if (!ok.isConfirmed) return;
+                    'Delete', 'warning', '#dc2626'
+                );
+                if (!ok) return;
                 try {
                     const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
                     const sRef = fbRef(db, `Results/${sanitizedAppId}/students/${id}`);
@@ -5665,18 +5642,13 @@ const exportToPdf = async () => {
                 const dups = group.records.slice(1);
                 const names = dups.slice(0,3).map(r => r['Official Student Name']||r.id).join(', ');
                 const more  = dups.length > 3 ? ` +${dups.length-3} more` : '';
-                const ok = await Swal.fire({
-                    icon: 'warning',
-                    title: `Delete ${dups.length} Duplicate${dups.length!==1?'s':''}?`,
-                    html: `<div style="font-size:.86rem;color:var(--text2);">${names}${more}<br><br>
+                const ok = await kanConfirmAsync(
+                    `Delete ${dups.length} Duplicate${dups.length!==1?'s':''}?`,
+                    `<div style="font-size:.86rem;color:var(--text2);">${names}${more}<br><br>
                         First record will be <strong style="color:#059669;">kept</strong>. Others moved to DeletedResults.</div>`,
-                    showCancelButton: true,
-                    confirmButtonText: `Delete ${dups.length}`,
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonText: 'Cancel',
-                    reverseButtons: true,
-                });
-                if (!ok.isConfirmed) return;
+                    `Delete ${dups.length}`, 'warning', '#dc2626'
+                );
+                if (!ok) return;
                 try {
                     const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
                     const userEmail = auth?.currentUser?.email || 'unknown';
@@ -5719,5 +5691,69 @@ const exportToPdf = async () => {
 
         setupFirebase(); // module scripts are deferred — DOM is always ready
     </script>
+
+<script>
+// ── kanDialog engine ─────────────────────────────────────────────────────────
+(function(){
+  const bd  = document.getElementById('kan-dialog-backdrop');
+  const box = document.getElementById('kan-dialog-box');
+  const iconEl    = document.getElementById('kan-dialog-icon');
+  const titleEl   = document.getElementById('kan-dialog-title');
+  const textEl    = document.getElementById('kan-dialog-text');
+  const cancelBtn = document.getElementById('kan-dialog-cancel');
+  const confirmBtn= document.getElementById('kan-dialog-confirm');
+
+  const ICONS = {
+    warning : { bg:'#fef3c7', color:'#d97706', svg:'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+    error   : { bg:'#fee2e2', color:'#dc2626', svg:'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' },
+    success : { bg:'#d1fae5', color:'#059669', svg:'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
+    info    : { bg:'#dbeafe', color:'#2563eb', svg:'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' },
+    question: { bg:'#ede9fe', color:'#7c3aed', svg:'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+  };
+
+  let _resolve = null;
+
+  function _open(title, htmlText, icon, confirmLabel, showCancel, confirmColor) {
+    const ic = ICONS[icon] || ICONS.info;
+    iconEl.style.background = ic.bg;
+    iconEl.style.color = ic.color;
+    iconEl.innerHTML = ic.svg;
+    titleEl.textContent = title;
+    textEl.innerHTML = htmlText;
+    confirmBtn.textContent = confirmLabel || 'OK';
+    confirmBtn.style.background = confirmColor || (icon === 'error' || icon === 'warning' ? '#dc2626' : icon === 'success' ? '#059669' : '#1e4080');
+    cancelBtn.style.display = showCancel ? '' : 'none';
+    bd.style.display = 'flex';
+    return new Promise(res => { _resolve = res; });
+  }
+
+  function _close(val) {
+    bd.style.display = 'none';
+    if (_resolve) { _resolve(val); _resolve = null; }
+  }
+
+  confirmBtn.addEventListener('click', () => _close(true));
+  cancelBtn.addEventListener('click',  () => _close(false));
+  bd.addEventListener('click', e => { if (e.target === bd) _close(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && bd.style.display === 'flex') _close(false); });
+
+  // kanConfirm(title, text, confirmLabel, onConfirm, icon, confirmColor)
+  window.kanConfirm = function(title, text, confirmLabel, onConfirm, icon, confirmColor) {
+    _open(title, text, icon || 'warning', confirmLabel || 'Confirm', true, confirmColor)
+      .then(ok => { if (ok && onConfirm) onConfirm(); });
+  };
+
+  // kanAlert(title, text, icon)  — returns promise so callers can await
+  window.kanAlert = function(title, text, icon) {
+    return _open(title, text, icon || 'info', 'OK', false);
+  };
+
+  // async confirm that returns a promise (for await usage)
+  window.kanConfirmAsync = function(title, htmlText, confirmLabel, icon, confirmColor) {
+    return _open(title, htmlText, icon || 'warning', confirmLabel || 'Confirm', true, confirmColor);
+  };
+})();
+</script>
+
 </body>
 </html>
