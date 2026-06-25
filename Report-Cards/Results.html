@@ -938,10 +938,8 @@
                 </section>
             </div>
 
-            <!-- KPI Cards Strip -->
-            <div id="kpi-strip" style="display:none;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:1.25rem;">
-                <!-- cards injected by JS -->
-            </div>
+            <!-- Stats Section -->
+            <section id="stats-section" class="mb-8" hidden></section>
 
             <!-- Student Records Table -->
             <div class="card">
@@ -1396,7 +1394,7 @@ toggleBtn.addEventListener('click', () => {
         const printWordBtn = document.getElementById('print-word-btn');
         const printPdfBtn = document.getElementById('print-pdf-btn');
         const searchInput = document.getElementById('search-input');
-        // statsSection replaced by kpi-strip (see updateAnalyticsDashboard)
+        const statsSection = document.getElementById('stats-section');
         const pdfModalBackdrop = document.getElementById('pdf-modal-backdrop');
         const pdfIframe = document.getElementById('pdf-iframe');
         const closePdfModalBtn = document.getElementById('close-pdf-modal-btn');
@@ -2011,394 +2009,389 @@ gradeFilterSelect.addEventListener('change', () => {
             URL.revokeObjectURL(url);
         };
 
-        // ══════════════════════════════════════════════════════════════════════
-        // KPI CARDS — 5 smart stat cards with modal drill-downs
-        // ══════════════════════════════════════════════════════════════════════
-        const statsSection = document.getElementById('kpi-strip');
-
-        // ── KPI modal shell (shared, reused) ──────────────────────────────────
-        const kpiModal = document.createElement('div');
-        kpiModal.id = 'kpi-modal';
-        kpiModal.style.cssText = 'display:none;position:fixed;inset:0;z-index:8000;background:rgba(13,31,53,.65);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:1.25rem;';
-        kpiModal.innerHTML = `
-            <div id="kpi-modal-box" style="background:var(--surface);border-radius:20px;box-shadow:0 32px 80px rgba(13,31,53,.4);max-width:600px;width:100%;max-height:88vh;overflow-y:auto;border:1px solid var(--border);opacity:0;transform:scale(.92) translateY(18px);transition:opacity .25s cubic-bezier(.34,1.56,.64,1),transform .25s cubic-bezier(.34,1.56,.64,1);">
-                <div id="kpi-modal-header" style="padding:1.25rem 1.5rem;border-radius:20px 20px 0 0;display:flex;align-items:center;justify-content:space-between;gap:.75rem;">
-                    <div>
-                        <div id="kpi-modal-title" style="font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:800;color:#fff;"></div>
-                        <div id="kpi-modal-sub"   style="font-size:.73rem;color:rgba(255,255,255,.45);margin-top:.15rem;"></div>
-                    </div>
-                    <button id="kpi-modal-close" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
-                </div>
-                <div id="kpi-modal-body" style="padding:1.25rem 1.5rem;"></div>
-            </div>`;
-        document.body.appendChild(kpiModal);
-
-        function openKpiModal(title, sub, accentColor, bodyHTML) {
-            document.getElementById('kpi-modal-title').textContent = title;
-            document.getElementById('kpi-modal-sub').textContent   = sub;
-            document.getElementById('kpi-modal-header').style.background = accentColor;
-            document.getElementById('kpi-modal-body').innerHTML = bodyHTML;
-            kpiModal.style.display = 'flex';
-            const box = document.getElementById('kpi-modal-box');
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                box.style.opacity = '1'; box.style.transform = 'scale(1) translateY(0)';
-            }));
-            // Render any canvas charts in the body
-            kpiModal._chartFns && kpiModal._chartFns.forEach(fn => { try { fn(); } catch(e){} });
-            kpiModal._chartFns = [];
-        }
-        function closeKpiModal() {
-            const box = document.getElementById('kpi-modal-box');
-            box.style.opacity = '0'; box.style.transform = 'scale(.92) translateY(18px)';
-            setTimeout(() => { kpiModal.style.display = 'none'; }, 260);
-        }
-        document.getElementById('kpi-modal-close').addEventListener('click', closeKpiModal);
-        kpiModal.addEventListener('click', e => { if (e.target === kpiModal) closeKpiModal(); });
-
-        // ── KPI card builder ──────────────────────────────────────────────────
-        function makeKpiCard({ id, icon, label, value, sub, accent, trend, onClick }) {
-            const card = document.createElement('div');
-            card.id = id;
-            card.style.cssText = `background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:.9rem 1.1rem;cursor:pointer;transition:box-shadow .18s,transform .18s,border-color .18s;position:relative;overflow:hidden;`;
-            card.innerHTML = `
-                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${accent};border-radius:14px 14px 0 0;"></div>
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;">
-                    <div style="width:34px;height:34px;border-radius:10px;background:${accent}18;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${icon}</div>
-                    ${trend !== undefined ? `<div style="font-size:.68rem;font-weight:700;color:${trend>=0?'#16a34a':'#dc2626'};background:${trend>=0?'#dcfce7':'#fee2e2'};padding:.15rem .45rem;border-radius:999px;">${trend>=0?'↑':'↓'}${Math.abs(trend)}%</div>` : ''}
-                </div>
-                <div style="margin-top:.55rem;">
-                    <div class="kpi-value" style="font-family:'Playfair Display',serif;font-size:1.55rem;font-weight:800;color:var(--navy);line-height:1;">${value}</div>
-                    <div style="font-size:.7rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;margin-top:.2rem;">${label}</div>
-                    ${sub ? `<div style="font-size:.72rem;color:var(--slate-lt);margin-top:.18rem;">${sub}</div>` : ''}
-                </div>
-                <div style="position:absolute;bottom:.55rem;right:.75rem;font-size:.65rem;color:${accent};font-weight:700;opacity:.7;">View details →</div>`;
-            card.addEventListener('mouseenter', () => {
-                card.style.boxShadow = `0 8px 24px ${accent}28`;
-                card.style.transform = 'translateY(-2px)';
-                card.style.borderColor = accent + '60';
-            });
-            card.addEventListener('mouseleave', () => {
-                card.style.boxShadow = '';
-                card.style.transform = '';
-                card.style.borderColor = 'var(--border)';
-            });
-            card.addEventListener('click', onClick);
-            return card;
-        }
-
-        // ── Level colour map ───────────────────────────────────────────────────
-        const LEVEL_COLORS = {
-            EE1:'#166534', EE2:'#16a34a',
-            ME1:'#1d4ed8', ME2:'#3b82f6',
-            AE1:'#b45309', AE2:'#d97706',
-            BE1:'#b91c1c', BE2:'#dc2626',
-        };
-        const LEVEL_BG = {
-            EE1:'#dcfce7', EE2:'#f0fdf4',
-            ME1:'#dbeafe', ME2:'#eff6ff',
-            AE1:'#fef3c7', AE2:'#fffbeb',
-            BE1:'#fee2e2', BE2:'#fff1f2',
-        };
-        const LEVEL_LABEL = {
-            EE1:'Exc. Expectation 1', EE2:'Exc. Expectation 2',
-            ME1:'Meeting Exp. 1',     ME2:'Meeting Exp. 2',
-            AE1:'Approaching Exp. 1', AE2:'Approaching Exp. 2',
-            BE1:'Below Exp. 1',       BE2:'Below Exp. 2',
-        };
-
-        // ── Sparkline helper ───────────────────────────────────────────────────
-        function sparkline(values, color, w=80, h=28) {
-            if (!values || values.length < 2) return '';
-            const mn = Math.min(...values), mx = Math.max(...values);
-            const range = mx - mn || 1;
-            const pts = values.map((v, i) => {
-                const x = (i / (values.length-1)) * w;
-                const y = h - ((v - mn) / range) * (h - 4) - 2;
-                return `${x},${y}`;
-            }).join(' ');
-            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
-                <polyline points="${pts}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="${values.map((v,i)=>((i/(values.length-1))*w)).slice(-1)[0]}" cy="${h - ((values.slice(-1)[0] - mn) / range) * (h-4) - 2}" r="3" fill="${color}"/>
-            </svg>`;
-        }
-
-        // ── Main KPI render ────────────────────────────────────────────────────
         const updateAnalyticsDashboard = (students, activeFilter = null) => {
-            const strip = document.getElementById('kpi-strip');
-            if (!strip) return;
-
-            if (!studentsData || studentsData.length === 0) {
-                strip.style.display = 'none';
+            if (!studentsData) {
+                statsSection.innerHTML = '';
                 return;
             }
-            strip.style.display = 'grid';
-            strip.innerHTML = '';
 
-            const data = studentsData;
-            const total = data.length;
-            const subjCols = getSubjectColumns(data);
+            const totalStudentsInDB = studentsData.length; // Dynamic count
+            if (totalStudentsInDB === 0) {
+                statsSection.innerHTML = '<p class="text-center text-gray-500">Upload data to see analytics.</p>';
+                return;
+            }
 
-            // ── KPI 1: Total Students ──────────────────────────────────────────
-            const genderCount = { Male:0, Female:0, Other:0 };
-            data.forEach(s => {
-                const g = (s.Gender||'Other');
-                const key = g.charAt(0).toUpperCase()+g.slice(1).toLowerCase();
-                if (key in genderCount) genderCount[key]++; else genderCount.Other++;
+            const createDistribution = (field) => {
+                const distribution = {};
+                let count = 0;
+                studentsData.forEach(student => {
+                    const value = student[field] || 'N/A';
+                    distribution[value] = (distribution[value] || 0) + 1;
+                    if (student[field]) count++;
+                });
+                return count > 0 ? distribution : null;
+            };
+
+            const gradeDistribution = createDistribution('Grade');
+            const classDistribution = createDistribution('Class');
+            const genderDistribution = createDistribution('Gender');
+
+            // Calculate grade-wise gender counts
+            const gradeGenderData = {};
+            studentsData.forEach(student => {
+                const grade = student.Grade || 'N/A';
+                const gender = student.Gender ? student.Gender.toLowerCase() : 'other';
+                if (!gradeGenderData[grade]) {
+                    gradeGenderData[grade] = { Male: 0, Female: 0, totalSum: 0 };
+                }
+                gradeGenderData[grade][gender.charAt(0).toUpperCase() + gender.slice(1)]++;
             });
-            const gradeCount = {};
-            data.forEach(s => { const g = s.Grade||'N/A'; gradeCount[g] = (gradeCount[g]||0)+1; });
-            const grades = Object.keys(gradeCount).sort();
 
-            const card1 = makeKpiCard({
-                id:'kpi-1', icon:'👩‍🎓', label:'Total Students', value: total,
-                sub: `${genderCount.Male}M · ${genderCount.Female}F`,
-                accent:'#1d4ed8',
-                onClick: () => {
-                    const rows = grades.map(g => {
-                        const cnt = gradeCount[g];
-                        const pct = Math.round(cnt/total*100);
-                        return `<div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border);">
-                            <div style="min-width:90px;font-size:.82rem;font-weight:700;color:var(--navy);">${g}</div>
-                            <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;">
-                                <div style="width:${pct}%;height:100%;background:#3b82f6;border-radius:4px;transition:width .4s;"></div>
-                            </div>
-                            <div style="min-width:70px;text-align:right;font-size:.8rem;color:var(--text2);">${cnt} <span style="color:var(--slate-lt);">(${pct}%)</span></div>
-                        </div>`;
-                    }).join('');
-                    const donutId = 'kpi1-donut-'+Date.now();
-                    const bodyHTML = `
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1.1rem;">
-                            ${[['Male','#3b82f6'],['Female','#ec4899'],['Other','#94a3b8']].map(([k,c])=>`
-                                <div style="text-align:center;padding:.75rem;background:${c}12;border-radius:12px;border:1.5px solid ${c}30;">
-                                    <div style="font-size:1.4rem;font-weight:800;color:${c};">${genderCount[k]}</div>
-                                    <div style="font-size:.72rem;color:var(--slate);font-weight:700;">${k}</div>
-                                </div>`).join('')}
-                        </div>
-                        <canvas id="${donutId}" height="180"></canvas>
-                        <div style="margin-top:1rem;">${rows}</div>`;
-                    kpiModal._chartFns = [() => {
-                        const ctx = document.getElementById(donutId);
-                        if (!ctx) return;
-                        new Chart(ctx, { type:'doughnut', data:{
-                            labels: grades,
-                            datasets:[{ data: grades.map(g=>gradeCount[g]), backgroundColor:['#1d4ed8','#7c3aed','#db2777','#059669','#d97706','#dc2626','#0891b2','#65a30d','#9333ea'], borderWidth:2, borderColor:'var(--surface)' }]
-                        }, options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11 }, padding:12 } } } } });
-                    }];
-                    openKpiModal('Total Students', `${total} students across ${grades.length} grade${grades.length!==1?'s':''}`, '#1d4ed8', bodyHTML);
+            // Calculate gender counts for complete records
+            let completeRecords = 0;
+            const completeGenderData = { Male: 0, Female: 0, Other: 0 };
+            studentsData.forEach(s => {
+                if (s['Official Student Name'] && s['Grade']) {
+                    completeRecords++;
+                    const gender = s.Gender ? s.Gender.toLowerCase() : 'other';
+                    completeGenderData[gender.charAt(0).toUpperCase() + gender.slice(1)]++;
                 }
             });
+            const completenessPercentage = Math.round((completeRecords / totalStudentsInDB) * 100);
 
-            // ── KPI 2: Class Average Score ─────────────────────────────────────
-            const allAvgs = data.map(s => {
-                const v = parseFloat(s['Perc Avrg']);
-                return isNaN(v) ? null : v;
-            }).filter(v => v !== null);
-            const classAvg = allAvgs.length ? +(allAvgs.reduce((a,b)=>a+b,0)/allAvgs.length).toFixed(1) : null;
+            // Calculate gender counts for filtered students
+            const filterGenderData = { Male: 0, Female: 0, Other: 0 };
+            if (activeFilter) {
+                students.forEach(student => {
+                    const gender = student.Gender ? student.Gender.toLowerCase() : 'other';
+                    filterGenderData[gender.charAt(0).toUpperCase() + gender.slice(1)]++;
+                });
+            }
 
-            const gradeAvgs = {};
-            grades.forEach(g => {
-                const vals = data.filter(s=>s.Grade===g).map(s=>parseFloat(s['Perc Avrg'])).filter(v=>!isNaN(v));
-                if (vals.length) gradeAvgs[g] = +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
-            });
-            const gradeAvgValues = grades.filter(g=>gradeAvgs[g]!==undefined).map(g=>gradeAvgs[g]);
-
-            const card2 = makeKpiCard({
-                id:'kpi-2', icon:'📊', label:'Class Average', value: classAvg !== null ? classAvg+'%' : '—',
-                sub: `${allAvgs.length} students scored`,
-                accent:'#7c3aed',
-                onClick: () => {
-                    const chartId = 'kpi2-bar-'+Date.now();
-                    const gradeRows = grades.filter(g=>gradeAvgs[g]!==undefined).map(g => {
-                        const avg = gradeAvgs[g];
-                        const col = avg>=75?'#16a34a':avg>=58?'#3b82f6':avg>=41?'#d97706':'#dc2626';
-                        return `<div style="display:flex;align-items:center;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--border);">
-                            <div style="min-width:90px;font-size:.8rem;font-weight:700;color:var(--navy);">${g}</div>
-                            <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;">
-                                <div style="width:${avg}%;height:100%;background:${col};border-radius:4px;"></div>
-                            </div>
-                            <div style="min-width:50px;text-align:right;font-size:.82rem;font-weight:700;color:${col};">${avg}%</div>
-                        </div>`;
-                    }).join('');
-                    const bodyHTML = `
-                        <div style="text-align:center;margin-bottom:1rem;">
-                            <div style="font-size:3rem;font-weight:900;color:#7c3aed;font-family:'Playfair Display',serif;">${classAvg !== null ? classAvg+'%' : '—'}</div>
-                            <div style="font-size:.78rem;color:var(--slate);">Overall class average</div>
+            const generateDistributionHTML = (title, distribution, fieldName, colorClass) => {
+                if (!distribution) return '';
+                const totalItems = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+                return `
+                    <div class="bg-white p-4 rounded-lg shadow-md">
+                        <h3 class="font-semibold mb-3 text-gray-700">${title}</h3>
+                        <div class="space-y-3">
+                            ${Object.entries(distribution).sort((a, b) => b[1] - a[1]).map(([value, count]) => {
+                                const percentage = totalItems > 0 ? (count / totalItems) * 100 : 0;
+                                return `
+                                <div class="p-2 rounded-md transition-all" data-filter-field="${fieldName}" data-filter-value="${value}">
+                                    <div class="flex justify-between items-center mb-1 text-sm">
+                                        <span class="font-medium text-gray-600">${value}</span>
+                                        <span class="font-bold text-gray-800">${count}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="${colorClass} h-2.5 rounded-full" style="width: ${percentage}%"></div>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
                         </div>
-                        <canvas id="${chartId}" height="180" style="margin-bottom:1rem;"></canvas>
-                        ${gradeRows}`;
-                    kpiModal._chartFns = [() => {
-                        const ctx = document.getElementById(chartId);
-                        if (!ctx) return;
-                        const gs = grades.filter(g=>gradeAvgs[g]!==undefined);
-                        new Chart(ctx, { type:'bar', data:{
-                            labels: gs,
-                            datasets:[{ label:'Average %', data: gs.map(g=>gradeAvgs[g]),
-                                backgroundColor: gs.map(g=>{ const a=gradeAvgs[g]; return a>=75?'#16a34a':a>=58?'#3b82f6':a>=41?'#d97706':'#dc2626'; }),
-                                borderRadius:6, borderSkipped:false }]
-                        }, options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,max:100,grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}} } });
-                    }];
-                    openKpiModal('Class Average Score', 'Average % across all students', '#7c3aed', bodyHTML);
+                    </div>`;
+            };
+
+            // Total Students Chart and Summary
+            const totalStudentsChartData = {
+                labels: Object.keys(gradeGenderData),
+                datasets: [
+                    {
+                        label: 'Male',
+                        data: Object.values(gradeGenderData).map(g => g.Male || 0),
+                        backgroundColor: '#3b82f6'
+                    },
+                    {
+                        label: 'Female',
+                        data: Object.values(gradeGenderData).map(g => g.Female || 0),
+                        backgroundColor: '#ec4899'
+                    },
+                    {
+                        label: 'Other',
+                        data: Object.values(gradeGenderData).map(g => g.Other || 0),
+                        backgroundColor: '#6b7280'
+                    }
+                ]
+            };
+
+            let totalStudentsChartHTML = `
+                <div class="bg-white p-4 rounded-lg shadow-md" hidden>
+                    <h3 class="font-semibold text-blue-800 mb-2">Total Students: ${totalStudentsInDB}</h3>
+                    <div class="chart-container">
+                        <canvas id="total-students-chart"></canvas>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        ${Object.entries(gradeGenderData).map(([grade, genders]) => `
+                            <p>${grade}: Male: ${genders.Male || 0}, Female: ${genders.Female || 0}, Other: ${genders.Other || 0}</p>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            // Unique Grades Chart and Summary
+            let selectedGrade = null;
+            const getUniqueGradesChartData = (grade = null) => {
+                if (grade) {
+                    return {
+                        labels: ['Male', 'Female', 'Other'],
+                        datasets: [{
+                            label: `Gender in ${grade}`,
+                            data: [
+                                gradeGenderData[grade]?.Male || 0,
+                                gradeGenderData[grade]?.Female || 0,
+                                gradeGenderData[grade]?.Other || 0
+                            ],
+                            backgroundColor: ['#3b82f6', '#ec4899', '#6b7280']
+                        }]
+                    };
                 }
-            });
-
-            // ── KPI 3: Level Distribution ──────────────────────────────────────
-            const levelDist = {};
-            data.forEach(s => { if (s.Level) levelDist[s.Level] = (levelDist[s.Level]||0)+1; });
-            const topLevel = Object.entries(levelDist).sort((a,b)=>b[1]-a[1])[0];
-            const passCount = data.filter(s => ['EE1','EE2','ME1','ME2'].includes(s.Level)).length;
-            const passRate = total ? Math.round(passCount/total*100) : 0;
-
-            const card3 = makeKpiCard({
-                id:'kpi-3', icon:'🏅', label:'Pass Rate', value: passRate+'%',
-                sub: topLevel ? `Top: ${topLevel[0]} (${topLevel[1]})` : 'No level data',
-                accent:'#059669',
-                onClick: () => {
-                    const pieId = 'kpi3-pie-'+Date.now();
-                    const levels = ['EE1','EE2','ME1','ME2','AE1','AE2','BE1','BE2'].filter(l=>levelDist[l]);
-                    const rows = levels.map(l => {
-                        const cnt = levelDist[l]||0;
-                        const pct = Math.round(cnt/total*100);
-                        return `<div style="display:flex;align-items:center;gap:.65rem;padding:.4rem 0;border-bottom:1px solid var(--border);">
-                            <div style="width:10px;height:10px;border-radius:2px;background:${LEVEL_COLORS[l]||'#94a3b8'};flex-shrink:0;"></div>
-                            <div style="flex:1;font-size:.79rem;font-weight:600;color:var(--navy);">${l} <span style="font-weight:400;color:var(--slate);">— ${LEVEL_LABEL[l]||l}</span></div>
-                            <span style="padding:.15rem .5rem;border-radius:6px;font-size:.72rem;font-weight:700;background:${LEVEL_BG[l]};color:${LEVEL_COLORS[l]};">${cnt}</span>
-                            <span style="font-size:.75rem;color:var(--slate-lt);min-width:35px;text-align:right;">${pct}%</span>
-                        </div>`;
-                    }).join('');
-                    const bodyHTML = `
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;">
-                            <div style="text-align:center;padding:.75rem;background:#dcfce718;border-radius:12px;border:1.5px solid #16a34a30;">
-                                <div style="font-size:1.6rem;font-weight:900;color:#16a34a;">${passRate}%</div>
-                                <div style="font-size:.72rem;color:var(--slate);font-weight:700;">Pass Rate (EE+ME)</div>
-                            </div>
-                            <div style="text-align:center;padding:.75rem;background:#fee2e218;border-radius:12px;border:1.5px solid #dc262630;">
-                                <div style="font-size:1.6rem;font-weight:900;color:#dc2626;">${100-passRate}%</div>
-                                <div style="font-size:.72rem;color:var(--slate);font-weight:700;">Below (AE+BE)</div>
-                            </div>
-                        </div>
-                        <canvas id="${pieId}" height="200" style="margin-bottom:1rem;"></canvas>
-                        ${rows}`;
-                    kpiModal._chartFns = [() => {
-                        const ctx = document.getElementById(pieId);
-                        if (!ctx || !levels.length) return;
-                        new Chart(ctx, { type:'doughnut', data:{
-                            labels: levels,
-                            datasets:[{ data: levels.map(l=>levelDist[l]),
-                                backgroundColor: levels.map(l=>LEVEL_COLORS[l]||'#94a3b8'),
-                                borderWidth:2, borderColor:'var(--surface)' }]
-                        }, options:{ responsive:true, plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}} } });
-                    }];
-                    openKpiModal('Level Distribution', `${total} students · Pass rate ${passRate}%`, '#059669', bodyHTML);
-                }
-            });
-
-            // ── KPI 4: Top Performers ──────────────────────────────────────────
-            const scored = data.filter(s => !isNaN(parseFloat(s['Perc Avrg']))).sort((a,b)=>parseFloat(b['Perc Avrg'])-parseFloat(a['Perc Avrg']));
-            const topN = scored.slice(0,10);
-            const topAvg = topN.length ? +(topN.reduce((a,s)=>a+parseFloat(s['Perc Avrg']),0)/topN.length).toFixed(1) : null;
-
-            const card4 = makeKpiCard({
-                id:'kpi-4', icon:'🌟', label:'Top Performer', value: topN[0] ? (topN[0]['Official Student Name']||'—').split(' ')[0] : '—',
-                sub: topN[0] ? parseFloat(topN[0]['Perc Avrg'])+'% avg' : '',
-                accent:'#d97706',
-                onClick: () => {
-                    const rows = topN.map((s, i) => {
-                        const avg = parseFloat(s['Perc Avrg']);
-                        const col = avg>=75?'#16a34a':avg>=58?'#3b82f6':avg>=41?'#d97706':'#dc2626';
-                        const lvl = s.Level || getLevelFromAverage(avg);
-                        return `<div style="display:flex;align-items:center;gap:.75rem;padding:.55rem 0;border-bottom:1px solid var(--border);">
-                            <div style="width:24px;height:24px;border-radius:50%;background:${i<3?'#d97706':'var(--surface2)'};color:${i<3?'#fff':'var(--slate)'};font-size:.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-size:.82rem;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s['Official Student Name']||'—'}</div>
-                                <div style="font-size:.71rem;color:var(--slate);">${s.Grade||'—'}</div>
-                            </div>
-                            <span style="padding:.15rem .5rem;border-radius:6px;font-size:.7rem;font-weight:700;background:${LEVEL_BG[lvl]||'#f1f5f9'};color:${LEVEL_COLORS[lvl]||'#64748b'};">${lvl}</span>
-                            <div style="font-size:.9rem;font-weight:800;color:${col};min-width:42px;text-align:right;">${avg}%</div>
-                        </div>`;
-                    }).join('');
-                    const bodyHTML = `
-                        <div style="text-align:center;padding:.75rem 0 1rem;">
-                            <div style="font-size:.72rem;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;">Top 10 Class Average</div>
-                            <div style="font-size:2.2rem;font-weight:900;color:#d97706;font-family:'Playfair Display',serif;">${topAvg !== null ? topAvg+'%' : '—'}</div>
-                        </div>
-                        ${rows}`;
-                    openKpiModal('Top Performers', `Top 10 students by average score`, '#d97706', bodyHTML);
-                }
-            });
-
-            // ── KPI 5: Subject Performance ─────────────────────────────────────
-            const subjAvgs = {};
-            subjCols.forEach(subj => {
-                const vals = data.map(s=>parseFloat(s[subj])).filter(v=>!isNaN(v));
-                if (vals.length) subjAvgs[subj] = +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
-            });
-            const sortedSubjs = Object.entries(subjAvgs).sort((a,b)=>b[1]-a[1]);
-            const bestSubj  = sortedSubjs[0];
-            const worstSubj = sortedSubjs[sortedSubjs.length-1];
-
-            const card5 = makeKpiCard({
-                id:'kpi-5', icon:'📚', label:'Subject Avg', value: bestSubj ? bestSubj[1]+'%' : '—',
-                sub: bestSubj ? `Best: ${bestSubj[0].substring(0,14)}` : `${subjCols.length} subjects`,
-                accent:'#db2777',
-                onClick: () => {
-                    const chartId = 'kpi5-hbar-'+Date.now();
-                    const rows = sortedSubjs.map(([subj,avg]) => {
-                        const col = avg>=75?'#16a34a':avg>=58?'#3b82f6':avg>=41?'#d97706':'#dc2626';
-                        const cnt = data.filter(s=>!isNaN(parseFloat(s[subj]))).length;
-                        return `<div style="display:flex;align-items:center;gap:.65rem;padding:.45rem 0;border-bottom:1px solid var(--border);">
-                            <div style="min-width:130px;font-size:.76rem;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${subj}">${subj}</div>
-                            <div style="flex:1;height:7px;background:var(--surface2);border-radius:3px;overflow:hidden;">
-                                <div style="width:${avg}%;height:100%;background:${col};border-radius:3px;"></div>
-                            </div>
-                            <div style="min-width:46px;text-align:right;font-size:.8rem;font-weight:700;color:${col};">${avg}%</div>
-                            <div style="min-width:28px;text-align:right;font-size:.7rem;color:var(--slate-lt);">${cnt}</div>
-                        </div>`;
-                    }).join('');
-                    const bodyHTML = `
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;">
-                            <div style="padding:.7rem;background:#dcfce718;border-radius:10px;border:1.5px solid #16a34a25;">
-                                <div style="font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;margin-bottom:.2rem;">Best Subject</div>
-                                <div style="font-size:.85rem;font-weight:800;color:#16a34a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${bestSubj?bestSubj[0]:'—'}</div>
-                                <div style="font-size:1.2rem;font-weight:900;color:#16a34a;">${bestSubj?bestSubj[1]+'%':'—'}</div>
-                            </div>
-                            <div style="padding:.7rem;background:#fee2e218;border-radius:10px;border:1.5px solid #dc262625;">
-                                <div style="font-size:.68rem;font-weight:700;color:var(--slate);text-transform:uppercase;margin-bottom:.2rem;">Needs Attention</div>
-                                <div style="font-size:.85rem;font-weight:800;color:#dc2626;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${worstSubj?worstSubj[0]:'—'}</div>
-                                <div style="font-size:1.2rem;font-weight:900;color:#dc2626;">${worstSubj?worstSubj[1]+'%':'—'}</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--slate);margin-bottom:.35rem;padding:0 .1rem;">
-                            <span>Subject</span><span style="margin-right:50px;">Avg %</span><span>N</span>
-                        </div>
-                        ${rows}`;
-                    kpiModal._chartFns = [];
-                    openKpiModal('Subject Performance', `${subjCols.length} subjects · ${data.length} students`, '#db2777', bodyHTML);
-                }
-            });
-
-            [card1, card2, card3, card4, card5].forEach(c => strip.appendChild(c));
-
-            // ── Persist last 5 KPI snapshots to localStorage ───────────────────
-            try {
-                const KPI_HIST_KEY = 'kanyadet_kpi_history';
-                const snap = {
-                    ts: Date.now(),
-                    total, passRate,
-                    classAvg: classAvg ?? null,
-                    topName: topN[0] ? (topN[0]['Official Student Name']||'') : '',
-                    topAvg: topN[0] ? parseFloat(topN[0]['Perc Avrg']) : null,
-                    bestSubj: bestSubj ? bestSubj[0] : '',
-                    bestSubjAvg: bestSubj ? bestSubj[1] : null,
+                return {
+                    labels: Object.keys(gradeDistribution || {}),
+                    datasets: [
+                        {
+                            label: 'Male',
+                            data: Object.values(gradeGenderData).map(g => g.Male || 0),
+                            backgroundColor: '#3b82f6'
+                        },
+                        {
+                            label: 'Female',
+                            data: Object.values(gradeGenderData).map(g => g.Female || 0),
+                            backgroundColor: '#ec4899'
+                        },
+                        {
+                            label: 'Other',
+                            data: Object.values(gradeGenderData).map(g => g.Other || 0),
+                            backgroundColor: '#6b7280'
+                        }
+                    ]
                 };
-                let hist = JSON.parse(localStorage.getItem(KPI_HIST_KEY)||'[]');
-                hist.unshift(snap);
-                hist = hist.slice(0, 5);
-                localStorage.setItem(KPI_HIST_KEY, JSON.stringify(hist));
-            } catch(e) {}
+            };
+
+            const uniqueGradesSummary = Object.entries(gradeGenderData).map(([grade, genders]) => {
+                const total = (genders.Male || 0) + (genders.Female || 0) + (genders.Other || 0);
+                const maxGender = Object.entries(genders).reduce((max, [gender, count]) => count > (max[1] || 0) ? [gender, count] : max, ['', 0])[0];
+                return `<p>${grade}: ${total} students, Highest: ${maxGender || 'None'} (${genders[maxGender] || 0})</p>`;
+            }).join('');
+
+            let uniqueGradesChartHTML = `
+                <div class="bg-white p-4 rounded-lg shadow-md" hidden>
+                    <h3 class="font-semibold text-green-800 mb-2">Unique Grades: ${gradeDistribution ? Object.keys(gradeDistribution).length : 0}</h3>
+                    <div class="flex flex-wrap gap-2 mb-2">
+                        <button class="grade-toggle-btn active" data-grade="all">All Grades</button>
+                        ${Object.keys(gradeDistribution || {}).map(grade => `
+                            <button class="grade-toggle-btn" data-grade="${grade}">${grade}</button>
+                        `).join('')}
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="unique-grades-chart"></canvas>
+                    </div>
+                    <div class="text-sm text-gray-600 mb-2">
+                        ${uniqueGradesSummary}
+                    </div>
+                    <button id="export-grade-data-btn" class="export-btn">Download Grade Data</button>
+                </div>
+            `;
+
+            // Data Completeness Chart and Summary
+            const dataCompletenessChartData = {
+                labels: ['Male', 'Female', 'Other'],
+                datasets: [{
+                    label: 'Complete Records by Gender',
+                    data: [
+                        completeGenderData.Male || 0,
+                        completeGenderData.Female || 0,
+                        completeGenderData.Other || 0
+                    ],
+                    backgroundColor: ['#3b82f6', '#ec4899', '#6b7280']
+                }]
+            };
+
+            let dataCompletenessChartHTML = `
+                <div class="bg-white p-4 rounded-lg shadow-md" hidden>
+                    <h3 class="font-semibold text-orange-800 mb-2">Data Completeness: ${completenessPercentage}%</h3>
+                    <div class="chart-container">
+                        <canvas id="data-completeness-chart"></canvas>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        <p>Complete Records - Male: ${completeGenderData.Male || 0}, Female: ${completeGenderData.Female || 0}, Other: ${completeGenderData.Other || 0}</p>
+                    </div>
+                </div>
+            `;
+
+            // Active Filter Chart and Summary
+            let activeFilterChartHTML = `
+                <div class="bg-white p-4 rounded-lg shadow-md" hidden>
+                    <h3 class="font-semibold text-red-800 mb-2">${activeFilter ? `${activeFilter.field}: ${activeFilter.value}` : 'Active Filter: None'}</h3>
+                    ${activeFilter ? `
+                        <div class="chart-container">
+                            <canvas id="active-filter-chart"></canvas>
+                        </div>
+                        <div class="text-sm text-gray-600 mb-2">
+                            <p>Filter ${activeFilter.field}: ${activeFilter.value} - Male: ${filterGenderData.Male || 0}, Female: ${filterGenderData.Female || 0}, Other: ${filterGenderData.Other || 0}</p>
+                        </div>
+                        <button id="export-filter-data-btn" class="export-btn">Download Filter Data</button>
+                    ` : `
+                        <p class="text-sm text-gray-600">No active filter applied.</p>
+                    `}
+                    ${activeFilter ? `
+                        <div class="flex justify-between items-center mt-2">
+                            <p class="text-sm text-red-700">Showing <strong>${students.length}</strong> matching students</p>
+                            <button id="clear-filter-btn" title="Clear Filter" class="text-sm bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            statsSection.innerHTML = `
+                <div class="flex flex-wrap gap-4 mb-6" hidden>
+                    ${totalStudentsChartHTML}
+                    ${uniqueGradesChartHTML}
+                    ${dataCompletenessChartHTML}
+                    ${activeFilterChartHTML}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" hiddden> 
+                    ${generateDistributionHTML('Grade Distribution', gradeDistribution, 'Grade', 'bg-blue-500')}
+                    ${generateDistributionHTML('Graduation Years', classDistribution, 'Class', 'bg-green-500')}
+                    ${generateDistributionHTML('Gender Distribution', genderDistribution, 'Gender', 'bg-purple-500')}
+                </div>
+            `;
+
+            // Render Total Students Chart
+            const totalStudentsChartCanvas = document.getElementById('total-students-chart');
+            if (totalStudentsChartCanvas) {
+                new Chart(totalStudentsChartCanvas, {
+                    type: 'bar',
+                    data: totalStudentsChartData,
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+
+            // Render Unique Grades Chart
+            const uniqueGradesChartCanvas = document.getElementById('unique-grades-chart');
+            let uniqueGradesChart;
+            if (uniqueGradesChartCanvas) {
+                uniqueGradesChart = new Chart(uniqueGradesChartCanvas, {
+                    type: 'bar',
+                    data: getUniqueGradesChartData(),
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+
+            // Render Data Completeness Chart
+            const dataCompletenessChartCanvas = document.getElementById('data-completeness-chart');
+            if (dataCompletenessChartCanvas) {
+                new Chart(dataCompletenessChartCanvas, {
+                    type: 'bar',
+                    data: dataCompletenessChartData,
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'top' } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+// Render Active Filter Chart
+            if (activeFilter) {
+                const activeFilterChartCanvas = document.getElementById('active-filter-chart');
+                if (activeFilterChartCanvas) {
+                    const totalSum = (filterGenderData.Male || 0) + (filterGenderData.Female || 0) + (filterGenderData.Other || 0);
+                    new Chart(activeFilterChartCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Male', 'Female', 'Total'],
+                            datasets: [{
+                                label: `  ${activeFilter.value}`,
+                                data: [
+                                    filterGenderData.Male || 0,
+                                    filterGenderData.Female || 0,
+                                    totalSum
+                                ],
+                                backgroundColor: ['#3b82f6', '#ec4899', '#6b7280']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'top' } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                }
+            }
+            // Grade Toggle Buttons
+            document.querySelectorAll('.grade-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.grade-toggle-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedGrade = btn.dataset.grade === 'all' ? null : btn.dataset.grade;
+                    uniqueGradesChart.data = getUniqueGradesChartData(selectedGrade);
+                    uniqueGradesChart.update();
+                });
+            });
+
+            // Export Grade Data Button
+            const exportGradeBtn = document.getElementById('export-grade-data-btn');
+            if (exportGradeBtn) {
+                exportGradeBtn.addEventListener('click', () => exportGradeGenderData(gradeGenderData));
+            }
+
+            // Export Filter Data Button
+            const exportFilterBtn = document.getElementById('export-filter-data-btn');
+            if (exportFilterBtn) {
+                exportFilterBtn.addEventListener('click', () => exportFilterGenderData(filterGenderData, activeFilter.field, activeFilter.value));
+            }
         };
 
-        const searchStudents = (searchTerm) => {
+        statsSection.addEventListener('click', (event) => {
+            const filterElement = event.target.closest('[data-filter-field]');
+            const clearButton = event.target.closest('#clear-filter-btn');
 
+            if (filterElement) {
+                const field = filterElement.dataset.filterField;
+                const value = filterElement.dataset.filterValue;
+
+                const filteredStudents = studentsData.filter(student => (student[field] || 'N/A') === value);
+                let maleCount = 0, femaleCount = 0;
+                if (field === 'Grade') {
+                    filteredStudents.forEach(student => {
+                        if (student.Gender && student.Gender.toLowerCase() === 'male') maleCount++;
+                        if (student.Gender && student.Gender.toLowerCase() === 'female') femaleCount++;
+                    });
+                }
+
+                renderStudents(filteredStudents, { field, value, total: filteredStudents.length, maleCount, femaleCount });
+
+                if (field === 'Grade') gradeFilterSelect.value = value;
+                else gradeFilterSelect.value = '';
+                searchInput.value = '';
+            }
+
+            if (clearButton) {
+                renderStudents(studentsData, null);
+                gradeFilterSelect.value = '';
+                searchInput.value = '';
+            }
+        });
+
+        const searchStudents = (searchTerm) => {
             if (!searchTerm) {
                 currentPage = 1;
                 renderStudents(studentsData);
@@ -5024,48 +5017,26 @@ const exportToPdf = async () => {
                         `<div style="padding:.4rem 1rem;border-radius:8px;background:var(--surface3);color:var(--text2);font-size:.8rem;font-weight:700;">${_pendingRows.length} total rows</div>`,
                     ].join('');
 
-                    // ── Modern colour-coded preview table ─────────────────────
+                    // Table (show first 60, summarise rest)
                     const colsToShow = headers.slice(0, 6);
                     const rowsToShow = _pendingRows.slice(0, 60);
-
-                    const CAT = {
-                        new:       { bg:'#f0fdf4', border:'#16a34a', stripe:'#dcfce7', badge:'#16a34a', badgeBg:'#dcfce7', label:'NEW',         icon:'✦' },
-                        update:    { bg:'#eff6ff', border:'#2563eb', stripe:'#dbeafe', badge:'#1d4ed8', badgeBg:'#dbeafe', label:'UPDATE',       icon:'↺' },
-                        same:      { bg:'#f8fafc', border:'#94a3b8', stripe:'#f1f5f9', badge:'#64748b', badgeBg:'#f1f5f9', label:'SAME',         icon:'='  },
-                        duplicate: { bg:'#fff1f2', border:'#dc2626', stripe:'#fee2e2', badge:'#dc2626', badgeBg:'#fee2e2', label:'DUPLICATE',    icon:'⚠' },
-                    };
-
+                    const rowsBg    = { new:'#f0fff4', update:'#eff6ff', same:'var(--surface2)', duplicate:'#fff1f2' };
+                    const rowsBd    = { new:'#059669', update:'#2b6cb0', same:'var(--border2)',  duplicate:'#dc2626' };
+                    const rowsLabel = { new:'NEW',     update:'UPDATE',  same:'SAME',            duplicate:'⚠ DUPLICATE' };
                     document.getElementById('preview-table-wrap').innerHTML = `
-                        <style>
-                            .pvw-tr:hover td { filter: brightness(.97); }
-                            .pvw-badge { display:inline-flex;align-items:center;gap:.28rem;padding:.18rem .55rem;border-radius:999px;font-size:.68rem;font-weight:800;letter-spacing:.04em;font-family:'DM Sans',sans-serif; }
-                        </style>
-                        <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:.79rem;font-family:'DM Sans',sans-serif;">
-                            <thead>
-                                <tr>
-                                    <th style="position:sticky;top:0;z-index:2;padding:.55rem .8rem;background:#0d1f35;color:rgba(255,255,255,.6);font-size:.68rem;font-weight:700;text-align:left;letter-spacing:.06em;border-bottom:2px solid #1e4080;">Status</th>
-                                    ${colsToShow.map(h => `<th style="position:sticky;top:0;z-index:2;padding:.55rem .8rem;background:#0d1f35;color:rgba(255,255,255,.6);font-size:.68rem;font-weight:700;text-align:left;letter-spacing:.06em;border-bottom:2px solid #1e4080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;" title="${h}">${h}</th>`).join('')}
-                                    <th style="position:sticky;top:0;z-index:2;padding:.55rem .8rem;background:#0d1f35;color:rgba(255,255,255,.6);font-size:.68rem;font-weight:700;text-align:left;letter-spacing:.06em;border-bottom:2px solid #1e4080;">Conflicts with</th>
-                                </tr>
-                            </thead>
+                        <table style="width:100%;border-collapse:collapse;font-size:.78rem;font-family:'DM Sans',sans-serif;">
+                            <thead><tr style="background:var(--navy);">
+                                <th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">Status</th>
+                                ${colsToShow.map(h => `<th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">${h}</th>`).join('')}
+                                <th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">Conflicts with</th>
+                            </tr></thead>
                             <tbody>
-                                ${rowsToShow.map((r, i) => {
-                                    const c = CAT[r.status] || CAT.same;
-                                    const bg = i % 2 === 0 ? c.bg : c.stripe;
-                                    const conflict = r.existingRecord
-                                        ? `<span style="font-size:.7rem;font-family:monospace;background:#f1f5f9;padding:.1rem .4rem;border-radius:4px;color:#475569;">No.&nbsp;${r.existingRecord['Assessment No']||r.existingRecord.id}</span>`
-                                        : '';
-                                    return `<tr class="pvw-tr" style="background:${bg};border-left:3px solid ${c.border};">
-                                        <td style="padding:.42rem .8rem;border-bottom:1px solid ${c.border}18;white-space:nowrap;">
-                                            <span class="pvw-badge" style="background:${c.badgeBg};color:${c.badge};border:1px solid ${c.badge}30;">
-                                                <span>${c.icon}</span><span>${c.label}</span>
-                                            </span>
-                                        </td>
-                                        ${colsToShow.map(h => `<td style="padding:.42rem .8rem;border-bottom:1px solid ${c.border}18;color:#1e293b;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.data[h]??''}">${r.data[h]??''}</td>`).join('')}
-                                        <td style="padding:.42rem .8rem;border-bottom:1px solid ${c.border}18;">${conflict}</td>
-                                    </tr>`;
-                                }).join('')}
-                                ${_pendingRows.length > 60 ? `<tr><td colspan="${colsToShow.length + 2}" style="padding:.65rem .8rem;color:#64748b;font-style:italic;text-align:center;font-size:.75rem;background:#f8fafc;border-top:1px dashed #cbd5e1;">… and ${_pendingRows.length - 60} more rows not shown</td></tr>` : ''}
+                                ${rowsToShow.map(r => `<tr style="border-bottom:1px solid ${rowsBd[r.status]}22;background:${rowsBg[r.status]};">
+                                    <td style="padding:.45rem .75rem;white-space:nowrap;"><span style="font-size:.7rem;font-weight:700;color:${rowsBd[r.status]};text-transform:uppercase;">${rowsLabel[r.status]}</span></td>
+                                    ${colsToShow.map(h => `<td style="padding:.45rem .75rem;color:var(--text2);">${r.data[h] ?? ''}</td>`).join('')}
+                                    <td style="padding:.45rem .75rem;font-size:.72rem;color:var(--slate);">${r.existingRecord ? `No.&nbsp;${r.existingRecord['Assessment No']||r.existingRecord.id}` : ''}</td>
+                                </tr>`).join('')}
+                                ${_pendingRows.length > 60 ? `<tr><td colspan="${colsToShow.length + 2}" style="padding:.6rem .75rem;color:var(--slate);font-style:italic;text-align:center;font-size:.75rem;">… and ${_pendingRows.length - 60} more rows</td></tr>` : ''}
                             </tbody>
                         </table>`;
 
