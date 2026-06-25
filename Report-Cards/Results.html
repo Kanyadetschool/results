@@ -1917,6 +1917,38 @@ gradeFilterSelect.addEventListener('change', () => {
                 return;
             }
 
+            // ── Duplicate guard: same Name + Term + Grade ─────────────────────
+            const _dupName  = (studentData['Official Student Name'] || '').trim().toLowerCase();
+            const _dupTerm  = String(studentData['Term']  || '').trim().toLowerCase();
+            const _dupGrade = String(studentData['Grade'] || '').trim().toLowerCase();
+            if (_dupName) {
+                const dupMatches = (studentsData || []).filter(s => {
+                    const sName  = (s['Official Student Name'] || '').trim().toLowerCase();
+                    const sTerm  = String(s['Term']  || '').trim().toLowerCase();
+                    const sGrade = String(s['Grade'] || '').trim().toLowerCase();
+                    return sName === _dupName && sTerm === _dupTerm && sGrade === _dupGrade;
+                });
+                if (dupMatches.length > 0) {
+                    const ex = dupMatches[0];
+                    const proceed = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Duplicate Record Detected',
+                        html: `<div style="font-size:.88rem;line-height:1.7;color:var(--text2);">
+                            A record already exists for<br>
+                            <strong style="color:var(--navy);font-size:1rem;">${ex['Official Student Name'] || '—'}</strong><br>
+                            <span style="font-size:.8rem;color:var(--slate);">${ex.Grade || '—'} &nbsp;·&nbsp; Term ${ex.Term || '—'} &nbsp;·&nbsp; No. ${ex['Assessment No'] || ex.id}</span><br><br>
+                            Proceeding will <strong style="color:var(--danger);">overwrite</strong> that record.
+                        </div>`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Overwrite & Save',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc2626',
+                        reverseButtons: true,
+                    });
+                    if (!proceed.isConfirmed) return;
+                }
+            }
+
             try {
                 const studentDocKey = String(studentData['Assessment No']);
                 const studentsRef = ref(db, `Results/${sanitizedAppId}/students/${studentDocKey}`);
@@ -4959,6 +4991,40 @@ const exportToPdf = async () => {
             // Commit
             document.getElementById('preview-commit-btn').addEventListener('click', async () => {
                 const commitBtn = document.getElementById('preview-commit-btn');
+
+                // ── Duplicate guard: find update rows that share Name+Term+Grade with existing ──
+                const updateRows = _pendingRows.filter(r => r.status === 'update');
+                if (updateRows.length > 0) {
+                    // Build a summary of what will be overwritten
+                    const dupLines = updateRows.slice(0, 6).map(r => {
+                        const name  = r.data['Official Student Name'] || '—';
+                        const grade = r.data['Grade'] || '—';
+                        const term  = r.data['Term']  || '—';
+                        return `<div style="padding:.3rem .6rem;background:var(--danger-lt);border-radius:6px;font-size:.8rem;color:var(--danger);margin-bottom:.25rem;">
+                            <strong>${name}</strong> &nbsp;·&nbsp; ${grade} &nbsp;·&nbsp; Term ${term}
+                        </div>`;
+                    }).join('');
+                    const moreCount = updateRows.length > 6 ? `<div style="font-size:.77rem;color:var(--slate);margin-top:.3rem;">… and ${updateRows.length - 6} more</div>` : '';
+
+                    const proceed = await Swal.fire({
+                        icon: 'warning',
+                        title: `${updateRows.length} Existing Record${updateRows.length !== 1 ? 's' : ''} Will Be Overwritten`,
+                        html: `<div style="text-align:left;max-height:220px;overflow-y:auto;padding:.25rem 0;">
+                            ${dupLines}${moreCount}
+                        </div>
+                        <div style="margin-top:.75rem;font-size:.82rem;color:var(--text2);">
+                            These students already have scores for the same <strong>Name · Grade · Term</strong>.<br>
+                            New values from the file will replace the existing ones.
+                        </div>`,
+                        showCancelButton: true,
+                        confirmButtonText: `Overwrite ${updateRows.length} & Import`,
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc2626',
+                        reverseButtons: true,
+                    });
+                    if (!proceed.isConfirmed) return;
+                }
+
                 commitBtn.disabled = true; commitBtn.textContent = 'Uploading…';
                 try {
                     const { ref: fbRef, set: fbSet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
