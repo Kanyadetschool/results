@@ -1148,10 +1148,11 @@ body::before{
 .share-box{
   background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius-lg);padding:20px;
-  width:min(460px,100%);
+  width:min(480px,100%);
   box-shadow:0 24px 80px rgba(0,0,0,.4);
   animation:mIn .3s cubic-bezier(.34,1.56,.64,1);
 }
+#share-card-preview > div { width:100% !important; min-width:unset !important; }
 .share-box h2{font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;}
 #share-card-preview{
   border-radius:12px;overflow:hidden;margin-bottom:14px;
@@ -3352,44 +3353,175 @@ function openShareModal(){
   // We'll inject a placeholder and swap in the image async after render
   const photoId = 'sc-student-photo-'+Date.now();
 
+  // ── Poster-style card inspired by the 1.png ICT dept design ──
+  const genDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const termShort = cleanTerm(rec['Term']);
+  const gradeShort = gShort(rec['Grade']);
+
+  // KNEC seal SVG (inline, no external fetch needed)
+  const knecSeal = `<svg viewBox="0 0 80 80" width="64" height="64" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+    <circle cx="40" cy="40" r="38" fill="#fff" stroke="#1a3a1a" stroke-width="2"/>
+    <circle cx="40" cy="40" r="34" fill="none" stroke="#1a3a1a" stroke-width="1.2"/>
+    <text x="40" y="12" text-anchor="middle" font-size="5" font-weight="700" fill="#1a3a1a" font-family="serif" letter-spacing="0.5">THE KENYA NATIONAL</text>
+    <text x="40" y="70" text-anchor="middle" font-size="5" font-weight="700" fill="#1a3a1a" font-family="serif" letter-spacing="0.5">EXAMINATIONS COUNCIL</text>
+    <!-- Shield body -->
+    <path d="M32 25 Q32 18 40 16 Q48 18 48 25 L48 46 Q44 52 40 54 Q36 52 32 46 Z" fill="#c8a84b" stroke="#8b6914" stroke-width="1"/>
+    <!-- Lions placeholder -->
+    <ellipse cx="33" cy="36" rx="5" ry="7" fill="#c8a84b" stroke="#8b6914" stroke-width="0.8"/>
+    <ellipse cx="47" cy="36" rx="5" ry="7" fill="#c8a84b" stroke="#8b6914" stroke-width="0.8"/>
+    <!-- Book -->
+    <rect x="35" y="33" width="10" height="7" rx="1" fill="#fff" stroke="#8b6914" stroke-width="0.8"/>
+    <!-- Ground / grass -->
+    <ellipse cx="40" cy="48" rx="7" ry="3" fill="#2d6a2d"/>
+    <!-- Red banner -->
+    <rect x="28" y="56" width="24" height="7" rx="2" fill="#c0392b"/>
+    <text x="40" y="62" text-anchor="middle" font-size="5.5" font-weight="900" fill="#fff" font-family="serif" letter-spacing="1">MITIHANI</text>
+  </svg>`;
+
+  // Decorative leaf SVG (right side, like 1.png)
+  const leafSvg = `<svg viewBox="0 0 60 160" width="38" height="110" xmlns="http://www.w3.org/2000/svg" style="display:block;opacity:0.55;">
+    <line x1="30" y1="155" x2="30" y2="10" stroke="#1e3a5f" stroke-width="1.5"/>
+    <ellipse cx="18" cy="90" rx="13" ry="6" fill="none" stroke="#1e3a5f" stroke-width="1.2" transform="rotate(-30 18 90)"/>
+    <ellipse cx="42" cy="70" rx="13" ry="6" fill="none" stroke="#1e3a5f" stroke-width="1.2" transform="rotate(30 42 70)"/>
+    <ellipse cx="16" cy="50" rx="11" ry="5" fill="none" stroke="#1e3a5f" stroke-width="1.2" transform="rotate(-25 16 50)"/>
+    <ellipse cx="42" cy="35" rx="10" ry="5" fill="none" stroke="#1e3a5f" stroke-width="1.2" transform="rotate(25 42 35)"/>
+    <circle cx="30" cy="10" r="3" fill="none" stroke="#1e3a5f" stroke-width="1"/>
+    <circle cx="22" cy="18" r="2" fill="none" stroke="#1e3a5f" stroke-width="1"/>
+    <circle cx="38" cy="18" r="2" fill="none" stroke="#1e3a5f" stroke-width="1"/>
+  </svg>`;
+
   document.getElementById('share-card-preview').innerHTML = `
     <div id="actual-share-card" style="
-      background:linear-gradient(135deg,#0c1929 0%,#152638 60%,#1a3045 100%);
-      padding:24px 26px;font-family:'Plus Jakarta Sans',sans-serif;color:#e4f0fb;
-      min-height:220px;position:relative;overflow:hidden;
+      width:420px;min-height:560px;
+      background:#ffffff;
+      font-family:'Plus Jakarta Sans',Georgia,sans-serif;
+      color:#0c1929;
+      position:relative;overflow:hidden;
     ">
-      <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:${color}18;"></div>
-      <div style="position:absolute;bottom:-30px;left:-30px;width:100px;height:100px;border-radius:50%;background:rgba(41,128,185,.12);"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          ${logoHtml}
-          <div>
-            <div style="font-size:13px;font-weight:800;line-height:1.1;">Kanyadet PRI &amp; Junior School</div>
-            <div style="font-size:10px;color:#8db4cc;">Student Performance Card</div>
+      <!-- NAVY TOP BLOB (like 1.png title area) -->
+      <div style="
+        position:absolute;top:0;left:0;width:100%;height:220px;
+        background:#1a2e4a;
+        clip-path:ellipse(110% 100% at 20% 0%);
+        z-index:0;
+      "></div>
+
+      <!-- GREY MIDDLE BLOB -->
+      <div style="
+        position:absolute;top:160px;left:-20px;width:320px;height:230px;
+        background:#dde6ed;
+        border-radius:50% 60% 50% 40% / 50% 50% 60% 50%;
+        z-index:0;
+        opacity:0.85;
+      "></div>
+
+      <!-- NAVY BOTTOM-RIGHT CIRCLE (like 1.png date blob) -->
+      <div style="
+        position:absolute;bottom:-20px;right:-20px;width:130px;height:130px;
+        background:#1a2e4a;
+        border-radius:50%;
+        z-index:0;
+      "></div>
+
+      <!-- Leaf decoration (right side) -->
+      <div style="position:absolute;right:14px;top:200px;z-index:1;">
+        ${leafSvg}
+      </div>
+
+      <!-- ── CONTENT ── -->
+      <div style="position:relative;z-index:2;padding:22px 24px 20px;">
+
+        <!-- HEADER ROW: Logo + School name + Photo -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${logoHtml}
+            <div>
+              <div style="font-size:12px;font-weight:800;color:#ffffff;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.4);">Kanyadet PRI &amp; Junior School</div>
+              <div style="font-size:9px;color:#a8c8e0;letter-spacing:0.5px;">Student Performance Card</div>
+            </div>
+          </div>
+          <div id="${photoId}" style="
+            width:56px;height:56px;border-radius:50%;
+            border:3px solid ${color};
+            overflow:hidden;background:#1a3045;
+            display:flex;align-items:center;justify-content:center;
+            font-size:22px;font-weight:900;color:${color};
+            flex-shrink:0;box-shadow:0 0 0 4px rgba(255,255,255,.15);
+          ">${initial}</div>
+        </div>
+
+        <!-- BIG TITLE: "Report Card" style -->
+        <div style="margin-bottom:4px;">
+          <div style="font-size:11px;font-weight:700;color:#a8c8e0;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;">Academic Results</div>
+          <div style="font-size:30px;font-weight:900;color:#ffffff;line-height:1;letter-spacing:-0.5px;text-shadow:0 2px 8px rgba(0,0,0,.3);">
+            ${gradeShort}
+          </div>
+          <div style="font-size:16px;font-weight:800;color:#ffffff;line-height:1.1;margin-top:2px;text-shadow:0 1px 4px rgba(0,0,0,.3);">
+            Performance<br>Report
           </div>
         </div>
-        <div id="${photoId}" style="width:52px;height:52px;border-radius:50%;border:2px solid ${color}88;overflow:hidden;background:#1a3045;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:${color};flex-shrink:0;">${initial}</div>
+
+        <!-- Term label -->
+        <div style="margin:10px 0 0;display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 12px;">
+          <span style="font-size:9.5px;font-weight:700;color:#d0e8f5;letter-spacing:0.8px;">${termShort} &nbsp;·&nbsp; ${new Date().getFullYear()}</span>
+        </div>
       </div>
-      <div style="font-size:15px;font-weight:800;margin-bottom:2px;">${studentName}</div>
-      <div style="font-size:10.5px;color:#8db4cc;margin-bottom:14px;">${gShort(rec['Grade'])} &nbsp;·&nbsp; ${cleanTerm(rec['Term'])} &nbsp;·&nbsp; ${new Date().getFullYear()}</div>
-      <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:14px;">
+
+      <!-- ── STUDENT IDENTITY BLOCK (on grey blob) ── -->
+      <div style="position:relative;z-index:2;padding:16px 24px 0;">
+        <div style="font-size:20px;font-weight:900;color:#0c1929;letter-spacing:-0.3px;line-height:1.1;">${studentName}</div>
+        <div style="font-size:10px;color:#3a6080;margin-top:2px;font-weight:600;">${gradeShort} &nbsp;·&nbsp; ${termShort} &nbsp;·&nbsp; ${new Date().getFullYear()}</div>
+      </div>
+
+      <!-- ── SCORE AREA ── -->
+      <div style="position:relative;z-index:2;padding:14px 24px 0;display:flex;align-items:flex-end;gap:18px;">
+        <!-- Big average -->
         <div>
-          <div style="font-size:40px;font-weight:800;color:${color};line-height:1;">${stats.avg}%</div>
-          <div style="font-size:10px;color:#8db4cc;">Average Score</div>
+          <div style="font-size:54px;font-weight:900;color:${color};line-height:1;letter-spacing:-2px;">${stats.avg}%</div>
+          <div style="font-size:9.5px;color:#3a6080;font-weight:600;margin-top:1px;">Average Score</div>
         </div>
-        <div style="padding-bottom:4px;">
-          <div style="font-size:14px;font-weight:800;color:${color};">${stats.level}</div>
-          <div style="font-size:10px;color:#8db4cc;">${stats.label}</div>
-          <div style="font-size:11px;color:#e4f0fb;margin-top:2px;">Position: ${rec['Position']||'N/A'}</div>
-          <div style="font-size:11px;color:#e4f0fb;margin-top:1px;">Points: ${stats.totalPts} / ${stats.maxPts} pts</div>
+        <!-- Level + details -->
+        <div style="padding-bottom:8px;">
+          <div style="font-size:18px;font-weight:900;color:${color};line-height:1;">${stats.level}</div>
+          <div style="font-size:10px;color:#3a6080;font-weight:600;margin-bottom:4px;">${stats.label}</div>
+          <div style="font-size:10.5px;color:#0c1929;font-weight:600;">Position: <strong>${rec['Position']||'N/A'}</strong></div>
+          <div style="font-size:10.5px;color:#0c1929;font-weight:600;">Points: <strong>${stats.totalPts} / ${stats.maxPts} pts</strong></div>
         </div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-        ${topSubjs.map(x=>`<span style="background:${color}22;border:1px solid ${color}44;color:${color};font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:12px;">⭐ ${x.s.split(' ')[0]}: ${x.v}</span>`).join('')}
+
+      <!-- ── SUBJECT PILLS ── -->
+      <div style="position:relative;z-index:2;padding:12px 24px 0;display:flex;gap:7px;flex-wrap:wrap;">
+        ${topSubjs.map(x=>`
+          <span style="
+            background:${color}22;border:1.5px solid ${color}55;
+            color:#0c1929;font-size:9.5px;font-weight:800;
+            padding:4px 11px;border-radius:20px;
+            display:flex;align-items:center;gap:4px;
+          ">
+            <span style="color:#f39c12;font-size:11px;">★</span>
+            ${x.s.replace('Learning Area:','').trim().split(' ').slice(0,2).join(' ')}: ${x.v}
+          </span>
+        `).join('')}
       </div>
-      <div style="font-size:8.5px;color:#5b87a6;border-top:1px solid rgba(41,128,185,.2);padding-top:8px;">
-        📅 Generated ${new Date().toLocaleDateString()} &nbsp;·&nbsp; Kanyadet Student Portal &nbsp;·&nbsp; Provisional
+
+      <!-- ── KNEC SEAL + BOTTOM INFO ── -->
+      <div style="position:relative;z-index:2;padding:14px 24px 16px;display:flex;align-items:flex-end;justify-content:space-between;">
+        <div>
+          <div style="font-size:8px;color:#3a6080;font-weight:600;border-top:1.5px solid rgba(41,128,185,.22);padding-top:8px;">
+            📅 Generated ${genDate}<br>
+            <span style="color:#2980b9;">Kanyadet Student Portal</span> &nbsp;·&nbsp; Provisional
+          </div>
+          <div style="font-size:8px;color:#3a6080;margin-top:3px;">https://kanyadet-school.web.app</div>
+        </div>
+        <div style="opacity:0.9;flex-shrink:0;">${knecSeal}</div>
       </div>
+
+      <!-- BOTTOM-RIGHT date on navy blob -->
+      <div style="position:absolute;bottom:8px;right:12px;z-index:3;text-align:center;">
+        <div style="font-size:22px;font-weight:900;color:#fff;line-height:1;">${new Date().getDate()}/${String(new Date().getMonth()+1).padStart(2,'0')}</div>
+        <div style="font-size:9px;font-weight:700;color:#a8c8e0;">${new Date().toLocaleDateString('en-GB',{weekday:'long'})}</div>
+      </div>
+
     </div>`;
 
   // Async: load student photo into the placeholder
