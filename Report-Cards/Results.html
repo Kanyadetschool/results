@@ -4929,53 +4929,93 @@ const exportToPdf = async () => {
                     if (!headers.includes('Term')) throw new Error("Excel file must have a column titled 'Term'.");
                     const termIdx = headers.indexOf('Term');
 
-                    // Build preview rows
-                    const existingMap = {};
-                    (studentsData || []).forEach(s => { existingMap[String(s['Assessment No'] || s.id)] = s; });
+                    // ── Build cross-check maps from live studentsData ──────────────
+                    // Map 1: by DB key (Term value used as Firebase key)
+                    const existingByKey = {};
+                    // Map 2: by normalised Name+Term+Grade — catches duplicates with different keys
+                    const existingByNTG = {};
+                    (studentsData || []).forEach(s => {
+                        const dbKey = String(s['Assessment No'] || s.id || '').trim();
+                        if (dbKey) existingByKey[dbKey] = s;
+                        const ntg = [
+                            (s['Official Student Name'] || '').trim().toLowerCase(),
+                            String(s['Term']  || '').trim().toLowerCase(),
+                            String(s['Grade'] || '').trim().toLowerCase(),
+                        ].join('||');
+                        if (ntg !== '||||') {
+                            if (!existingByNTG[ntg]) existingByNTG[ntg] = [];
+                            existingByNTG[ntg].push(s);
+                        }
+                    });
 
                     _pendingRows = [];
                     jsonRows.slice(1).forEach(row => {
                         const term = row[termIdx]; if (!term) return;
                         const key = String(term).trim();
                         const obj = {};
-                        headers.forEach((h, i) => { obj[h] = row[i]; });
-                        const existing = existingMap[key];
+                        headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
+
+                        // Normalise incoming Name+Term+Grade
+                        const inName  = (String(obj['Official Student Name'] || '')).trim().toLowerCase();
+                        const inTerm  = String(obj['Term']  || '').trim().toLowerCase();
+                        const inGrade = String(obj['Grade'] || '').trim().toLowerCase();
+                        const ntgKey  = [inName, inTerm, inGrade].join('||');
+
+                        // Check 1: exact DB key match
+                        const exactMatch = existingByKey[key];
+                        // Check 2: Name+Term+Grade match (may be a different key entirely)
+                        const ntgMatches = (inName && existingByNTG[ntgKey]) ? existingByNTG[ntgKey] : [];
+
                         let status = 'new';
-                        if (existing) {
-                            const changed = headers.some(h => String(obj[h] ?? '') !== String(existing[h] ?? ''));
+                        let existingRecord = null;
+
+                        if (exactMatch) {
+                            // Same key exists — check if data changed
+                            const changed = headers.some(h => String(obj[h] ?? '') !== String(exactMatch[h] ?? ''));
                             status = changed ? 'update' : 'same';
+                            existingRecord = exactMatch;
+                        } else if (ntgMatches.length > 0) {
+                            // Different key but same Name+Term+Grade → true duplicate
+                            status = 'duplicate';
+                            existingRecord = ntgMatches[0];
                         }
-                        _pendingRows.push({ key, data: obj, status });
+
+                        _pendingRows.push({ key, data: obj, status, existingRecord });
                     });
 
                     // Summary chips
                     const newCount    = _pendingRows.filter(r => r.status === 'new').length;
                     const updateCount = _pendingRows.filter(r => r.status === 'update').length;
                     const sameCount   = _pendingRows.filter(r => r.status === 'same').length;
+                    const dupCount    = _pendingRows.filter(r => r.status === 'duplicate').length;
                     document.getElementById('preview-summary').innerHTML = [
-                        `<div style="padding:.4rem 1rem;border-radius:8px;background:#d1fae5;color:#065f46;font-size:.8rem;font-weight:700;">${newCount} new</div>`,
+                        newCount    ? `<div style="padding:.4rem 1rem;border-radius:8px;background:#d1fae5;color:#065f46;font-size:.8rem;font-weight:700;">${newCount} new</div>` : '',
                         updateCount ? `<div style="padding:.4rem 1rem;border-radius:8px;background:#dbeafe;color:#1e40af;font-size:.8rem;font-weight:700;">${updateCount} updates</div>` : '',
                         sameCount   ? `<div style="padding:.4rem 1rem;border-radius:8px;background:var(--surface2);color:var(--slate);font-size:.8rem;font-weight:700;">${sameCount} unchanged</div>` : '',
+                        dupCount    ? `<div style="padding:.4rem 1rem;border-radius:8px;background:#fee2e2;color:#dc2626;font-size:.8rem;font-weight:700;">⚠ ${dupCount} duplicate${dupCount!==1?'s':''}</div>` : '',
                         `<div style="padding:.4rem 1rem;border-radius:8px;background:var(--surface3);color:var(--text2);font-size:.8rem;font-weight:700;">${_pendingRows.length} total rows</div>`,
                     ].join('');
 
                     // Table (show first 60, summarise rest)
                     const colsToShow = headers.slice(0, 6);
                     const rowsToShow = _pendingRows.slice(0, 60);
-                    const rowsBg = { new: '#f0fff4', update: '#eff6ff', same: 'var(--surface2)' };
-                    const rowsBd = { new: '#059669', update: '#2b6cb0', same: 'var(--border2)' };
+                    const rowsBg    = { new:'#f0fff4', update:'#eff6ff', same:'var(--surface2)', duplicate:'#fff1f2' };
+                    const rowsBd    = { new:'#059669', update:'#2b6cb0', same:'var(--border2)',  duplicate:'#dc2626' };
+                    const rowsLabel = { new:'NEW',     update:'UPDATE',  same:'SAME',            duplicate:'⚠ DUPLICATE' };
                     document.getElementById('preview-table-wrap').innerHTML = `
                         <table style="width:100%;border-collapse:collapse;font-size:.78rem;font-family:'DM Sans',sans-serif;">
                             <thead><tr style="background:var(--navy);">
                                 <th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">Status</th>
                                 ${colsToShow.map(h => `<th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">${h}</th>`).join('')}
+                                <th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">Conflicts with</th>
                             </tr></thead>
                             <tbody>
                                 ${rowsToShow.map(r => `<tr style="border-bottom:1px solid ${rowsBd[r.status]}22;background:${rowsBg[r.status]};">
-                                    <td style="padding:.45rem .75rem;"><span style="font-size:.7rem;font-weight:700;color:${rowsBd[r.status]};text-transform:uppercase;">${r.status}</span></td>
+                                    <td style="padding:.45rem .75rem;white-space:nowrap;"><span style="font-size:.7rem;font-weight:700;color:${rowsBd[r.status]};text-transform:uppercase;">${rowsLabel[r.status]}</span></td>
                                     ${colsToShow.map(h => `<td style="padding:.45rem .75rem;color:var(--text2);">${r.data[h] ?? ''}</td>`).join('')}
+                                    <td style="padding:.45rem .75rem;font-size:.72rem;color:var(--slate);">${r.existingRecord ? `No.&nbsp;${r.existingRecord['Assessment No']||r.existingRecord.id}` : ''}</td>
                                 </tr>`).join('')}
-                                ${_pendingRows.length > 60 ? `<tr><td colspan="${colsToShow.length + 1}" style="padding:.6rem .75rem;color:var(--slate);font-style:italic;text-align:center;font-size:.75rem;">… and ${_pendingRows.length - 60} more rows</td></tr>` : ''}
+                                ${_pendingRows.length > 60 ? `<tr><td colspan="${colsToShow.length + 2}" style="padding:.6rem .75rem;color:var(--slate);font-style:italic;text-align:center;font-size:.75rem;">… and ${_pendingRows.length - 60} more rows</td></tr>` : ''}
                             </tbody>
                         </table>`;
 
@@ -4988,43 +5028,66 @@ const exportToPdf = async () => {
                 }
             });
 
-            // Commit
+            // Commit — with hard duplicate block + overwrite confirm
             document.getElementById('preview-commit-btn').addEventListener('click', async () => {
                 const commitBtn = document.getElementById('preview-commit-btn');
 
-                // ── Duplicate guard: find update rows that share Name+Term+Grade with existing ──
-                const updateRows = _pendingRows.filter(r => r.status === 'update');
-                if (updateRows.length > 0) {
-                    // Build a summary of what will be overwritten
-                    const dupLines = updateRows.slice(0, 6).map(r => {
-                        const name  = r.data['Official Student Name'] || '—';
-                        const grade = r.data['Grade'] || '—';
-                        const term  = r.data['Term']  || '—';
-                        return `<div style="padding:.3rem .6rem;background:var(--danger-lt);border-radius:6px;font-size:.8rem;color:var(--danger);margin-bottom:.25rem;">
-                            <strong>${name}</strong> &nbsp;·&nbsp; ${grade} &nbsp;·&nbsp; Term ${term}
+                // ── STEP 1: Block true duplicates (same Name+Term+Grade, different key) ──
+                const dupRows = _pendingRows.filter(r => r.status === 'duplicate');
+                if (dupRows.length > 0) {
+                    const lines = dupRows.slice(0, 8).map(r => {
+                        const ex = r.existingRecord;
+                        return `<div style="display:flex;justify-content:space-between;gap:.5rem;padding:.28rem .65rem;background:#fee2e2;border-radius:6px;font-size:.79rem;color:#991b1b;margin-bottom:.2rem;">
+                            <strong>${r.data['Official Student Name']||'—'}</strong>
+                            <span>${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}</span>
+                            <span style="color:#9ca3af;font-size:.7rem;">DB No.${ex?(ex['Assessment No']||ex.id):'?'}</span>
                         </div>`;
                     }).join('');
-                    const moreCount = updateRows.length > 6 ? `<div style="font-size:.77rem;color:var(--slate);margin-top:.3rem;">… and ${updateRows.length - 6} more</div>` : '';
+                    const more = dupRows.length > 8 ? `<div style="font-size:.74rem;color:var(--slate);margin-top:.3rem;">… and ${dupRows.length-8} more</div>` : '';
+                    const res = await Swal.fire({
+                        icon: 'error',
+                        title: `${dupRows.length} Duplicate${dupRows.length!==1?'s':''} in File`,
+                        html: `<div style="text-align:left;max-height:210px;overflow-y:auto;">${lines}${more}</div>
+                            <div style="margin-top:.8rem;font-size:.82rem;color:var(--text2);">
+                                These students already exist in the database with the same <strong>Name · Grade · Term</strong>.<br>
+                                Choose: skip them and import the rest, or cancel to fix the file.
+                            </div>`,
+                        showCancelButton: true,
+                        confirmButtonText: `Skip ${dupRows.length} duplicate${dupRows.length!==1?'s':''}, import rest`,
+                        cancelButtonText: 'Cancel — fix file first',
+                        confirmButtonColor: '#d97706',
+                        cancelButtonColor: '#6b7280',
+                        reverseButtons: true,
+                    });
+                    if (!res.isConfirmed) return;
+                    // Strip duplicates — they will NOT be written
+                    _pendingRows = _pendingRows.filter(r => r.status !== 'duplicate');
+                }
 
-                    const proceed = await Swal.fire({
+                // ── STEP 2: Confirm overwrites (same key, changed data) ──────
+                const updateRows = _pendingRows.filter(r => r.status === 'update');
+                if (updateRows.length > 0) {
+                    const lines = updateRows.slice(0, 6).map(r =>
+                        `<div style="padding:.28rem .65rem;background:#eff6ff;border-radius:6px;font-size:.79rem;color:#1e40af;margin-bottom:.2rem;">
+                            <strong>${r.data['Official Student Name']||'—'}</strong> · ${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}
+                        </div>`
+                    ).join('');
+                    const more = updateRows.length > 6 ? `<div style="font-size:.74rem;color:var(--slate);margin-top:.25rem;">… and ${updateRows.length-6} more</div>` : '';
+                    const ok = await Swal.fire({
                         icon: 'warning',
-                        title: `${updateRows.length} Existing Record${updateRows.length !== 1 ? 's' : ''} Will Be Overwritten`,
-                        html: `<div style="text-align:left;max-height:220px;overflow-y:auto;padding:.25rem 0;">
-                            ${dupLines}${moreCount}
-                        </div>
-                        <div style="margin-top:.75rem;font-size:.82rem;color:var(--text2);">
-                            These students already have scores for the same <strong>Name · Grade · Term</strong>.<br>
-                            New values from the file will replace the existing ones.
-                        </div>`,
+                        title: `${updateRows.length} Record${updateRows.length!==1?'s':''} Will Be Overwritten`,
+                        html: `<div style="text-align:left;max-height:180px;overflow-y:auto;">${lines}${more}</div>
+                            <div style="margin-top:.7rem;font-size:.82rem;color:var(--text2);">New scores will replace existing values in the database.</div>`,
                         showCancelButton: true,
                         confirmButtonText: `Overwrite ${updateRows.length} & Import`,
                         cancelButtonText: 'Cancel',
                         confirmButtonColor: '#dc2626',
                         reverseButtons: true,
                     });
-                    if (!proceed.isConfirmed) return;
+                    if (!ok.isConfirmed) return;
                 }
 
+                // ── STEP 3: Write ─────────────────────────────────────────────
                 commitBtn.disabled = true; commitBtn.textContent = 'Uploading…';
                 try {
                     const { ref: fbRef, set: fbSet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
