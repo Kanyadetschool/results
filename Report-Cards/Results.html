@@ -1031,6 +1031,10 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                         Clear Filters
                     </button>
+                    <button class="tab-toolbar-btn" id="tab-dup-scanner-btn" title="Scan for duplicate records" style="color:#dc2626;border-color:#fca5a5;background:var(--danger-lt);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        Dup Scanner
+                    </button>
                     <span class="tab-count-badge" id="tab-count-badge">0 students</span>
                 </div>
 
@@ -4880,15 +4884,23 @@ const exportToPdf = async () => {
                     <div style="padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);">
                         <div id="preview-summary" style="display:flex;gap:1rem;flex-wrap:wrap;"></div>
                     </div>
-                    <div style="padding:.75rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:center;font-size:.8rem;color:var(--slate);">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d1fae5;border:1.5px solid #059669;"></span> New record
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1.5px solid #2b6cb0;margin-left:.75rem;"></span> Will update existing
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1.5px solid var(--border2);margin-left:.75rem;"></span> Unchanged
+                    <div style="padding:.65rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.75rem;align-items:center;font-size:.78rem;color:var(--slate);flex-wrap:wrap;">
+                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d1fae5;border:1.5px solid #059669;"></span>New</span>
+                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1.5px solid #2b6cb0;"></span>Update</span>
+                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fff1f2;border:1.5px solid #dc2626;"></span>Duplicate</span>
+                        <span style="display:inline-flex;align-items:center;gap:.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1.5px solid var(--border2);"></span>Unchanged</span>
                     </div>
-                    <div style="max-height:45vh;overflow-y:auto;padding:.5rem 0;" id="preview-table-wrap"></div>
-                    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.6rem;background:var(--surface2);border-radius:0 0 18px 18px;">
-                        <button id="preview-commit-btn" style="flex:1;padding:.65rem;border-radius:9px;border:none;background:var(--success);color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;">✓ Commit Import</button>
-                        <button id="preview-cancel-btn" style="padding:.65rem 1.25rem;border-radius:9px;border:1.5px solid var(--border2);background:transparent;color:var(--slate);font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+                    <div style="max-height:40vh;overflow-y:auto;padding:.5rem 0;" id="preview-table-wrap"></div>
+                    <div style="padding:.9rem 1.5rem;border-top:1px solid var(--border);background:var(--surface2);border-radius:0 0 18px 18px;">
+                        <div style="display:flex;gap:.5rem;margin-bottom:.55rem;">
+                            <button id="preview-new-only-btn" style="flex:1;padding:.6rem .5rem;border-radius:9px;border:1.5px solid #059669;background:#f0fff4;color:#065f46;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;">
+                                ✦ New records only
+                            </button>
+                            <button id="preview-overwrite-btn" style="flex:1;padding:.6rem .5rem;border-radius:9px;border:1.5px solid #2b6cb0;background:#eff6ff;color:#1e40af;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;">
+                                ↺ New + overwrite existing
+                            </button>
+                        </div>
+                        <button id="preview-cancel-btn" style="width:100%;padding:.55rem;border-radius:9px;border:1.5px solid var(--border2);background:transparent;color:var(--slate);font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
                     </div>
                 </div>`;
             document.body.appendChild(previewModal);
@@ -4930,13 +4942,17 @@ const exportToPdf = async () => {
                     const termIdx = headers.indexOf('Term');
 
                     // ── Build cross-check maps from live studentsData ──────────────
-                    // Map 1: by DB key (Term value used as Firebase key)
+                    // Map 1: by Firebase DB key — s.id IS the key (Term value used at upload time)
+                    //         also index by Term field directly as a fallback
                     const existingByKey = {};
-                    // Map 2: by normalised Name+Term+Grade — catches duplicates with different keys
+                    // Map 2: by normalised Name+Term+Grade — catches duplicates regardless of key
                     const existingByNTG = {};
                     (studentsData || []).forEach(s => {
-                        const dbKey = String(s['Assessment No'] || s.id || '').trim();
-                        if (dbKey) existingByKey[dbKey] = s;
+                        // s.id is the Firebase node key (= Term value set at upload)
+                        const byId   = String(s.id   || '').trim();
+                        const byTerm = String(s['Term'] || '').trim();
+                        if (byId)   existingByKey[byId]   = s;
+                        if (byTerm) existingByKey[byTerm] = s;
                         const ntg = [
                             (s['Official Student Name'] || '').trim().toLowerCase(),
                             String(s['Term']  || '').trim().toLowerCase(),
@@ -4970,8 +4986,13 @@ const exportToPdf = async () => {
                         let existingRecord = null;
 
                         if (exactMatch) {
-                            // Same key exists — check if data changed
-                            const changed = headers.some(h => String(obj[h] ?? '') !== String(exactMatch[h] ?? ''));
+                            // Same key exists — compare normalised values (handle 93.0 vs "93" etc.)
+                            const norm = v => {
+                                const s = String(v ?? '').trim();
+                                const n = parseFloat(s);
+                                return (!isNaN(n) && String(n) === s.replace(/\.0+$/, '')) ? String(n) : s;
+                            };
+                            const changed = headers.some(h => norm(obj[h]) !== norm(exactMatch[h]));
                             status = changed ? 'update' : 'same';
                             existingRecord = exactMatch;
                         } else if (ntgMatches.length > 0) {
@@ -5029,80 +5050,121 @@ const exportToPdf = async () => {
             });
 
             // Commit — with hard duplicate block + overwrite confirm
-            document.getElementById('preview-commit-btn').addEventListener('click', async () => {
-                const commitBtn = document.getElementById('preview-commit-btn');
-
-                // ── STEP 1: Block true duplicates (same Name+Term+Grade, different key) ──
-                const dupRows = _pendingRows.filter(r => r.status === 'duplicate');
-                if (dupRows.length > 0) {
-                    const lines = dupRows.slice(0, 8).map(r => {
-                        const ex = r.existingRecord;
-                        return `<div style="display:flex;justify-content:space-between;gap:.5rem;padding:.28rem .65rem;background:#fee2e2;border-radius:6px;font-size:.79rem;color:#991b1b;margin-bottom:.2rem;">
-                            <strong>${r.data['Official Student Name']||'—'}</strong>
-                            <span>${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}</span>
-                            <span style="color:#9ca3af;font-size:.7rem;">DB No.${ex?(ex['Assessment No']||ex.id):'?'}</span>
-                        </div>`;
-                    }).join('');
-                    const more = dupRows.length > 8 ? `<div style="font-size:.74rem;color:var(--slate);margin-top:.3rem;">… and ${dupRows.length-8} more</div>` : '';
-                    const res = await Swal.fire({
-                        icon: 'error',
-                        title: `${dupRows.length} Duplicate${dupRows.length!==1?'s':''} in File`,
-                        html: `<div style="text-align:left;max-height:210px;overflow-y:auto;">${lines}${more}</div>
-                            <div style="margin-top:.8rem;font-size:.82rem;color:var(--text2);">
-                                These students already exist in the database with the same <strong>Name · Grade · Term</strong>.<br>
-                                Choose: skip them and import the rest, or cancel to fix the file.
-                            </div>`,
-                        showCancelButton: true,
-                        confirmButtonText: `Skip ${dupRows.length} duplicate${dupRows.length!==1?'s':''}, import rest`,
-                        cancelButtonText: 'Cancel — fix file first',
-                        confirmButtonColor: '#d97706',
-                        cancelButtonColor: '#6b7280',
-                        reverseButtons: true,
-                    });
-                    if (!res.isConfirmed) return;
-                    // Strip duplicates — they will NOT be written
-                    _pendingRows = _pendingRows.filter(r => r.status !== 'duplicate');
-                }
-
-                // ── STEP 2: Confirm overwrites (same key, changed data) ──────
-                const updateRows = _pendingRows.filter(r => r.status === 'update');
-                if (updateRows.length > 0) {
-                    const lines = updateRows.slice(0, 6).map(r =>
-                        `<div style="padding:.28rem .65rem;background:#eff6ff;border-radius:6px;font-size:.79rem;color:#1e40af;margin-bottom:.2rem;">
-                            <strong>${r.data['Official Student Name']||'—'}</strong> · ${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}
-                        </div>`
-                    ).join('');
-                    const more = updateRows.length > 6 ? `<div style="font-size:.74rem;color:var(--slate);margin-top:.25rem;">… and ${updateRows.length-6} more</div>` : '';
-                    const ok = await Swal.fire({
-                        icon: 'warning',
-                        title: `${updateRows.length} Record${updateRows.length!==1?'s':''} Will Be Overwritten`,
-                        html: `<div style="text-align:left;max-height:180px;overflow-y:auto;">${lines}${more}</div>
-                            <div style="margin-top:.7rem;font-size:.82rem;color:var(--text2);">New scores will replace existing values in the database.</div>`,
-                        showCancelButton: true,
-                        confirmButtonText: `Overwrite ${updateRows.length} & Import`,
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#dc2626',
-                        reverseButtons: true,
-                    });
-                    if (!ok.isConfirmed) return;
-                }
-
-                // ── STEP 3: Write ─────────────────────────────────────────────
-                commitBtn.disabled = true; commitBtn.textContent = 'Uploading…';
+            // ── Shared write function ─────────────────────────────────────────
+            async function executeImport(rowsToWrite, label) {
+                const commitBtns = [
+                    document.getElementById('preview-new-only-btn'),
+                    document.getElementById('preview-overwrite-btn'),
+                ];
+                commitBtns.forEach(b => { if (b) { b.disabled = true; b.style.opacity = '.6'; } });
                 try {
                     const { ref: fbRef, set: fbSet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-                    const toWrite = _pendingRows.filter(r => r.status !== 'same');
-                    for (const r of toWrite) {
+                    for (const r of rowsToWrite) {
                         await fbSet(fbRef(db, `Results/${sanitizedAppId}/students/${r.key}`), r.data);
                     }
                     closePreview();
-                    showModal(`✓ Imported ${toWrite.length} record${toWrite.length !== 1 ? 's' : ''} successfully.`);
+                    showModal(`✓ ${label}: ${rowsToWrite.length} record${rowsToWrite.length !== 1 ? 's' : ''} saved.`);
                 } catch(err) {
                     console.error('[ImportPreview commit]', err);
                     showModal(`Import failed: ${err.message}`);
                 } finally {
-                    commitBtn.disabled = false; commitBtn.textContent = '✓ Commit Import';
+                    commitBtns.forEach(b => { if (b) { b.disabled = false; b.style.opacity = '1'; } });
                 }
+            }
+
+            // ── ACTION A: New records only ────────────────────────────────────
+            document.getElementById('preview-new-only-btn').addEventListener('click', async () => {
+                const newRows = _pendingRows.filter(r => r.status === 'new');
+                const dupRows = _pendingRows.filter(r => r.status === 'duplicate');
+                const skipped = _pendingRows.filter(r => r.status === 'update' || r.status === 'same' || r.status === 'duplicate').length;
+
+                if (newRows.length === 0) {
+                    await Swal.fire({
+                        icon: 'info',
+                        title: 'No New Records',
+                        text: 'All rows in this file already exist in the database. Nothing to import.',
+                        confirmButtonColor: '#1e4080',
+                    });
+                    return;
+                }
+
+                // Warn about duplicates being skipped
+                let dupNote = '';
+                if (dupRows.length > 0) {
+                    dupNote = `<div style="margin-top:.6rem;padding:.4rem .75rem;background:#fee2e2;border-radius:7px;font-size:.79rem;color:#991b1b;">
+                        ⚠ ${dupRows.length} duplicate${dupRows.length!==1?'s':''} will be skipped (same Name·Grade·Term already in DB)
+                    </div>`;
+                }
+
+                const ok = await Swal.fire({
+                    icon: 'question',
+                    title: 'Import New Records Only',
+                    html: `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
+                        <div style="display:flex;gap:1rem;justify-content:center;margin-bottom:.75rem;flex-wrap:wrap;">
+                            <span style="padding:.3rem .8rem;background:#d1fae5;border-radius:7px;font-weight:700;color:#065f46;">✦ ${newRows.length} will be saved</span>
+                            <span style="padding:.3rem .8rem;background:var(--surface3);border-radius:7px;font-weight:700;color:var(--slate);">${skipped} skipped</span>
+                        </div>
+                        Existing records will <strong>not</strong> be touched.${dupNote}
+                    </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: `Save ${newRows.length} new record${newRows.length!==1?'s':''}`,
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#059669',
+                    reverseButtons: true,
+                });
+                if (!ok.isConfirmed) return;
+                await executeImport(newRows, 'New records imported');
+            });
+
+            // ── ACTION B: New + overwrite existing ───────────────────────────
+            document.getElementById('preview-overwrite-btn').addEventListener('click', async () => {
+                const newRows    = _pendingRows.filter(r => r.status === 'new');
+                const updateRows = _pendingRows.filter(r => r.status === 'update');
+                const dupRows    = _pendingRows.filter(r => r.status === 'duplicate');
+                const toWrite    = [...newRows, ...updateRows];
+
+                if (toWrite.length === 0) {
+                    await Swal.fire({
+                        icon: 'info',
+                        title: 'Nothing to Import',
+                        text: 'No new or changed records found. All rows are either identical to the database or flagged as duplicates.',
+                        confirmButtonColor: '#1e4080',
+                    });
+                    return;
+                }
+
+                // Build overwrite list preview
+                const updateLines = updateRows.slice(0, 6).map(r =>
+                    `<div style="padding:.25rem .65rem;background:#eff6ff;border-radius:5px;font-size:.78rem;color:#1e40af;margin-bottom:.18rem;">
+                        <strong>${r.data['Official Student Name']||'—'}</strong> · ${r.data['Grade']||'—'} · Term ${r.data['Term']||'—'}
+                    </div>`
+                ).join('');
+                const moreUpdates = updateRows.length > 6
+                    ? `<div style="font-size:.73rem;color:var(--slate);">… and ${updateRows.length-6} more</div>` : '';
+                const dupNote = dupRows.length > 0
+                    ? `<div style="margin-top:.55rem;padding:.4rem .75rem;background:#fee2e2;border-radius:7px;font-size:.79rem;color:#991b1b;">
+                        ⚠ ${dupRows.length} duplicate${dupRows.length!==1?'s':''} will still be skipped (same Name·Grade·Term, different key)
+                    </div>` : '';
+
+                const ok = await Swal.fire({
+                    icon: 'warning',
+                    title: 'New + Overwrite Existing',
+                    html: `<div style="font-size:.88rem;color:var(--text2);line-height:1.6;">
+                        <div style="display:flex;gap:.75rem;justify-content:center;margin-bottom:.7rem;flex-wrap:wrap;">
+                            <span style="padding:.3rem .8rem;background:#d1fae5;border-radius:7px;font-weight:700;color:#065f46;">✦ ${newRows.length} new</span>
+                            ${updateRows.length ? `<span style="padding:.3rem .8rem;background:#eff6ff;border-radius:7px;font-weight:700;color:#1e40af;">↺ ${updateRows.length} overwrite</span>` : ''}
+                        </div>
+                        ${updateRows.length ? `<div style="text-align:left;max-height:160px;overflow-y:auto;margin-bottom:.3rem;">${updateLines}${moreUpdates}</div>` : ''}
+                        Overwritten records will have their scores <strong style="color:var(--danger);">replaced</strong> with values from this file.${dupNote}
+                    </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: `Import ${toWrite.length} record${toWrite.length!==1?'s':''}`,
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#2b6cb0',
+                    reverseButtons: true,
+                });
+                if (!ok.isConfirmed) return;
+                await executeImport(toWrite, 'Import complete');
             });
         })();
 
@@ -5325,6 +5387,334 @@ const exportToPdf = async () => {
                     showModal(`Error deleting: ${err.message}`);
                 }
             };
+        })();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FEATURE: Duplicate Scanner — find DB records sharing same Term key
+        //          or same Name+Term+Grade across different keys
+        // ══════════════════════════════════════════════════════════════════════
+        (function initDupScanner() {
+
+            // ── Build modal ───────────────────────────────────────────────────
+            const modal = document.createElement('div');
+            modal.id = 'dup-scanner-modal';
+            modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:7000;background:rgba(13,31,53,.65);backdrop-filter:blur(6px);align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;';
+            modal.innerHTML = `
+                <div style="background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);max-width:780px;width:100%;border:1px solid var(--border);margin:auto;">
+                    <!-- Header -->
+                    <div style="padding:1.1rem 1.5rem;background:var(--navy);border-radius:18px 18px 0 0;display:flex;align-items:center;justify-content:space-between;">
+                        <div>
+                            <div style="font-family:'Playfair Display',serif;font-size:1rem;font-weight:800;color:#fff;">Duplicate Record Scanner</div>
+                            <div style="font-size:.73rem;color:rgba(255,255,255,.45);margin-top:.15rem;">Scans live database for records sharing the same Term header or Name · Grade · Term</div>
+                        </div>
+                        <button id="close-dup-scanner" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;">✕</button>
+                    </div>
+
+                    <!-- Summary bar -->
+                    <div id="dup-scan-summary" style="padding:.8rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;min-height:48px;">
+                        <span style="font-size:.8rem;color:var(--slate);">Scanning…</span>
+                    </div>
+
+                    <!-- Filter tabs -->
+                    <div style="padding:.6rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:.4rem;flex-wrap:wrap;" id="dup-scan-tabs">
+                        <button class="dup-tab active" data-filter="all"     style="padding:.28rem .75rem;border-radius:999px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;">All</button>
+                        <button class="dup-tab"        data-filter="samekey" style="padding:.28rem .75rem;border-radius:999px;border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;">Same Term Key</button>
+                        <button class="dup-tab"        data-filter="samentg" style="padding:.28rem .75rem;border-radius:999px;border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;">Same Name·Grade·Term</button>
+                    </div>
+
+                    <!-- Results list -->
+                    <div id="dup-scan-results" style="max-height:55vh;overflow-y:auto;padding:.75rem 1.5rem;"></div>
+
+                    <!-- Footer -->
+                    <div style="padding:.9rem 1.5rem;border-top:1px solid var(--border);background:var(--surface2);border-radius:0 0 18px 18px;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+                        <span id="dup-scan-footer-note" style="font-size:.75rem;color:var(--slate);"></span>
+                        <button id="dup-scan-refresh" style="padding:.5rem 1.1rem;border-radius:8px;border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:.4rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            Re-scan
+                        </button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+
+            function closeModal() { modal.style.display = 'none'; }
+            document.getElementById('close-dup-scanner').addEventListener('click', closeModal);
+            modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+            // ── Tab switching ─────────────────────────────────────────────────
+            let _activeFilter = 'all';
+            let _allGroups = [];
+            document.getElementById('dup-scan-tabs').addEventListener('click', e => {
+                const btn = e.target.closest('.dup-tab');
+                if (!btn) return;
+                document.querySelectorAll('.dup-tab').forEach(b => {
+                    b.style.background = 'var(--surface)';
+                    b.style.color = 'var(--text2)';
+                    b.style.borderColor = 'var(--border2)';
+                });
+                btn.style.background = 'var(--navy)';
+                btn.style.color = '#fff';
+                btn.style.borderColor = 'var(--navy)';
+                _activeFilter = btn.dataset.filter;
+                renderGroups();
+            });
+
+            // ── Scan logic ────────────────────────────────────────────────────
+            function runScan() {
+                const data = window.studentsData || studentsData || [];
+                _allGroups = [];
+
+                // TYPE 1: Same Term Key (Firebase node key = s.id)
+                // Multiple distinct student names under one key means one overwrote the other
+                // We detect this by grouping by s.id and checking for name variation
+                // (In practice each key holds one record, so this catches accidental same-key uploads)
+                const byKey = {};
+                data.forEach(s => {
+                    const k = String(s.id || '').trim();
+                    if (!k) return;
+                    if (!byKey[k]) byKey[k] = [];
+                    byKey[k].push(s);
+                });
+                // Also: students sharing the SAME Term field value (which becomes the key)
+                const byTermVal = {};
+                data.forEach(s => {
+                    const t = String(s['Term'] || '').trim();
+                    if (!t) return;
+                    if (!byTermVal[t]) byTermVal[t] = [];
+                    byTermVal[t].push(s);
+                });
+                // Merge: groups where Term value appears more than once OR key appears more than once
+                const seenKeys = new Set();
+                [byKey, byTermVal].forEach(map => {
+                    Object.entries(map).forEach(([k, records]) => {
+                        if (records.length > 1 && !seenKeys.has(k)) {
+                            seenKeys.add(k);
+                            _allGroups.push({ type: 'samekey', key: k, records });
+                        }
+                    });
+                });
+
+                // TYPE 2: Same Name+Grade+Term across DIFFERENT keys
+                const byNTG = {};
+                data.forEach(s => {
+                    const ntg = [
+                        (s['Official Student Name'] || '').trim().toLowerCase(),
+                        String(s['Grade'] || '').trim().toLowerCase(),
+                        String(s['Term']  || '').trim().toLowerCase(),
+                    ].join('||');
+                    if (ntg === '||||') return;
+                    if (!byNTG[ntg]) byNTG[ntg] = [];
+                    byNTG[ntg].push(s);
+                });
+                Object.entries(byNTG).forEach(([ntg, records]) => {
+                    if (records.length > 1) {
+                        // Only add if records have different IDs (different keys)
+                        const uniqueKeys = new Set(records.map(r => r.id));
+                        if (uniqueKeys.size > 1) {
+                            const [name, grade, term] = ntg.split('||');
+                            _allGroups.push({ type: 'samentg', key: `${name}|${grade}|${term}`, records });
+                        }
+                    }
+                });
+
+                renderSummary();
+                renderGroups();
+            }
+
+            function renderSummary() {
+                const sameKeyCount = _allGroups.filter(g => g.type === 'samekey').length;
+                const sameNTGCount = _allGroups.filter(g => g.type === 'samentg').length;
+                const total = _allGroups.length;
+                const summaryEl = document.getElementById('dup-scan-summary');
+                if (total === 0) {
+                    summaryEl.innerHTML = `<div style="display:flex;align-items:center;gap:.5rem;color:#059669;font-weight:700;font-size:.85rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        No duplicates found — database is clean.
+                    </div>`;
+                    document.getElementById('dup-scan-footer-note').textContent = `${(window.studentsData||studentsData||[]).length} records scanned.`;
+                } else {
+                    summaryEl.innerHTML = [
+                        `<div style="padding:.3rem .85rem;border-radius:8px;background:#fee2e2;color:#dc2626;font-size:.8rem;font-weight:700;">⚠ ${total} duplicate group${total!==1?'s':''} found</div>`,
+                        sameKeyCount ? `<div style="padding:.3rem .85rem;border-radius:8px;background:#fff7ed;color:#c2410c;font-size:.8rem;font-weight:700;">${sameKeyCount} same Term key</div>` : '',
+                        sameNTGCount ? `<div style="padding:.3rem .85rem;border-radius:8px;background:#faf5ff;color:#6d28d9;font-size:.8rem;font-weight:700;">${sameNTGCount} same Name·Grade·Term</div>` : '',
+                    ].join('');
+                    document.getElementById('dup-scan-footer-note').textContent = `${(window.studentsData||studentsData||[]).length} records scanned · ${_allGroups.reduce((a,g)=>a+g.records.length,0)} affected records`;
+                }
+            }
+
+            function renderGroups() {
+                const resultsEl = document.getElementById('dup-scan-results');
+                const filtered = _activeFilter === 'all' ? _allGroups : _allGroups.filter(g => g.type === _activeFilter);
+
+                if (filtered.length === 0) {
+                    resultsEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--slate);font-size:.85rem;">
+                        ${_allGroups.length === 0 ? '✓ No duplicates detected in the database.' : 'No duplicates of this type.'}
+                    </div>`;
+                    return;
+                }
+
+                resultsEl.innerHTML = filtered.map((group, gi) => {
+                    const isKey = group.type === 'samekey';
+                    const badgeColor  = isKey ? '#c2410c' : '#6d28d9';
+                    const badgeBg     = isKey ? '#fff7ed' : '#faf5ff';
+                    const badgeLabel  = isKey ? 'Same Term Key' : 'Same Name·Grade·Term';
+                    const headerLabel = isKey
+                        ? `Term key: <strong style="font-family:monospace;font-size:.82rem;">${group.key}</strong>`
+                        : (() => {
+                            const [name, grade, term] = group.key.split('|');
+                            return `<strong>${name||'—'}</strong> · ${grade||'—'} · ${term||'—'}`;
+                          })();
+
+                    const rows = group.records.map((r, ri) => {
+                        const name   = r['Official Student Name'] || '—';
+                        const assNo  = r['Assessment No'] || '—';
+                        const grade  = r['Grade'] || '—';
+                        const term   = r['Term']  || '—';
+                        const dbKey  = r.id || '—';
+                        const isFirst = ri === 0;
+                        return `<tr style="border-bottom:1px solid var(--border);${!isFirst?'background:#fff5f5;':''}">
+                            <td style="padding:.45rem .75rem;">
+                                ${isFirst
+                                    ? `<span style="font-size:.68rem;font-weight:700;color:#059669;background:#d1fae5;padding:.1rem .45rem;border-radius:4px;">KEEP</span>`
+                                    : `<span style="font-size:.68rem;font-weight:700;color:#dc2626;background:#fee2e2;padding:.1rem .45rem;border-radius:4px;">DUP</span>`}
+                            </td>
+                            <td style="padding:.45rem .75rem;font-size:.8rem;font-weight:600;color:var(--navy);">${name}</td>
+                            <td style="padding:.45rem .75rem;font-size:.78rem;color:var(--text2);">${grade}</td>
+                            <td style="padding:.45rem .75rem;font-size:.78rem;color:var(--text2);">${term}</td>
+                            <td style="padding:.45rem .75rem;font-size:.72rem;color:var(--slate);font-family:monospace;">${assNo}</td>
+                            <td style="padding:.45rem .75rem;font-size:.7rem;color:var(--slate-lt);font-family:monospace;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${dbKey}">${dbKey}</td>
+                            <td style="padding:.45rem .5rem;">
+                                ${!isFirst ? `<button onclick="deleteDupRecord('${r.id}', ${gi}, ${ri})" style="padding:.22rem .6rem;border-radius:6px;border:1.5px solid #fca5a5;background:#fff5f5;color:#dc2626;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Delete</button>` : ''}
+                            </td>
+                        </tr>`;
+                    }).join('');
+
+                    const dupCount = group.records.length - 1;
+                    return `<div style="border:1.5px solid ${badgeColor}30;border-radius:12px;margin-bottom:.85rem;overflow:hidden;">
+                        <div style="padding:.55rem .9rem;background:${badgeBg};display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:.6rem;">
+                                <span style="padding:.18rem .6rem;border-radius:6px;background:${badgeColor};color:#fff;font-size:.68rem;font-weight:700;">${badgeLabel}</span>
+                                <span style="font-size:.8rem;color:var(--navy);">${headerLabel}</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:.5rem;">
+                                <span style="font-size:.75rem;color:${badgeColor};font-weight:700;">${group.records.length} records · ${dupCount} duplicate${dupCount!==1?'s':''}</span>
+                                <button onclick="deleteAllDups(${gi})" style="padding:.22rem .7rem;border-radius:6px;border:1.5px solid #fca5a5;background:#fff5f5;color:#dc2626;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;">Delete ${dupCount} dup${dupCount!==1?'s':''}</button>
+                            </div>
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;font-size:.79rem;font-family:'DM Sans',sans-serif;">
+                            <thead><tr style="background:var(--surface2);">
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;"></th>
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;">Name</th>
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;">Grade</th>
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;">Term</th>
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;">Assessment No</th>
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;">DB Key</th>
+                                <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;"></th>
+                            </tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`;
+                }).join('');
+            }
+
+            // ── Delete single dup record ──────────────────────────────────────
+            window.deleteDupRecord = async function(id, groupIdx, recordIdx) {
+                const group = _allGroups[groupIdx];
+                if (!group) return;
+                const s = group.records[recordIdx];
+                const name = s['Official Student Name'] || id;
+                const ok = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Delete Duplicate?',
+                    html: `<div style="font-size:.88rem;color:var(--text2);">
+                        <strong>${name}</strong><br>
+                        <span style="font-size:.78rem;color:var(--slate);">DB key: <code>${id}</code></span><br><br>
+                        Record will be moved to DeletedResults.
+                    </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Delete',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true,
+                });
+                if (!ok.isConfirmed) return;
+                try {
+                    const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+                    const sRef = fbRef(db, `Results/${sanitizedAppId}/students/${id}`);
+                    const dRef = fbRef(db, `DeletedResults/${sanitizedAppId}/artifacts/${id}`);
+                    const snap = await fbGet(sRef);
+                    if (snap.exists()) await fbSet(dRef, { ...snap.val(), deletedAt: new Date().toISOString(), deletedBy: auth?.currentUser?.email||'unknown', deletedReason: 'Duplicate' });
+                    await fbRemove(sRef);
+                    // Remove from local data + group
+                    studentsData = studentsData.filter(x => x.id !== id);
+                    window.studentsData = studentsData;
+                    group.records.splice(recordIdx, 1);
+                    if (group.records.length <= 1) _allGroups.splice(groupIdx, 1);
+                    if (tabulatorTable) { try { const row = tabulatorTable.getRow(id); if (row) row.delete(); } catch(e){} updateCountBadge(); }
+                    renderSummary();
+                    renderGroups();
+                } catch(err) {
+                    console.error('[DupScanner delete]', err);
+                    showModal(`Error: ${err.message}`);
+                }
+            };
+
+            // ── Delete all dups in a group (keep first) ───────────────────────
+            window.deleteAllDups = async function(groupIdx) {
+                const group = _allGroups[groupIdx];
+                if (!group || group.records.length <= 1) return;
+                const dups = group.records.slice(1);
+                const names = dups.slice(0,3).map(r => r['Official Student Name']||r.id).join(', ');
+                const more  = dups.length > 3 ? ` +${dups.length-3} more` : '';
+                const ok = await Swal.fire({
+                    icon: 'warning',
+                    title: `Delete ${dups.length} Duplicate${dups.length!==1?'s':''}?`,
+                    html: `<div style="font-size:.86rem;color:var(--text2);">${names}${more}<br><br>
+                        First record will be <strong style="color:#059669;">kept</strong>. Others moved to DeletedResults.</div>`,
+                    showCancelButton: true,
+                    confirmButtonText: `Delete ${dups.length}`,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true,
+                });
+                if (!ok.isConfirmed) return;
+                try {
+                    const { ref: fbRef, set: fbSet, remove: fbRemove, get: fbGet } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+                    const userEmail = auth?.currentUser?.email || 'unknown';
+                    for (const r of dups) {
+                        const id = r.id;
+                        const sRef = fbRef(db, `Results/${sanitizedAppId}/students/${id}`);
+                        const dRef = fbRef(db, `DeletedResults/${sanitizedAppId}/artifacts/${id}`);
+                        const snap = await fbGet(sRef);
+                        if (snap.exists()) await fbSet(dRef, { ...snap.val(), deletedAt: new Date().toISOString(), deletedBy: userEmail, deletedReason: 'Duplicate' });
+                        await fbRemove(sRef);
+                        studentsData = studentsData.filter(x => x.id !== id);
+                        if (tabulatorTable) { try { const row = tabulatorTable.getRow(id); if (row) row.delete(); } catch(e){} }
+                    }
+                    window.studentsData = studentsData;
+                    _allGroups.splice(groupIdx, 1);
+                    updateCountBadge();
+                    renderSummary();
+                    renderGroups();
+                    showModal(`✓ Deleted ${dups.length} duplicate record${dups.length!==1?'s':''}.`);
+                } catch(err) {
+                    console.error('[DupScanner deleteAll]', err);
+                    showModal(`Error: ${err.message}`);
+                }
+            };
+
+            // ── Open & trigger scan ───────────────────────────────────────────
+            function openScanner() {
+                modal.style.display = 'flex';
+                document.getElementById('dup-scan-results').innerHTML = `<div style="text-align:center;padding:2rem;color:var(--slate);font-size:.85rem;">Scanning database…</div>`;
+                document.getElementById('dup-scan-summary').innerHTML = `<span style="font-size:.8rem;color:var(--slate);">Scanning…</span>`;
+                setTimeout(runScan, 80);
+            }
+
+            document.getElementById('tab-dup-scanner-btn').addEventListener('click', openScanner);
+            document.getElementById('dup-scan-refresh').addEventListener('click', () => {
+                document.getElementById('dup-scan-results').innerHTML = `<div style="text-align:center;padding:2rem;color:var(--slate);font-size:.85rem;">Re-scanning…</div>`;
+                setTimeout(runScan, 80);
+            });
         })();
 
         setupFirebase(); // module scripts are deferred — DOM is always ready
