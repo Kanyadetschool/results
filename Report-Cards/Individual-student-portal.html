@@ -1141,23 +1141,23 @@ body::before{
 ════════════════════════════════════════════ */
 #share-modal{
   display:none;position:fixed;inset:0;z-index:8500;
-  background:rgba(0,0,0,.80);backdrop-filter:blur(12px);
+  background:rgba(0,0,0,.55);backdrop-filter:blur(12px);
   align-items:center;justify-content:center;
   padding:12px;overflow-y:auto;
 }
 #share-modal.on{display:flex;}
 .share-box{
-  background:#111827;border:1px solid rgba(255,255,255,0.12);
+  background:#fff;border:1px solid #e2e8f0;
   border-radius:20px;padding:16px;
   width:min(420px,100%);
   max-height:96vh;overflow-y:auto;
-  box-shadow:0 32px 80px rgba(0,0,0,.7);
+  box-shadow:0 32px 80px rgba(0,0,0,.25);
   animation:mIn .3s cubic-bezier(.34,1.56,.64,1);
 }
-.share-box h2{font-size:13px;font-weight:800;color:#f1f5f9;margin-bottom:10px;}
+.share-box h2{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:10px;}
 #share-card-preview{
   border-radius:14px;overflow:hidden;margin-bottom:12px;
-  border:1px solid rgba(255,255,255,0.08);
+  border:1px solid #e2e8f0;
   line-height:0;
 }
 .share-actions{display:flex;gap:8px;flex-wrap:wrap;}
@@ -1166,10 +1166,10 @@ body::before{
   border:none;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;
   font-size:12px;font-weight:700;transition:var(--transition);
 }
-.share-btn.blue{background:#3b82f6;color:#fff;}
-.share-btn.blue:hover{background:#2563eb;}
-.share-btn.grey{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#94a3b8;}
-.share-btn.grey:hover{background:rgba(255,255,255,0.12);color:#e2e8f0;}
+.share-btn.blue{background:var(--blue);color:#fff;}
+.share-btn.blue:hover{background:var(--blue-dk);}
+.share-btn.grey{background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);}
+.share-btn.grey:hover{border-color:var(--blue-lt);color:var(--blue-lt);}
 
 /* ════════════════════════════════════════════
    CONFETTI
@@ -3356,9 +3356,6 @@ function openShareModal(){
   const photoId = 'sc-student-photo-'+Date.now();
 
   const genDate   = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  const dayNum    = new Date().getDate();
-  const monNum    = String(new Date().getMonth()+1).padStart(2,'0');
-  const dayName   = new Date().toLocaleDateString('en-GB',{weekday:'long'});
   const termShort = cleanTerm(rec['Term']);
   const gradeShort= gShort(rec['Grade']);
 
@@ -3367,118 +3364,105 @@ function openShareModal(){
   const accentDark  = avg>=75?'#15803d':avg>=58?'#b45309':avg>=41?'#c2410c':'#b91c1c';
 
   document.getElementById('share-card-preview').innerHTML = `
-  <div id="actual-share-card" style="width:100%;background:#0f172a;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#fff;position:relative;overflow:hidden;display:block;">
+  <div id="actual-share-card" style="width:100%;background:#ffffff;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#0f172a;position:relative;overflow:hidden;display:block;">
 
     <!-- ═══ WAVE BACKGROUND LAYER ═══ -->
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 580" preserveAspectRatio="xMidYMid slice"
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice"
       style="position:absolute;top:0;left:0;width:100%;height:100%;display:block;">
-      <!-- deep navy base fill -->
-      <rect width="400" height="580" fill="#0f172a"/>
-      <!-- large sweeping wave 1 — teal/green accent -->
-      <path d="M-10,80 C80,20 180,140 280,90 C360,50 400,110 420,80 L420,0 L-10,0 Z" fill="${accentDark}" opacity="0.55"/>
-      <!-- wave 2 — lighter -->
-      <path d="M-10,130 C60,70 160,180 270,130 C350,95 400,155 420,125 L420,0 L-10,0 Z" fill="${accentLight}" opacity="0.18"/>
-      <!-- diagonal accent band -->
-      <path d="M280,0 L420,0 L420,220 L140,580 L0,580 L0,480 Z" fill="#1e293b" opacity="0.7"/>
+      <!-- white base -->
+      <rect width="400" height="560" fill="#ffffff"/>
+      <!-- top wave 1 — solid accent -->
+      <path d="M-10,75 C80,18 180,135 285,82 C358,44 400,105 420,75 L420,0 L-10,0 Z" fill="${accentDark}" opacity="1"/>
+      <!-- top wave 2 — lighter tint -->
+      <path d="M-10,115 C70,62 170,165 275,112 C352,76 400,138 420,108 L420,0 L-10,0 Z" fill="${accentLight}" opacity="0.35"/>
+      <!-- top-right decorative circles -->
+      <circle cx="372" cy="28"  r="52" fill="${accentLight}" opacity="0.12"/>
+      <circle cx="392" cy="55"  r="32" fill="${accentLight}" opacity="0.15"/>
       <!-- bottom wave -->
-      <path d="M-10,500 C80,460 180,530 300,490 C370,465 400,510 420,490 L420,580 L-10,580 Z" fill="${accentDark}" opacity="0.4"/>
+      <path d="M-10,490 C90,452 195,518 308,478 C374,454 408,498 420,482 L420,560 L-10,560 Z" fill="${accentDark}" opacity="0.9"/>
       <!-- bottom wave 2 -->
-      <path d="M-10,530 C100,495 200,560 320,520 C380,500 420,535 420,530 L420,580 L-10,580 Z" fill="${accentLight}" opacity="0.12"/>
-      <!-- decorative circles top-right -->
-      <circle cx="370" cy="30"  r="55" fill="${accentLight}" opacity="0.07"/>
-      <circle cx="390" cy="60"  r="35" fill="${accentLight}" opacity="0.09"/>
-      <circle cx="355" cy="12"  r="22" fill="#fff" opacity="0.04"/>
-      <!-- decorative circles bottom-left -->
-      <circle cx="30"  cy="555" r="50" fill="${accentLight}" opacity="0.07"/>
-      <circle cx="10"  cy="575" r="30" fill="${accentLight}" opacity="0.05"/>
-      <!-- subtle grid dots -->
-      <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-        <circle cx="2" cy="2" r="1" fill="#fff" opacity="0.035"/>
+      <path d="M-10,518 C100,484 205,548 322,510 C382,490 420,524 420,518 L420,560 L-10,560 Z" fill="${accentLight}" opacity="0.3"/>
+      <!-- bottom-left decorative circles -->
+      <circle cx="28"  cy="538" r="48" fill="${accentLight}" opacity="0.12"/>
+      <circle cx="8"   cy="558" r="28" fill="${accentLight}" opacity="0.1"/>
+      <!-- subtle dot grid (mid section) -->
+      <pattern id="dotsW" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="${accentLight}" opacity="0.18"/>
       </pattern>
-      <rect width="400" height="580" fill="url(#dots)"/>
+      <rect y="130" width="400" height="330" fill="url(#dotsW)"/>
     </svg>
 
     <!-- ═══ CARD CONTENT ═══ -->
-    <div style="position:relative;z-index:2;padding:22px 22px 20px;">
+    <div style="position:relative;z-index:2;padding:22px 22px 22px;">
 
       <!-- TOP ROW: logo + school + avatar -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:10px;">
           ${logoHtml}
           <div>
             <div style="font-size:12px;font-weight:800;color:#fff;line-height:1.2;letter-spacing:0.2px;">Kanyadet PRI &amp; Junior School</div>
-            <div style="font-size:9px;color:#94a3b8;letter-spacing:0.8px;text-transform:uppercase;margin-top:1px;">Student Performance Card</div>
+            <div style="font-size:9px;color:rgba(255,255,255,0.7);letter-spacing:0.8px;text-transform:uppercase;margin-top:1px;">Student Performance Card</div>
           </div>
         </div>
-        <!-- Photo circle with glow ring -->
+        <!-- Photo circle -->
         <div style="position:relative;flex-shrink:0;">
-          <div style="position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(from 0deg,${accentLight},transparent 60%,${accentLight});opacity:0.6;"></div>
+          <div style="position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(from 0deg,${accentLight},transparent 60%,${accentLight});opacity:0.7;"></div>
           <div id="${photoId}" style="
             width:58px;height:58px;border-radius:50%;
-            border:2.5px solid ${accentLight};
-            overflow:hidden;background:#1e293b;
+            border:2.5px solid #fff;
+            overflow:hidden;background:#e2e8f0;
             display:flex;align-items:center;justify-content:center;
-            font-size:23px;font-weight:900;color:${accentLight};
+            font-size:23px;font-weight:900;color:${accentDark};
             position:relative;
           ">${initial}</div>
         </div>
       </div>
 
       <!-- HERO SCORE SECTION -->
-      <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:18px 18px 14px;margin-bottom:16px;backdrop-filter:blur(4px);">
-        <!-- Student name -->
-        <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;line-height:1.1;margin-bottom:3px;">${studentName}</div>
-        <div style="font-size:10px;color:#94a3b8;margin-bottom:14px;letter-spacing:0.3px;">${gradeShort} &nbsp;·&nbsp; ${termShort} &nbsp;·&nbsp; ${new Date().getFullYear()}</div>
+      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;padding:18px 18px 14px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+        <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-0.5px;line-height:1.1;margin-bottom:3px;">${studentName}</div>
+        <div style="font-size:10px;color:#64748b;margin-bottom:14px;letter-spacing:0.3px;">${gradeShort} &nbsp;·&nbsp; ${termShort} &nbsp;·&nbsp; ${new Date().getFullYear()}</div>
 
-        <!-- Score + level row -->
         <div style="display:flex;align-items:flex-end;gap:0;justify-content:space-between;">
-          <!-- Big score -->
           <div>
-            <div style="font-size:62px;font-weight:900;color:${accentLight};line-height:0.9;letter-spacing:-3px;">${stats.avg}<span style="font-size:28px;letter-spacing:0;opacity:0.8;">%</span></div>
-            <div style="font-size:9.5px;color:#64748b;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Average Score</div>
+            <div style="font-size:62px;font-weight:900;color:${accentLight};line-height:0.9;letter-spacing:-3px;">${stats.avg}<span style="font-size:28px;letter-spacing:0;opacity:0.75;">%</span></div>
+            <div style="font-size:9.5px;color:#94a3b8;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Average Score</div>
           </div>
-          <!-- Level badge -->
           <div style="text-align:right;padding-bottom:6px;">
-            <div style="display:inline-block;background:${accentLight};color:#000;font-size:18px;font-weight:900;padding:4px 14px;border-radius:8px;line-height:1.2;margin-bottom:5px;">${stats.level}</div>
-            <div style="font-size:10px;color:#cbd5e1;font-weight:600;">${stats.label}</div>
-            <div style="font-size:9.5px;color:#94a3b8;margin-top:3px;">Position: <span style="color:#fff;font-weight:700;">${rec['Position']||'N/A'}</span></div>
-            <div style="font-size:9.5px;color:#94a3b8;margin-top:1px;">Points: <span style="color:#fff;font-weight:700;">${stats.totalPts}/${stats.maxPts}</span></div>
+            <div style="display:inline-block;background:${accentLight};color:#fff;font-size:18px;font-weight:900;padding:4px 14px;border-radius:8px;line-height:1.2;margin-bottom:5px;">${stats.level}</div>
+            <div style="font-size:10px;color:#475569;font-weight:600;">${stats.label}</div>
+            <div style="font-size:9.5px;color:#64748b;margin-top:3px;">Position: <span style="color:#0f172a;font-weight:700;">${rec['Position']||'N/A'}</span></div>
+            <div style="font-size:9.5px;color:#64748b;margin-top:1px;">Points: <span style="color:#0f172a;font-weight:700;">${stats.totalPts}/${stats.maxPts}</span></div>
           </div>
         </div>
       </div>
 
       <!-- SUBJECT SCORES ROW -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
         ${topSubjs.map(x=>`
-          <div style="flex:1;min-width:80px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:10px 10px 8px;text-align:center;">
-            <div style="font-size:20px;font-weight:900;color:${accentLight};line-height:1;">${x.v}</div>
-            <div style="font-size:8.5px;color:#94a3b8;margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${x.s.replace(/learning area[:\s]*/i,'').trim().split(' ').slice(0,2).join(' ')}</div>
+          <div style="flex:1;min-width:80px;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 10px 8px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.04);">
+            <div style="font-size:22px;font-weight:900;color:${accentLight};line-height:1;">${x.v}</div>
+            <div style="font-size:8.5px;color:#94a3b8;margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">${x.s.replace(/learning area[:\s]*/i,'').trim().split(' ').slice(0,2).join(' ')}</div>
           </div>
         `).join('')}
       </div>
 
-      <!-- GRADE + TERM PILL ROW -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-        <div style="background:${accentLight};color:#000;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;letter-spacing:0.3px;">${gradeShort}</div>
-        <div style="background:rgba(255,255,255,0.1);color:#cbd5e1;font-size:9.5px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);">${termShort}</div>
-        <div style="background:rgba(255,255,255,0.1);color:#cbd5e1;font-size:9.5px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);">${new Date().getFullYear()}</div>
+      <!-- GRADE + TERM PILLS -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="background:${accentLight};color:#fff;font-size:10px;font-weight:800;padding:4px 14px;border-radius:20px;letter-spacing:0.3px;">${gradeShort}</div>
+        <div style="background:#f1f5f9;color:#475569;font-size:9.5px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid #e2e8f0;">${termShort}</div>
+        <div style="background:#f1f5f9;color:#475569;font-size:9.5px;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid #e2e8f0;">${new Date().getFullYear()}</div>
       </div>
 
-      <!-- FOOTER: date + url + seal area -->
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-        <div>
-          <div style="font-size:9px;color:#64748b;line-height:1.8;">
-            Generated ${genDate}<br>
-            <span style="color:${accentLight};font-weight:700;">Kanyadet Student Portal</span> &nbsp;·&nbsp; Provisional<br>
-            <span style="color:#475569;">kanyadet-school.web.app</span>
-          </div>
-        </div>
-        <!-- Date stamp -->
-        <div style="text-align:right;">
-          <div style="font-size:28px;font-weight:900;color:#fff;line-height:1;letter-spacing:-1px;">${dayNum}/${monNum}</div>
-          <div style="font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">${dayName}</div>
+      <!-- FOOTER -->
+      <div style="border-top:1px solid #e2e8f0;padding-top:12px;">
+        <div style="font-size:9px;color:#94a3b8;line-height:1.9;">
+          Generated ${genDate}<br>
+          <span style="color:${accentLight};font-weight:700;">Kanyadet Student Portal</span> &nbsp;·&nbsp; Provisional<br>
+          <span style="color:#cbd5e1;">kanyadet-school.web.app</span>
         </div>
       </div>
+
     </div>
   </div>`;
 
