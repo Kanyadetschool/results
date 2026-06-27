@@ -2088,6 +2088,14 @@ window.doSignOut = doSignOut;
 // ═══════════════════════════════════════════════════
 let _googleUser = null;
 
+// ── QR deep-link: read ?a= and ?n= params set by share card QR ──
+(function(){
+  const p = new URLSearchParams(window.location.search);
+  const a = (p.get('a')||'').trim();
+  const n = (p.get('n')||'').trim();
+  if(a && n) window._qrParams = {a, n};
+})();
+
 // ── Step rail updater ──
 function _setLoginStep(n){
   const circles = [document.getElementById('sc-0'), document.getElementById('sc-1'), document.getElementById('sc-2')];
@@ -2130,7 +2138,15 @@ function _showStep2(user){
   s2.classList.remove('back-anim');
   void s2.offsetWidth;
   _setLoginStep(1);
-  setTimeout(()=>document.getElementById('inp-asm').focus(), 100);
+  // ── QR auto-login: if URL params present, fill fields and fire doLogin ──
+  if(window._qrParams && window._qrParams.a && window._qrParams.n){
+    document.getElementById('inp-asm').value  = window._qrParams.a;
+    document.getElementById('inp-name').value = window._qrParams.n;
+    notify('🔗 Opening results via QR code…','info',3000);
+    setTimeout(doLogin, 300);
+  } else {
+    setTimeout(()=>document.getElementById('inp-asm').focus(), 100);
+  }
 }
 
 // Switch back to Step 1
@@ -3527,7 +3543,10 @@ function openShareModal(){
   // Generate QR code into the placeholder
   const qrBox = document.getElementById('share-qr-box');
   if(qrBox && window.QRCode){
-    const qrUrl = `https://kanyadet-school.web.app/?a=${encodeURIComponent(rec['Assessment No']||'')}`;
+    const qrBase = `https://kanyadetschool.github.io/results/Report-Cards/Individual-student-portal.html`;
+    const qrAno  = encodeURIComponent(rec['Assessment No']||'');
+    const qrName = encodeURIComponent((rec['Official Student Name']||'').split(' ')[0]);
+    const qrUrl  = `${qrBase}?a=${qrAno}&n=${qrName}`;
     new QRCode(qrBox, {
       text: qrUrl,
       width: 50,
