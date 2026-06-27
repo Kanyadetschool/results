@@ -3544,52 +3544,25 @@ function saveShareCard(){
   const card = document.getElementById('actual-share-card');
   if(!card){ return; }
   if(window.html2canvas){
-    notify('📸 Saving image…','info',3000);
-
-    // Pre-convert all <img> inside the card to data-URLs so html2canvas captures them
-    const imgs = Array.from(card.querySelectorAll('img'));
-    const toDataURL = src => new Promise(res => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const cv = document.createElement('canvas');
-          cv.width = img.naturalWidth || img.width;
-          cv.height = img.naturalHeight || img.height;
-          cv.getContext('2d').drawImage(img, 0, 0);
-          res(cv.toDataURL('image/png'));
-        } catch(e){ res(src); }
-      };
-      img.onerror = () => res(src);
-      img.src = src + (src.includes('?') ? '&' : '?') + '_t=' + Date.now();
+    notify('📸 Saving image…','info',2000);
+    html2canvas(card,{
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false
+    }).then(canvas=>{
+      const a=document.createElement('a');
+      a.download=`ResultCard_${(allRecs[activeIdx]['Official Student Name']||'Student').replace(/\s+/g,'_')}.png`;
+      a.href=canvas.toDataURL('image/png');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      notify('✅ Score card saved as image!','success');
+    }).catch(err=>{
+      console.error('html2canvas error:',err);
+      notify('❌ Image save failed — try again.','error');
     });
-
-    Promise.all(imgs.map(img => toDataURL(img.src).then(d => ({ img, d }))))
-      .then(pairs => {
-        // Swap src to data URLs temporarily
-        pairs.forEach(({img, d}) => { img.setAttribute('data-orig', img.src); img.src = d; });
-        return html2canvas(card, {
-          backgroundColor: '#f5f7fa',
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false
-        }).then(canvas => {
-          // Restore original srcs
-          pairs.forEach(({img}) => { img.src = img.getAttribute('data-orig'); img.removeAttribute('data-orig'); });
-          const a = document.createElement('a');
-          a.download = `ResultCard_${(allRecs[activeIdx]['Official Student Name']||'Student').replace(/\s+/g,'_')}.png`;
-          a.href = canvas.toDataURL('image/png');
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          notify('✅ Score card saved as image!','success');
-        }).catch(err => {
-          pairs.forEach(({img}) => { if(img.getAttribute('data-orig')){ img.src = img.getAttribute('data-orig'); img.removeAttribute('data-orig'); }});
-          console.error('html2canvas error:',err);
-          notify('❌ Image save failed — try again.','error');
-        });
-      });
   } else {
     const rec=allRecs[activeIdx]; const st=calcStats(rec);
     const txt=`🏫 Kanyadet PRI & Junior School\n📄 ${rec['Official Student Name']} — ${cleanTerm(rec['Term'])}\n📊 Average: ${st.avg}% | Total: ${st.total}/${st.max} | Level: ${st.level} — ${st.label}\n🎯 Position: ${rec['Position']||'N/A'}\n\n✅ Provisional results — Kanyadet Student Portal`;
