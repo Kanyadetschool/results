@@ -1652,8 +1652,21 @@ body::before{
         </select>
       </div>
     </div>
+    <div class="fg" style="margin-bottom:10px">
+      <label>📄 Export Format</label>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 14px;flex:1;justify-content:center;transition:all .2s;">
+          <input type="radio" name="bulk-format" id="bulk-fmt-png" value="png" checked style="accent-color:#8e44ad;">
+          🖼️ PNG ZIP
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 14px;flex:1;justify-content:center;transition:all .2s;">
+          <input type="radio" name="bulk-format" id="bulk-fmt-pdf" value="pdf" style="accent-color:#8e44ad;">
+          📄 PDF
+        </label>
+      </div>
+    </div>
     <div class="err-msg" id="bulk-grade-err"></div>
-    <button class="scale-close-btn" style="background:linear-gradient(135deg,#8e44ad,#6c3483);margin-top:6px" onclick="confirmBulkShareForGrade()">📦 Generate ZIP for this Class</button>
+    <button class="scale-close-btn" style="background:linear-gradient(135deg,#8e44ad,#6c3483);margin-top:6px" onclick="confirmBulkShareForGrade()">📦 Generate for this Class</button>
     <button class="scale-close-btn" style="background:var(--surface2);color:var(--text2);margin-top:8px;border:1.5px solid var(--border)" onclick="closeBulkGradeModal()">Cancel</button>
   </div>
 </div>
@@ -3471,15 +3484,15 @@ function openShareModal(){
       <div style="position:absolute;right:20px;top:360px;z-index:4;">${knecSeal}</div>
 
       <!-- ════════════ TOP SECTION (navy blob area) ════════════ -->
-      <div style="position:relative;z-index:5;padding:18px 20px 0;">
+      <div style="position:relative;z-index:5;padding:14px 20px 0;">
 
         <!-- Header row: logo + school name + photo avatar -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:9px;">
             ${logoHtml}
             <div>
               <div style="font-size:11.5px;font-weight:800;color:#fff;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.5);">Kanyadet Pri &amp; Junior School</div>
-              <div style="font-size:8.5px;color:#a8c8e0;letter-spacing:0.6px;margin-top:6px">Student Performance Card</div>
+              <div style="font-size:8.5px;color:#a8c8e0;letter-spacing:0.6px;margin-top:3px">Student Performance Card</div>
             </div>
           </div>
           <!-- Photo avatar -->
@@ -3494,16 +3507,16 @@ function openShareModal(){
         </div>
 
         <!-- GRADE label -->
-        <div style="margin-top:10px;">
+        <div style="margin-top:6px;">
           <div style="font-size:10px;font-weight:700;color:#a8c8e0;letter-spacing:2.5px;text-transform:uppercase;">Academic Results</div>
-          <div style="font-size:min(9vw,42px);font-weight:900;color:#ffffff;line-height:1;letter-spacing:-1px;margin-top:2px;">${gradeShort}</div>
-          <div style="font-size:min(5vw,22px);font-weight:800;color:#ffffff;line-height:1.15;margin-top:1px;">Performance Progress Report</div>
+          <div style="font-size:min(9vw,42px);font-weight:900;color:#ffffff;line-height:1;letter-spacing:-1px;margin-top:1px;">${gradeShort}</div>
+          <div style="font-size:min(5vw,22px);font-weight:800;color:#ffffff;line-height:1.1;margin-top:0px;">Performance Progress Report</div>
         </div>
 
         <!-- Term pill -->
-        <div style="margin-top:10px;display:inline-block;">
-          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:8px 8px;display:inline-block;">
-            <span style="font-size:9px;font-weight:700;color:#d0e8f5;letter-spacing:0.7px;">${termShort} &nbsp;·&nbsp;The Year ${new Date().getFullYear()}</span>
+        <div style="margin-top:3px;">
+          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:4px 14px;width:fit-content;max-width:100%;">
+            <span style="font-size:9px;font-weight:700;color:#d0e8f5;letter-spacing:0.7px;white-space:nowrap;">${termShort} &nbsp;·&nbsp;The Year ${new Date().getFullYear()}</span>
           </div>
         </div>
       </div>
@@ -3736,8 +3749,9 @@ function confirmBulkShareForGrade(){
     if(errEl){ errEl.textContent = '❌ Please choose a grade first.'; errEl.classList.add('on'); }
     return;
   }
+  const fmt = document.querySelector('input[name="bulk-format"]:checked')?.value || 'png';
   closeBulkGradeModal();
-  bulkDownloadShareCardsForGrade(grade);
+  bulkDownloadShareCardsForGrade(grade, fmt);
 }
 window.confirmBulkShareForGrade = confirmBulkShareForGrade;
 
@@ -3748,9 +3762,10 @@ document.addEventListener('keydown', e=>{
 // ═══════════════════════════════════════════════════
 //  BULK DOWNLOAD SHARE CARDS FOR ONE CLASS (Admin only)
 // ═══════════════════════════════════════════════════
-async function bulkDownloadShareCardsForGrade(grade){
+async function bulkDownloadShareCardsForGrade(grade, format='png'){
   if(!adminLoggedIn){ showErr('Admin sign-in required.'); return; }
-  if(!window.JSZip){ notify('JSZip library not loaded — please refresh.','error'); return; }
+  if(!window.JSZip && format==='png'){ notify('JSZip library not loaded — please refresh.','error'); return; }
+  if(!window.jspdf && format==='pdf'){ notify('PDF library not loaded — please refresh.','error'); return; }
   if(!window.html2canvas){ notify('html2canvas not loaded — please refresh.','error'); return; }
 
   // ── Reuse the cached roster scan (same data as the student switcher) ──
@@ -3910,31 +3925,31 @@ async function bulkDownloadShareCardsForGrade(grade){
       </div>
 
       <!-- ════════════ TOP SECTION ════════════ -->
-      <div style="position:relative;z-index:5;padding:18px 20px 0;">
+      <div style="position:relative;z-index:5;padding:14px 20px 0;">
 
         <!-- Header: logo + name + photo -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:9px;">
             ${logoHtml}
             <div>
               <div style="font-size:11.5px;font-weight:800;color:#fff;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.5);">Kanyadet Pri &amp; Junior School</div>
-              <div style="font-size:8.5px;color:#a8c8e0;letter-spacing:0.6px;margin-top:6px;">Student Performance Card</div>
+              <div style="font-size:8.5px;color:#a8c8e0;letter-spacing:0.6px;margin-top:3px;">Student Performance Card</div>
             </div>
           </div>
           <div style="width:60px;height:60px;border-radius:50%;border:3px solid ${color};box-shadow:0 0 0 3px rgba(255,255,255,0.2);overflow:hidden;background:#1a3045;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:${color};flex-shrink:0;">${photoHtml}</div>
         </div>
 
         <!-- Grade label -->
-        <div style="margin-top:10px;">
+        <div style="margin-top:6px;">
           <div style="font-size:10px;font-weight:700;color:#a8c8e0;letter-spacing:2.5px;text-transform:uppercase;">Academic Results</div>
-          <div style="font-size:42px;font-weight:900;color:#ffffff;line-height:1;letter-spacing:-1px;margin-top:2px;">${gradeShort}</div>
-          <div style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.15;margin-top:1px;">Performance Progress Report</div>
+          <div style="font-size:42px;font-weight:900;color:#ffffff;line-height:1;letter-spacing:-1px;margin-top:1px;">${gradeShort}</div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.1;margin-top:0px;">Performance Progress Report</div>
         </div>
 
         <!-- Term pill -->
-        <div style="margin-top:10px;display:inline-block;">
-          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:8px 8px;display:inline-block;">
-            <span style="font-size:9px;font-weight:700;color:#d0e8f5;letter-spacing:0.7px;">${termShort} &nbsp;·&nbsp;The Year ${new Date().getFullYear()}</span>
+        <div style="margin-top:3px;">
+          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:4px 14px;width:fit-content;max-width:100%;">
+            <span style="font-size:9px;font-weight:700;color:#d0e8f5;letter-spacing:0.7px;white-space:nowrap;">${termShort} &nbsp;·&nbsp;The Year ${new Date().getFullYear()}</span>
           </div>
         </div>
       </div>
@@ -4023,8 +4038,8 @@ async function bulkDownloadShareCardsForGrade(grade){
   progDiv.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;';
   progDiv.innerHTML = `
     <div style="background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;padding:32px 36px;max-width:420px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.5);">
-      <div style="font-size:40px;margin-bottom:12px;">📦</div>
-      <h3 style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;">Generating Share Cards — ${grade}</h3>
+      <div style="font-size:40px;margin-bottom:12px;">${format==='pdf'?'📄':'📦'}</div>
+      <h3 style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;">Generating ${format==='pdf'?'PDF':'Share Cards'} — ${grade}</h3>
       <div id="bulk-prog-txt" style="font-size:12px;color:var(--text2);margin-bottom:16px;">Preparing…</div>
       <div style="background:var(--surface2);border-radius:8px;height:8px;overflow:hidden;margin-bottom:12px;">
         <div id="bulk-prog-bar" style="height:100%;background:linear-gradient(90deg,#8e44ad,#2980b9);border-radius:8px;transition:width .3s;width:0%;"></div>
@@ -4044,6 +4059,7 @@ async function bulkDownloadShareCardsForGrade(grade){
   }
 
   // Process students in batches to avoid memory pressure
+  const canvases = []; // collected for PDF mode
   const BATCH = 5;
   for(let i=0; i<students.length; i+=BATCH){
     const batch = students.slice(i, i+BATCH);
@@ -4101,10 +4117,14 @@ async function bulkDownloadShareCardsForGrade(grade){
           width: 420,
         });
 
-        // Add to ZIP
-        const blob = await new Promise(r=>canvas.toBlob(r,'image/png'));
-        const arrBuf = await blob.arrayBuffer();
-        zip.file(`${safeName}_${term}.png`, arrBuf);
+        if(format === 'pdf'){
+          canvases.push({ canvas, name });
+        } else {
+          // Add to ZIP as PNG
+          const blob = await new Promise(r=>canvas.toBlob(r,'image/png'));
+          const arrBuf = await blob.arrayBuffer();
+          zip.file(`${safeName}_${term}.png`, arrBuf);
+        }
         done++;
         container.removeChild(wrapper);
       }catch(err){
@@ -4118,24 +4138,49 @@ async function bulkDownloadShareCardsForGrade(grade){
   // Cleanup
   document.body.removeChild(container);
 
-  // Generate ZIP and trigger download
-  _updateProgress(total, 'Compressing ZIP…');
-  try{
-    const zipBlob = await zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}}, meta=>{
-      const bar = document.getElementById('bulk-prog-bar');
-      if(bar) bar.style.width = meta.percent.toFixed(0)+'%';
-    });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(zipBlob);
-    const gradeSlug = grade.replace(/[^a-zA-Z0-9]/g,'_');
-    a.download = `Kanyadet_ShareCards_${gradeSlug}_${new Date().toISOString().split('T')[0]}.zip`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-    document.body.removeChild(progDiv);
-    notify(`✅ Downloaded ${done} share cards for ${grade} as ZIP${failed?' ('+failed+' failed)':''}!`,'success',8000);
-  }catch(e){
-    document.body.removeChild(progDiv);
-    notify('❌ ZIP generation failed: '+e.message,'error',8000);
+  const gradeSlug = grade.replace(/[^a-zA-Z0-9]/g,'_');
+  const dateStr   = new Date().toISOString().split('T')[0];
+
+  if(format === 'pdf'){
+    // ── PDF: one card per page ──────────────────────────────────────────
+    _updateProgress(total, 'Building PDF…');
+    try{
+      const {jsPDF} = window.jspdf;
+      // Card is 420×650px at scale:2 → 840×1300px canvas
+      // Map to mm: 420px @ 96dpi ≈ 111.1mm wide, 650px ≈ 172.1mm tall
+      const PW = 111.1, PH = 172.1;
+      const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:[PW, PH] });
+      canvases.forEach(({canvas}, idx)=>{
+        if(idx > 0) doc.addPage([PW, PH], 'portrait');
+        const imgData = canvas.toDataURL('image/png');
+        doc.addImage(imgData, 'PNG', 0, 0, PW, PH, undefined, 'FAST');
+      });
+      doc.save(`Kanyadet_ShareCards_${gradeSlug}_${dateStr}.pdf`);
+      document.body.removeChild(progDiv);
+      notify(`✅ Downloaded ${done} share cards for ${grade} as PDF${failed?' ('+failed+' failed)':''}!`,'success',8000);
+    }catch(e){
+      document.body.removeChild(progDiv);
+      notify('❌ PDF generation failed: '+e.message,'error',8000);
+    }
+  } else {
+    // ── PNG ZIP ─────────────────────────────────────────────────────────
+    _updateProgress(total, 'Compressing ZIP…');
+    try{
+      const zipBlob = await zip.generateAsync({type:'blob', compression:'DEFLATE', compressionOptions:{level:6}}, meta=>{
+        const bar = document.getElementById('bulk-prog-bar');
+        if(bar) bar.style.width = meta.percent.toFixed(0)+'%';
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = `Kanyadet_ShareCards_${gradeSlug}_${dateStr}.zip`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+      document.body.removeChild(progDiv);
+      notify(`✅ Downloaded ${done} share cards for ${grade} as ZIP${failed?' ('+failed+' failed)':''}!`,'success',8000);
+    }catch(e){
+      document.body.removeChild(progDiv);
+      notify('❌ ZIP generation failed: '+e.message,'error',8000);
+    }
   }
 }
 window.bulkDownloadShareCardsForGrade = bulkDownloadShareCardsForGrade;
