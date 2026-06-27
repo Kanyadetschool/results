@@ -3962,13 +3962,13 @@ async function bulkDownloadShareCardsForGrade(grade){
       </div>
 
       <!-- ░░ DATE inside bottom-right blob ░░ -->
-      <div style="position:absolute;bottom:18px;right:14px;z-index:6;text-align:center;">
+      <div style="position:fixed;bottom:18px;right:14px;z-index:6;text-align:center;">
         <div style="font-size:32px;font-weight:900;color:#a8c8e0;line-height:1;letter-spacing:-0.5px;">${dayNum}/${monNum}</div>
         <div style="font-size:9px;font-weight:700;color:#a8c8e0;margin-top:6px;">${dayName}</div>
       </div>
 
       <!-- ░░ QR CODE bottom-left ░░ -->
-      <div style="position:absolute;bottom:10px;left:16px;z-index:6;display:flex;align-items:flex-end;gap:6px;">
+      <div style="position:fixed;bottom:10px;left:16px;z-index:6;display:flex;align-items:flex-end;gap:6px;">
         <div id="${qrBoxId}" style="width:56px;height:56px;background:#fff;border-radius:6px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex-shrink:0;"></div>
         <div style="font-size:7px;color:#5b87a6;font-weight:600;line-height:1.5;padding-bottom:4px;">Scan to verify<br>Powered by Knox Cyber Crime unit
          <br> <span style="color:#3a6080;">https://kanyadet-school-portal.web.app</span>
