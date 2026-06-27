@@ -3913,7 +3913,7 @@ async function bulkDownloadShareCardsForGrade(grade){
 
         <!-- Term pill -->
         <div style="margin-top:10px;display:inline-block;">
-          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:4px 8px;display:inline-block;">
+          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:4px 4px;display:inline-block;">
             <span style="font-size:9px;font-weight:700;color:#d0e8f5;letter-spacing:0.7px;">${termShort} &nbsp;·&nbsp; The Year ${new Date().getFullYear()}</span>
           </div>
         </div>
@@ -3952,13 +3952,13 @@ async function bulkDownloadShareCardsForGrade(grade){
               <div style="font-size:8.5px;color:#3a6080;font-weight:600;line-height:1.7;">
                 📅 Generated ${genDate}<br>
                 <span style="color:#2980b9;font-weight:700;">Kanyadet Student Portal</span> · Provisional<br>
-                <span style="color:#3a6080;">https://kanyadet-school.web.app</span>
-              </div>
-              <br><br>
+                <span style="color:#3a6080;">https://kanyadet-school-portal.web.app</span>
+                 <!-- Term progress graph — same position as single card: after Generated text, above QR -->
+          ${termGraphHtml}
+              </div
             </div>
           </div>
-          <!-- Term progress graph — same position as single card: after Generated text, above QR -->
-          ${termGraphHtml}
+         
         </div>
       </div>
 
