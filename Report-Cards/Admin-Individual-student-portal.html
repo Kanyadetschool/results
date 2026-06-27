@@ -1689,7 +1689,8 @@ body::before{
   import { getDatabase, ref, get, onValue, query, orderByChild, equalTo }  from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
   import { getStorage, ref as sRef, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
   import { getAuth, signOut, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-  window._fb = { initializeApp, getApps, getDatabase, ref, get, onValue, query, orderByChild, equalTo, getAuth, signOut, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged };
+  import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  window._fb = { initializeApp, getApps, getDatabase, ref, get, onValue, query, orderByChild, equalTo, getAuth, signOut, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged, getFirestore, doc, getDoc };
 </script>
 
 <script>
@@ -1765,7 +1766,7 @@ const REMARKS_DB = [
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
-let db;
+let db, firestoreDb;
 let allRecs = [];   // all term records for this student
 let activeIdx = 0;  // currently selected term
 
@@ -1825,6 +1826,7 @@ window.addEventListener('load', ()=>{
       const { initializeApp, getApps, getDatabase, getAuth } = window._fb;
       const app = getApps().length===0 ? initializeApp(FB_CONFIG) : getApps()[0];
       db = getDatabase(app);
+      firestoreDb = window._fb.getFirestore(app);
       _watchAuthState(app);
       _subscribeDbPhotos(db);
     }catch(e){
@@ -2048,7 +2050,24 @@ function _watchAuthState(app){
 }
 
 // Called after any successful login (Google or email)
-function _onAuthSuccess(user){
+async function _onAuthSuccess(user){
+  // ── Advanced Admin gate ───────────────────────────────────────────────
+  // Only Firestore users/{uid} docs with Advancedadmin === true are allowed.
+  let allowed = false;
+  try {
+    const { doc, getDoc } = window._fb;
+    const snap = await getDoc(doc(firestoreDb, 'users', user.uid));
+    allowed = snap.exists() && snap.data().Advancedadmin === true;
+  } catch(err) {
+    console.error('[AdvancedAdmin] Profile check failed:', err);
+    allowed = false;
+  }
+  if (!allowed) {
+    showErr('⛔ Access restricted to Advanced Admins only.');
+    try { const { getAuth, signOut } = window._fb; await signOut(getAuth()); } catch(e) {}
+    return;
+  }
+  // ─────────────────────────────────────────────────────────────────────
   adminLoggedIn     = true;
   currentAdminEmail = user.email || user.displayName || 'Admin';
   document.getElementById('login-screen').style.display = 'none';
@@ -3815,8 +3834,7 @@ async function bulkDownloadShareCardsForGrade(grade){
     const lgId = 'lg-bulk-'+(aNo.replace(/\W/g,'')||Math.random().toString(36).slice(2));
     const termGraphHtml = (()=>{
       function _tKey(r){ const s=String(r['Term']||''); const y=(s.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(s.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; const e=/\bend\b/i.test(s)?'1':'0'; return y+n+e; }
-      // Use the pre-grouped studentAllRecs (same as allRecs in single card) — avoids
-      // scanning the whole DB and correctly reflects only this student's history.
+      // Use pre-grouped studentAllRecs — same source as single card's allRecs.
       const sorted = [...(studentAllRecs||[rec])].sort((a,b)=>_tKey(a).localeCompare(_tKey(b)));
       const pts = sorted.slice(-3).map(r=>({
         avg: parseFloat(calcStats(r).avg)||0,
@@ -4058,8 +4076,6 @@ async function bulkDownloadShareCardsForGrade(grade){
         // up-to-5 concurrently-rendered cards never overlap during capture.
         const wrapper = document.createElement('div');
         wrapper.style.cssText = `position:absolute;left:0;top:${bi*2000}px;width:420px;`;
-        // Pass the full per-student record history so the term graph uses
-        // exactly the same data source as the single share card.
         const aNoKey = String(rec['Assessment No']||'').trim();
         const studentAllRecs = aNoKey ? (byStudent[aNoKey]||[rec]) : [rec];
         wrapper.innerHTML = _buildCardHTML(rec, photoDataUrl, studentAllRecs);
