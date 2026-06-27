@@ -3517,7 +3517,6 @@ function openShareModal(){
             📅 Generated ${genDate}<br>
             <span style="color:#2980b9;font-weight:700;">Kanyadet Student Portal</span> · Provisional
           </div>
-          <div style="font-size:8px;color:#5b87a6;margin-top:2px;">https://kanyadet-school.web.app</div>
           <br><br><br>
           </div></div>
           <!-- mini term line graph -->
@@ -3588,7 +3587,9 @@ function openShareModal(){
       <div style="position:absolute;bottom:14px;left:16px;z-index:6;display:flex;align-items:flex-end;gap:6px;">
         <div id="share-qr-box" style="width:56px;height:56px;background:#fff;border-radius:6px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex-shrink:0;"></div>
         <div style="font-size:7px;color:#5b87a6;font-weight:600;line-height:1.5;padding-bottom:4px;">Scan to verify<br>Powered by Knox Cyber Crime unit</div>
-      </div>
+          <div style="font-size:8px;color:#5b87a6;margin-top:2px;">https://kanyadet-school-portal.web.app</div>
+    
+          </div>
 
     </div>`;
 
@@ -3602,7 +3603,7 @@ function openShareModal(){
   // Generate QR code into the placeholder
   const qrBox = document.getElementById('share-qr-box');
   if(qrBox && window.QRCode){
-    const qrUrl = `https://kanyadet-school.web.app/?a=${encodeURIComponent(rec['Assessment No']||'')}`;
+    const qrUrl = `https://Kanyadetschool.github.io/results/Report-Cards/Individual-student-portal.html/?a=${encodeURIComponent(rec['Assessment No']||'')}`;
     new QRCode(qrBox, {
       text: qrUrl,
       width: 50,
