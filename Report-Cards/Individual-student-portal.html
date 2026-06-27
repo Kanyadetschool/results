@@ -3367,36 +3367,8 @@ function openShareModal(){
   const termShort = cleanTerm(rec['Term']);
   const gradeShort = gShort(rec['Grade']);
 
-  // ── Inline KNEC Seal SVG (faithful to 1.png) ──────────────────────
-  const knecSeal = `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style="width:90px;height:90px;display:block;">
-    <circle cx="60" cy="60" r="58" fill="#fff" stroke="#111" stroke-width="2.5"/>
-    <circle cx="60" cy="60" r="52" fill="#fff" stroke="#111" stroke-width="1.2"/>
-    <!-- outer ring text -->
-    <path id="topArc" d="M 10,60 A 50,50 0 0,1 110,60" fill="none"/>
-    <text font-size="7" font-weight="800" fill="#111" font-family="serif" letter-spacing="1.2">
-      <textPath href="#topArc" startOffset="5%">THE KENYA NATIONAL</textPath>
-    </text>
-    <path id="botArc" d="M 10,62 A 50,50 0 0,0 110,62" fill="none"/>
-    <text font-size="6.5" font-weight="800" fill="#111" font-family="serif" letter-spacing="0.8">
-      <textPath href="#botArc" startOffset="3%">EXAMINATIONS COUNCIL</textPath>
-    </text>
-    <!-- shield -->
-    <path d="M47,30 Q47,22 60,20 Q73,22 73,30 L73,58 Q66,68 60,71 Q54,68 47,58 Z" fill="#d4a520" stroke="#8b6c10" stroke-width="1.5"/>
-    <!-- lions (left) -->
-    <ellipse cx="51" cy="44" rx="7" ry="10" fill="#d4a520" stroke="#8b6c10" stroke-width="1"/>
-    <ellipse cx="50" cy="36" rx="5" ry="5" fill="#c8971a" stroke="#8b6c10" stroke-width="1"/>
-    <!-- lions (right) -->
-    <ellipse cx="69" cy="44" rx="7" ry="10" fill="#d4a520" stroke="#8b6c10" stroke-width="1"/>
-    <ellipse cx="70" cy="36" rx="5" ry="5" fill="#c8971a" stroke="#8b6c10" stroke-width="1"/>
-    <!-- open book -->
-    <rect x="53" y="44" width="14" height="10" rx="1.5" fill="#fff" stroke="#8b6c10" stroke-width="1"/>
-    <line x1="60" y1="44" x2="60" y2="54" stroke="#8b6c10" stroke-width="0.8"/>
-    <!-- green mound -->
-    <ellipse cx="60" cy="62" rx="10" ry="4" fill="#2d7a2d"/>
-    <!-- red banner -->
-    <rect x="42" y="72" width="36" height="11" rx="3" fill="#c0392b"/>
-    <text x="60" y="80.5" text-anchor="middle" font-size="7.5" font-weight="900" fill="#fff" font-family="serif" letter-spacing="1.5">MITIHANI</text>
-  </svg>`;
+  // ── KNEC Seal image ──────────────────────────────────────────────────
+  const knecSeal = `<img src="./imgs/knec.png" alt="KNEC" style="width:90px;height:90px;display:block;object-fit:contain;" crossorigin="anonymous"/>`;
 
   // ── Botanical line-art SVG (right column, like 1.png) ─────────────
   const botanicalSvg = `<svg viewBox="0 0 50 180" xmlns="http://www.w3.org/2000/svg" style="width:34px;height:130px;display:block;opacity:0.7;">
@@ -3421,20 +3393,20 @@ function openShareModal(){
     <path d="M25,135 Q38,130 40,141 Q30,145 25,140" fill="none" stroke="#1e3a5f" stroke-width="1.2" stroke-linecap="round"/>
   </svg>`;
 
-  // ── Irregular blob SVGs (matching 1.png organic Canva shapes) ──────
-  // Top-left navy blob (covers top ~45% of card, bleeds left+top)
-  const topBlob = `<svg viewBox="0 0 440 280" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;width:100%;height:280px;display:block;">
-    <path d="M0,0 L440,0 L440,160 Q380,200 300,210 Q200,225 120,195 Q50,172 0,220 Z" fill="#1e2f4a"/>
+  // ── Irregular blob SVGs — smooth organic shapes ──────────────────────
+  // Top navy blob (covers top ~45%, smooth undulating bottom edge)
+  const topBlob = `<svg viewBox="0 0 440 290" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;width:100%;height:290px;display:block;">
+    <path d="M0,0 L440,0 L440,155 C420,168 395,188 355,205 C310,224 258,232 210,228 C162,224 118,210 80,200 C48,191 18,188 0,210 Z" fill="#1e2f4a"/>
   </svg>`;
 
-  // Grey organic blob (middle section, offset left like 1.png)
-  const greyBlob = `<svg viewBox="0 0 420 260" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:220px;left:-30px;width:82%;height:260px;display:block;opacity:0.9;">
-    <path d="M40,20 Q120,0 220,15 Q310,28 370,80 Q420,130 390,200 Q360,255 270,258 Q170,262 80,240 Q0,218 5,150 Q10,80 40,20 Z" fill="#d8e4ec"/>
+  // Grey organic blob (middle, smooth kidney-like irregular shape)
+  const greyBlob = `<svg viewBox="0 0 440 275" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:215px;left:-25px;width:85%;height:275px;display:block;opacity:0.92;">
+    <path d="M55,35 C95,8 165,-2 235,12 C298,25 358,58 385,108 C412,158 402,215 368,248 C332,280 268,285 198,278 C130,271 62,248 28,200 C-6,153 -2,90 30,58 C38,50 46,41 55,35 Z" fill="#d8e4ec"/>
   </svg>`;
 
-  // Bottom-right navy blob (date lives here)
-  const bottomBlob = `<svg viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:-10px;right:-10px;width:160px;height:160px;display:block;">
-    <path d="M90,5 Q160,15 175,80 Q188,145 130,168 Q75,188 30,155 Q-15,122 5,65 Q22,10 90,5 Z" fill="#1e2f4a"/>
+  // Bottom-right navy blob (date lives here, smooth teardrop-ish)
+  const bottomBlob = `<svg viewBox="0 0 190 190" xmlns="http://www.w3.org/2000/svg" style="position:absolute;bottom:-12px;right:-12px;width:165px;height:165px;display:block;">
+    <path d="M95,8 C132,10 162,32 175,68 C188,104 182,148 152,168 C122,188 76,188 45,165 C14,142 0,102 8,68 C16,34 45,12 75,7 C81,6 88,7 95,8 Z" fill="#1e2f4a"/>
   </svg>`;
 
   document.getElementById('share-card-preview').innerHTML = `
@@ -3572,25 +3544,52 @@ function saveShareCard(){
   const card = document.getElementById('actual-share-card');
   if(!card){ return; }
   if(window.html2canvas){
-    notify('📸 Saving image…','info',2000);
-    html2canvas(card,{
-      backgroundColor: null,
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      logging: false
-    }).then(canvas=>{
-      const a=document.createElement('a');
-      a.download=`ResultCard_${(allRecs[activeIdx]['Official Student Name']||'Student').replace(/\s+/g,'_')}.png`;
-      a.href=canvas.toDataURL('image/png');
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      notify('✅ Score card saved as image!','success');
-    }).catch(err=>{
-      console.error('html2canvas error:',err);
-      notify('❌ Image save failed — try again.','error');
+    notify('📸 Saving image…','info',3000);
+
+    // Pre-convert all <img> inside the card to data-URLs so html2canvas captures them
+    const imgs = Array.from(card.querySelectorAll('img'));
+    const toDataURL = src => new Promise(res => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const cv = document.createElement('canvas');
+          cv.width = img.naturalWidth || img.width;
+          cv.height = img.naturalHeight || img.height;
+          cv.getContext('2d').drawImage(img, 0, 0);
+          res(cv.toDataURL('image/png'));
+        } catch(e){ res(src); }
+      };
+      img.onerror = () => res(src);
+      img.src = src + (src.includes('?') ? '&' : '?') + '_t=' + Date.now();
     });
+
+    Promise.all(imgs.map(img => toDataURL(img.src).then(d => ({ img, d }))))
+      .then(pairs => {
+        // Swap src to data URLs temporarily
+        pairs.forEach(({img, d}) => { img.setAttribute('data-orig', img.src); img.src = d; });
+        return html2canvas(card, {
+          backgroundColor: '#f5f7fa',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false
+        }).then(canvas => {
+          // Restore original srcs
+          pairs.forEach(({img}) => { img.src = img.getAttribute('data-orig'); img.removeAttribute('data-orig'); });
+          const a = document.createElement('a');
+          a.download = `ResultCard_${(allRecs[activeIdx]['Official Student Name']||'Student').replace(/\s+/g,'_')}.png`;
+          a.href = canvas.toDataURL('image/png');
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          notify('✅ Score card saved as image!','success');
+        }).catch(err => {
+          pairs.forEach(({img}) => { if(img.getAttribute('data-orig')){ img.src = img.getAttribute('data-orig'); img.removeAttribute('data-orig'); }});
+          console.error('html2canvas error:',err);
+          notify('❌ Image save failed — try again.','error');
+        });
+      });
   } else {
     const rec=allRecs[activeIdx]; const st=calcStats(rec);
     const txt=`🏫 Kanyadet PRI & Junior School\n📄 ${rec['Official Student Name']} — ${cleanTerm(rec['Term'])}\n📊 Average: ${st.avg}% | Total: ${st.total}/${st.max} | Level: ${st.level} — ${st.label}\n🎯 Position: ${rec['Position']||'N/A'}\n\n✅ Provisional results — Kanyadet Student Portal`;
