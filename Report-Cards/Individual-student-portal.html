@@ -3517,7 +3517,7 @@ function openShareModal(){
             📅 Generated ${genDate}<br>
             <span style="color:#2980b9;font-weight:700;">Kanyadet Student Portal</span> · Provisional
           </div>
-          <div style="font-size:8px;color:#5b87a6;margin-top:2px;">https://kanyadet-school.web.app</div>
+          <div style="font-size:8px;color:#5b87a6;margin-top:2px;">https://kanyadet-school-portal.web.app</div>
           <br><br><br>
           </div></div>
           <!-- mini term line graph -->
@@ -3581,7 +3581,7 @@ function openShareModal(){
       <!-- ░░ DATE inside bottom-right blob ░░ -->
       <div style="position:absolute;bottom:18px;right:14px;z-index:6;text-align:center;">
         <div style="font-size:min(8vw,32px);font-weight:900;color:#a8c8e0;line-height:1;letter-spacing:-0.5px;">${dayNum}/${monNum}</div>
-        <div style="font-size:9px;font-weight:700;color:#a8c8e0;margin-top:1px;">${dayName}</div>
+        <div style="font-size:9px;font-weight:700;color:#a8c8e0;margin-top:8px;">${dayName}</div>
       </div>
 
       <!-- ░░ QR CODE bottom-left ░░ -->
@@ -3602,10 +3602,7 @@ function openShareModal(){
   // Generate QR code into the placeholder
   const qrBox = document.getElementById('share-qr-box');
   if(qrBox && window.QRCode){
-    const qrBase = `https://kanyadetschool.github.io/results/Report-Cards/Individual-student-portal.html`;
-    const qrAno  = encodeURIComponent(rec['Assessment No']||'');
-    const qrName = encodeURIComponent((rec['Official Student Name']||'').split(' ')[0]);
-    const qrUrl  = `${qrBase}?a=${qrAno}&n=${qrName}`;
+    const qrUrl = `https://kanyadetschool.github.io/Report-Cards/Individual-student-portal.html/?a=${encodeURIComponent(rec['Assessment No']||'')}`;
     new QRCode(qrBox, {
       text: qrUrl,
       width: 50,
