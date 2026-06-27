@@ -3426,7 +3426,7 @@ function openShareModal(){
   const gradeShort = gShort(rec['Grade']);
 
   // ── KNEC Seal image ──────────────────────────────────────────────────
-  const knecSeal = `<img src="./imgs/knec.png" alt="KNEC" style="width:115px;height:115px;display:block;object-fit:contain;" crossorigin="anonymous"/>`;
+  const knecSeal = `<img src="./imgs/knec.png" alt="KNEC" style="width:125px;height:115px;display:block;object-fit:contain;" crossorigin="anonymous"/>`;
 
   // ── Plant image (right column) ────────────────────────────────────
   const botanicalSvg = `<img src="./imgs/plant.png" alt="plant" style="width:48px;height:150px;display:block;object-fit:contain;opacity:0.85;" crossorigin="anonymous"/>`;
@@ -3801,7 +3801,7 @@ async function bulkDownloadShareCardsForGrade(grade){
   const dayNum  = new Date().getDate();
   const monNum  = String(new Date().getMonth()+1).padStart(2,'0');
   const dayName = new Date().toLocaleDateString('en-GB',{weekday:'long'});
-  const knecSeal = `<img src="./imgs/knec.png" alt="KNEC" style="width:115px;height:115px;display:block;object-fit:contain;" crossorigin="anonymous"/>`;
+  const knecSeal = `<img src="./imgs/knec.png" alt="KNEC" style="width:125px;height:115px;display:block;object-fit:contain;" crossorigin="anonymous"/>`;
   const botanicalSvg = `<img src="./imgs/plant.png" alt="plant" style="width:48px;height:150px;display:block;object-fit:contain;opacity:0.85;" crossorigin="anonymous"/>`;
 
   // studentAllRecs: all term records for this student (same as allRecs in single card)
@@ -3905,7 +3905,7 @@ async function bulkDownloadShareCardsForGrade(grade){
       </div>
 
       <!-- ░░ KNEC SEAL (lower right) ░░ -->
-      <div style="position:absolute;right:20px;top:360px;z-index:4;">
+      <div style="position:absolute;right:20px;top:390px;z-index:4;">
         <img src="./imgs/knec.png" alt="KNEC" style="width:115px;height:115px;display:block;object-fit:contain;" crossorigin="anonymous"/>
       </div>
 
