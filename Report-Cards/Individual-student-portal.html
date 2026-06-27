@@ -3510,12 +3510,71 @@ function openShareModal(){
 
       <!-- ════════════ FOOTER ════════════ -->
       <div style="position:relative;z-index:5;padding:18px 20px 0;">
-        <div style="border-top:1.5px solid rgba(41,128,185,0.2);padding-top:10px;width:55%;">
+        <div style="border-top:1.5px solid rgba(41,128,185,0.2);padding-top:10px;width:100%;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div>
           <div style="font-size:8.5px;color:#3a6080;font-weight:600;line-height:1.7;">
             📅 Generated ${genDate}<br>
             <span style="color:#2980b9;font-weight:700;">Kanyadet Student Portal</span> · Provisional
           </div>
-          <div style="font-size:8px;color:#5b87a6;margin-top:2px;">https://kanyadet-school-portal.web.app</div>
+          <div style="font-size:8px;color:#5b87a6;margin-top:2px;">https://kanyadet-school.web.app</div>
+          <br><br><br>
+          </div></div>
+          <!-- mini term line graph -->
+          ${(()=>{
+            // Sort all records by term
+            function _tKey(r){ const s=String(r['Term']||''); const y=(s.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(s.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; return y+n; }
+            const sorted = [...allRecs].sort((a,b)=>_tKey(a).localeCompare(_tKey(b)));
+            const pts = sorted.slice(-3).map(r=>({
+              avg: parseFloat(calcStats(r).avg)||0,
+              lbl: (()=>{
+                const t = r['Term']||'';
+                const grade = (t.match(/^(Grade\s*\d+)/i)||[])[1]||'';
+                const term  = (t.match(/((?:End|Mid)[-\s]*Term\s*\d+)/i)||[])[1]||'';
+                return [grade, term].filter(Boolean).join(' ').replace(/-/g,' ') || cleanTerm(t);
+              })()
+            }));
+            if(pts.length < 2) return `<div style="font-size:7px;color:#5b87a6;margin-top:5px;">Not enough terms for graph</div>`;
+            const W=320, H=68, PAD=22, BOTTOM=46;
+            const vals = pts.map(p=>p.avg);
+            const minV = Math.max(0, Math.min(...vals)-10);
+            const maxV = Math.min(100, Math.max(...vals)+10);
+            const range = maxV - minV || 1;
+            const xs = pts.map((_,i)=> PAD + i*(W-PAD*2)/(pts.length-1));
+            const ys = pts.map(p=> BOTTOM - ((p.avg-minV)/range)*(BOTTOM-PAD));
+            // Smooth polyline with cubic bezier
+            let path = `M${xs[0]},${ys[0]}`;
+            for(let i=1;i<xs.length;i++){
+              const cx=(xs[i]+xs[i-1])/2;
+              path += ` C${cx},${ys[i-1]} ${cx},${ys[i]} ${xs[i]},${ys[i]}`;
+            }
+            // Area fill path
+            let area = path + ` L${xs[xs.length-1]},${BOTTOM+2} L${xs[0]},${BOTTOM+2} Z`;
+            const dotColor = color;
+            const svgDots = pts.map((p,i)=>`
+              <circle cx="${xs[i]}" cy="${ys[i]}" r="4" fill="${dotColor}" stroke="#fff" stroke-width="1.5"/>
+              <text x="${xs[i]}" y="${ys[i]-7}" text-anchor="middle" font-size="8.5" font-weight="800" fill="${dotColor}" font-family="'Plus Jakarta Sans',sans-serif">${p.avg}%</text>
+              <text x="${xs[i]}" y="${BOTTOM+11}" text-anchor="middle" font-size="7.5" fill="#3a6080" font-family="'Plus Jakarta Sans',sans-serif">${p.lbl}</text>
+            `).join('');
+            return `
+              <div style="margin-top:7px;">
+                <div style="font-size:7.5px;font-weight:700;color:#3a6080;letter-spacing:0.4px;text-transform:uppercase;margin-bottom:3px;">Term Progress</div>
+                <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">
+                  <defs>
+                    <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="${dotColor}" stop-opacity="0.22"/>
+                      <stop offset="100%" stop-color="${dotColor}" stop-opacity="0.02"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- area fill -->
+                  <path d="${area}" fill="url(#lg)"/>
+                  <!-- line -->
+                  <path d="${path}" fill="none" stroke="${dotColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- dots + labels -->
+                  ${svgDots}
+                </svg>
+              </div>`;
+          })()}
         </div>
       </div>
 
@@ -3528,7 +3587,7 @@ function openShareModal(){
       <!-- ░░ QR CODE bottom-left ░░ -->
       <div style="position:absolute;bottom:14px;left:16px;z-index:6;display:flex;align-items:flex-end;gap:6px;">
         <div id="share-qr-box" style="width:56px;height:56px;background:#fff;border-radius:6px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex-shrink:0;"></div>
-        <div style="font-size:7px;color:#5b87a6;font-weight:600;line-height:1.5;padding-bottom:4px;">Scan to verify<br>Powered by Knox Cyber Crime Unit</div>
+        <div style="font-size:7px;color:#5b87a6;font-weight:600;line-height:1.5;padding-bottom:4px;">Scan to verify<br>Powered by Knox Cyber Crime unit</div>
       </div>
 
     </div>`;
