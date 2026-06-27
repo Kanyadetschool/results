@@ -3500,7 +3500,7 @@ function openShareModal(){
 
       <!-- ════════════ STUDENT + SCORE (grey blob area) ════════════ -->
       <div style="position:relative;z-index:5;padding:22px 20px 0;">
-        <div style="font-size:min(6vw,26px);font-weight:900;color:#E8D6CB;letter-spacing:-0.3px;line-height:1.1;">${studentName}</div>
+        <div style="font-size:min(6vw,26px);font-weight:900;color:#afb7ac;letter-spacing:-0.3px;line-height:1.1;"><b>${studentName}</b></div>
         <div style="font-size:9.5px;color:#3a6080;margin-top:3px;font-weight:600;">
            ${termShort} &nbsp;·&nbsp; ${new Date().getFullYear()}
         </div>
@@ -3512,7 +3512,7 @@ function openShareModal(){
             <div style="font-size:9px;color:#3a6080;font-weight:600;margin-top:2px;">Average Score</div>
           </div>
           <div style="padding-bottom:10px;">
-            <div style="font-size:min(5vw,20px);font-weight:900;color:${color};line-height:1;">${stats.level}</div>
+            <div style="font-size:min(5vw,20px);font-weight:900;color:${color};line-height:1;">${stats.level}</div><br>
             <div style="font-size:9.5px;color:#3a6080;font-weight:600;margin-bottom:5px;">${stats.label}</div>
            </div>
         </div>
@@ -3533,7 +3533,7 @@ function openShareModal(){
         </div>
 
 
-<br>            <div style="font-size:10px;color:#0c1929;font-weight:700;">Points: <strong>${stats.totalPts} / ${stats.maxPts} pts</strong></div>
+<br>        <br>    <div style="font-size:10px;color:#0c1929;font-weight:700;">Points: <strong>${stats.totalPts} / ${stats.maxPts} pts</strong></div>
           
 
   
