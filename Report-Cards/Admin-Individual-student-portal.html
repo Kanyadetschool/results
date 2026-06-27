@@ -3908,31 +3908,31 @@ async function bulkDownloadShareCardsForGrade(grade){
         <div style="margin-top:10px;">
           <div style="font-size:10px;font-weight:700;color:#a8c8e0;letter-spacing:2.5px;text-transform:uppercase;">Academic Results</div>
           <div style="font-size:42px;font-weight:900;color:#ffffff;line-height:1;letter-spacing:-1px;margin-top:2px;">${gradeShort}</div>
-          <div style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.15;margin-top:1px;">Performance Report</div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.15;margin-top:1px;">Performance Progress Report</div>
         </div>
 
         <!-- Term pill -->
-        <div style="margin-top:10px;display:inline-block;">
-          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:4px 4px;display:inline-block;">
+        <div style="margin-top:5px;display:inline-block;">
+          <div style="background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.28);border-radius:30px;padding:4px !important;display:inline-block;">
             <span style="font-size:9px;font-weight:700;color:#d0e8f5;letter-spacing:0.7px;">${termShort} &nbsp;·&nbsp; The Year ${new Date().getFullYear()}</span>
           </div>
         </div>
       </div>
 
       <!-- ════════════ STUDENT + SCORE ════════════ -->
-      <div style="position:relative;z-index:5;padding:22px 20px 0;">
+      <div style="position:relative;z-index:5;padding:12px 10px 0;">
         <div style="font-size:26px;font-weight:900;color:#afb7ac;letter-spacing:-0.3px;line-height:1.1;"><b>${studentName}</b></div>
         <div style="font-size:9.5px;color:#3a6080;margin-top:8px;font-weight:600;">${termShort} &nbsp;·&nbsp; ${new Date().getFullYear()}</div>
 
         <!-- Score row -->
-        <div style="display:flex;align-items:flex-end;gap:16px;margin-top:14px;">
+        <div style="display:flex;align-items:flex-end;gap:16px;margin-top:10px;">
           <div>
             <div style="font-size:62px;font-weight:900;color:${color};line-height:1;letter-spacing:-2px;">${stats.avg}%</div>
             <div style="font-size:9px;color:#3a6080;font-weight:600;margin-top:2px;">Average Score</div>
           </div>
           <div style="padding-bottom:10px;">
             <div style="font-size:20px;font-weight:900;color:${color};line-height:1;">${stats.level}</div><br>
-            <div style="font-size:9.5px;color:#3a6080;font-weight:600;margin-bottom:5px;margin-top:6px;">${stats.label}</div>
+            <div style="font-size:9.5px;color:#3a6080;font-weight:600;margin-bottom:5px;margin-top:2px;">${stats.label}</div>
           </div>
         </div>
 
@@ -3941,18 +3941,17 @@ async function bulkDownloadShareCardsForGrade(grade){
           ${topSubjs.map(x=>`<span style="background:${color}1a;border:1.8px solid ${color}55;color:#0c1929;font-size:9.5px;font-weight:800;padding:5px 12px;border-radius:30px;display:flex;align-items:center;gap:4px;white-space:nowrap;"><span style="color:#e6a817;font-size:12px;line-height:1;">★</span>${x.s.replace(/learning area[:\s]*/i,'').trim().split(' ').slice(0,2).join(' ')}: ${x.v}</span>`).join('')}
         </div>
 
-        <div style="font-size:10px;margin-top:10px;color:#0c1929;font-weight:700;">Points: <strong>${stats.totalPts||stats.total} / ${stats.maxPts||stats.max} pts</strong></div>
+      <div style="font-size:10px;margin-top:8px;color:#0c1929;font-weight:700;">Points: <strong>${stats.totalPts||stats.total} / ${stats.maxPts||stats.max} pts</strong></div>
       </div>
 
       <!-- ════════════ FOOTER (divider → Generated → graph) ════════════ -->
-      <div style="position:relative;z-index:5;padding:18px 20px 0;">
+      <div style="position:relative;z-index:5;padding:10px 15px 0;">
         <div style="border-top:1.5px solid rgba(41,128,185,0.2);padding-top:10px;width:100%;">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
             <div>
               <div style="font-size:8.5px;color:#3a6080;font-weight:600;line-height:1.7;">
                 📅 Generated ${genDate}<br>
-                <span style="color:#2980b9;font-weight:700;">Kanyadet Student Portal</span> · Provisional<br>
-                <span style="color:#3a6080;">https://kanyadet-school-portal.web.app</span>
+                <span style="color:#2980b9;font-weight:700;">Kanyadet Student Portal</span> · Provisional
                  <!-- Term progress graph — same position as single card: after Generated text, above QR -->
           ${termGraphHtml}
               </div
@@ -3969,7 +3968,7 @@ async function bulkDownloadShareCardsForGrade(grade){
       </div>
 
       <!-- ░░ QR CODE bottom-left ░░ -->
-      <div style="position:absolute;bottom:14px;left:16px;z-index:6;display:flex;align-items:flex-end;gap:6px;">
+      <div style="position:absolute;bottom:10px;left:16px;z-index:6;display:flex;align-items:flex-end;gap:6px;">
         <div id="${qrBoxId}" style="width:56px;height:56px;background:#fff;border-radius:6px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex-shrink:0;"></div>
         <div style="font-size:7px;color:#5b87a6;font-weight:600;line-height:1.5;padding-bottom:4px;">Scan to verify<br>Powered by Knox Cyber Crime unit</div>
       </div>
