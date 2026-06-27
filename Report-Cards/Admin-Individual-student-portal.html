@@ -3544,7 +3544,7 @@ function openShareModal(){
           <!-- mini term line graph -->
           ${(()=>{
             // Sort all records by term
-            function _tKey(r){ const s=String(r['Term']||''); const y=(s.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(s.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; return y+n; }
+            function _tKey(r){ const s=String(r['Term']||''); const y=(s.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(s.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; const e=/\bend\b/i.test(s)?'1':'0'; return y+n+e; }
             const sorted = [...allRecs].sort((a,b)=>_tKey(a).localeCompare(_tKey(b)));
             const pts = sorted.slice(-3).map(r=>({
               avg: parseFloat(calcStats(r).avg)||0,
@@ -3753,7 +3753,7 @@ async function bulkDownloadShareCardsForGrade(grade){
     if(!aNo) continue;
     (byStudent[aNo] = byStudent[aNo] || []).push(s);
   }
-  function _tKey(r){ const t=String(r['Term']||''); const y=(t.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(t.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; return y+n; }
+  function _tKey(r){ const t=String(r['Term']||''); const y=(t.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(t.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; const e=/\bend\b/i.test(t)?'1':'0'; return y+n+e; }
   const students = Object.values(byStudent)
     .map(recs=>recs.sort((a,b)=>_tKey(b).localeCompare(_tKey(a)))[0])
     .filter(r=>gShort(r['Grade'])===grade);
@@ -3785,7 +3785,8 @@ async function bulkDownloadShareCardsForGrade(grade){
   const knecSeal = `<img src="./imgs/knec.png" alt="KNEC" style="width:115px;height:115px;display:block;object-fit:contain;" crossorigin="anonymous"/>`;
   const botanicalSvg = `<img src="./imgs/plant.png" alt="plant" style="width:48px;height:150px;display:block;object-fit:contain;opacity:0.85;" crossorigin="anonymous"/>`;
 
-  function _buildCardHTML(rec, photoDataUrl){
+  // studentAllRecs: all term records for this student (same as allRecs in single card)
+  function _buildCardHTML(rec, photoDataUrl, studentAllRecs){
     const stats = calcStats(rec);
     const avg = parseFloat(stats.avg);
     const color = avg>=75?'#27ae60':avg>=58?'#f39c12':avg>=41?'#e67e22':'#e74c3c';
@@ -3813,9 +3814,10 @@ async function bulkDownloadShareCardsForGrade(grade){
     const aNo = String(rec['Assessment No']||'').trim();
     const lgId = 'lg-bulk-'+(aNo.replace(/\W/g,'')||Math.random().toString(36).slice(2));
     const termGraphHtml = (()=>{
-      function _tKey(r){ const s=String(r['Term']||''); const y=(s.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(s.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; return y+n; }
-      const studentRecs = aNo ? allRecsFlat.filter(r=>String(r['Assessment No']||'').trim()===aNo) : [rec];
-      const sorted = [...studentRecs].sort((a,b)=>_tKey(a).localeCompare(_tKey(b)));
+      function _tKey(r){ const s=String(r['Term']||''); const y=(s.match(/\b(20\d\d)\b/)||[])[1]||'0000'; const n=(s.match(/\bterm[-\s]*(\d)/i)||[])[1]||'0'; const e=/\bend\b/i.test(s)?'1':'0'; return y+n+e; }
+      // Use the pre-grouped studentAllRecs (same as allRecs in single card) — avoids
+      // scanning the whole DB and correctly reflects only this student's history.
+      const sorted = [...(studentAllRecs||[rec])].sort((a,b)=>_tKey(a).localeCompare(_tKey(b)));
       const pts = sorted.slice(-3).map(r=>({
         avg: parseFloat(calcStats(r).avg)||0,
         lbl: (()=>{
@@ -3941,7 +3943,7 @@ async function bulkDownloadShareCardsForGrade(grade){
           ${topSubjs.map(x=>`<span style="background:${color}1a;border:1.8px solid ${color}55;color:#0c1929;font-size:9.5px;font-weight:800;padding:5px 12px;border-radius:30px;display:flex;align-items:center;gap:4px;white-space:nowrap;"><span style="color:#e6a817;font-size:12px;line-height:1;">★</span>${x.s.replace(/learning area[:\s]*/i,'').trim().split(' ').slice(0,2).join(' ')}: ${x.v}</span>`).join('')}
         </div>
 
-      <div style="font-size:10px;margin-top:8px;color:#0c1929;font-weight:700;">Points: <strong>${stats.totalPts||stats.total} / ${stats.maxPts||stats.max} pts</strong></div>
+      <div style="font-size:10px;margin-top:8px;color:#0c1929;font-weight:700;">Points: <strong>${stats.totalPts} / ${stats.maxPts} pts</strong></div>
       </div>
 
       <!-- ════════════ FOOTER (divider → Generated → graph) ════════════ -->
@@ -4056,7 +4058,11 @@ async function bulkDownloadShareCardsForGrade(grade){
         // up-to-5 concurrently-rendered cards never overlap during capture.
         const wrapper = document.createElement('div');
         wrapper.style.cssText = `position:absolute;left:0;top:${bi*2000}px;width:420px;`;
-        wrapper.innerHTML = _buildCardHTML(rec, photoDataUrl);
+        // Pass the full per-student record history so the term graph uses
+        // exactly the same data source as the single share card.
+        const aNoKey = String(rec['Assessment No']||'').trim();
+        const studentAllRecs = aNoKey ? (byStudent[aNoKey]||[rec]) : [rec];
+        wrapper.innerHTML = _buildCardHTML(rec, photoDataUrl, studentAllRecs);
         container.appendChild(wrapper);
 
         // Generate QR code into the card's QR box
