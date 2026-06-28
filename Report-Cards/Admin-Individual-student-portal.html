@@ -134,7 +134,215 @@ body::before{
 .brand-text .b-name{font-size:16px;font-weight:800;color:var(--text);line-height:1.1;}
 .brand-text .b-sub{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:.04em;}
 
-.topbar-right{display:flex;align-items:center;gap:10px;}
+/* ════════════════════════════════════════════
+   TOP BAR
+════════════════════════════════════════════ */
+.top-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:8px;
+  padding:10px 24px;
+  background:var(--topbar);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:200;
+  transition:var(--transition);
+}
+.brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.brand-logo{
+  width:38px;height:38px;
+  border-radius:10px;overflow:hidden;
+  border:1.5px solid var(--border-strong);
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
+  font-size:18px;flex-shrink:0;
+}
+.brand-logo img{width:100%;height:100%;object-fit:cover;}
+.brand-text .b-name{font-size:16px;font-weight:800;color:var(--text);line-height:1.1;}
+.brand-text .b-sub{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:.04em;}
+
+.topbar-right{
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+}
+
+/* ── RESPONSIVE NAVBAR ── */
+
+/* 900px: shrink button labels */
+@media(max-width:900px){
+  .top-bar{padding:10px 16px;}
+  .switch-student-btn,.signout-btn{
+    font-size:0;             /* hide text */
+    padding:7px 10px;
+    border-radius:50%;
+    width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .switch-student-btn::before{content:'👤';font-size:16px;}
+  .signout-btn::before{content:'🚪';font-size:16px;}
+  #net-label{display:none;}
+  #net-pill{padding:6px 8px;border-radius:50%;min-width:unset;}
+}
+
+/* 700px: search goes full-width on its own row below */
+@media(max-width:700px){
+  .top-bar{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    grid-template-rows:auto auto;
+    align-items:center;
+    column-gap:10px;row-gap:8px;
+    padding:10px 14px;
+  }
+  .brand{grid-column:1;grid-row:1;}
+  .nb-search-wrap{
+    grid-column:1/-1;grid-row:2;
+    max-width:100%;margin:0;
+    order:3;
+  }
+  .nb-search-wrap.hidden{display:none;}
+  .topbar-right{grid-column:2/-1;grid-row:1;justify-content:flex-end;}
+}
+
+/* 480px: hide brand subtitle, tighten padding */
+@media(max-width:480px){
+  .top-bar{padding:8px 10px;row-gap:6px;}
+  .brand-text .b-sub{display:none;}
+  .brand-text .b-name{font-size:14px;}
+  .topbar-right{gap:6px;}
+  .theme-toggle{width:44px;height:24px;}
+  .u-av-btn{width:32px;height:32px;font-size:12px;}
+}
+
+@media(max-width:640px){
+  #dashboard{padding:14px 12px 60px;}
+  .welcome-card{flex-direction:column;text-align:center;}
+  .welcome-card::after{display:none;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .act-btns{width:100%;}
+  .btn{flex:1;justify-content:center;}
+}
+
+/* ════════════════════════════════════════════
+   NAVBAR SEARCH
+════════════════════════════════════════════ */
+.nb-search-wrap{
+  flex:1;max-width:440px;margin:0 16px;position:relative;
+  transition:var(--transition);
+}
+.nb-search-wrap.hidden{display:none;}
+.nb-search-bar{
+  display:flex;align-items:center;gap:9px;
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:28px;
+  padding:8px 14px 8px 13px;
+  cursor:text;
+  transition:border-color .2s,box-shadow .2s,background .2s;
+}
+.nb-search-bar:focus-within{
+  border-color:var(--blue-lt);
+  background:var(--surface);
+  box-shadow:0 0 0 3px rgba(93,173,226,.14);
+}
+.nb-search-icon{font-size:14px;flex-shrink:0;opacity:.55;transition:opacity .2s;}
+.nb-search-bar:focus-within .nb-search-icon{opacity:.9;}
+.nb-search-input{
+  border:none;background:transparent;outline:none;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:13px;font-weight:600;color:var(--text);
+  flex:1;min-width:0;
+}
+.nb-search-input::placeholder{color:var(--text3);font-weight:500;}
+.nb-search-hint{
+  display:flex;align-items:center;gap:4px;flex-shrink:0;
+  opacity:.45;transition:opacity .2s;pointer-events:none;
+}
+.nb-search-bar:focus-within .nb-search-hint{opacity:0;}
+.nb-kbd{
+  font-size:9px;font-weight:700;color:var(--text2);
+  background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:4px;padding:2px 5px;
+  font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.03em;
+}
+.nb-clear-btn{
+  display:none;background:none;border:none;cursor:pointer;
+  color:var(--text2);font-size:14px;line-height:1;padding:0;flex-shrink:0;
+  opacity:.6;transition:opacity .2s;
+}
+.nb-clear-btn:hover{opacity:1;}
+.nb-clear-btn.on{display:block;}
+
+/* Dropdown */
+.nb-dropdown{
+  position:absolute;top:calc(100% + 8px);left:0;right:0;
+  background:var(--surface);
+  border:1.5px solid var(--border-strong);
+  border-radius:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.32),0 4px 20px rgba(0,0,0,.18);
+  z-index:9999;overflow:hidden;
+  display:none;max-height:400px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.nb-dropdown.open{display:block;animation:nbDdIn .16s cubic-bezier(.4,0,.2,1);}
+@keyframes nbDdIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.nb-dd-section{padding:6px 0;}
+.nb-dd-label{
+  font-size:9px;font-weight:800;color:var(--text3);
+  letter-spacing:.12em;text-transform:uppercase;
+  padding:8px 14px 4px;
+}
+.nb-dd-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;cursor:pointer;
+  border:none;background:transparent;width:100%;text-align:left;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  transition:background .12s;
+}
+.nb-dd-item:hover,.nb-dd-item.nb-active{
+  background:rgba(93,173,226,.1);
+}
+.nb-dd-item.nb-active{border-left:3px solid var(--blue-lt);padding-left:11px;}
+.nb-dd-av{
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--orange),var(--gold));
+  color:#fff;font-size:13px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.nb-dd-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.nb-dd-info{flex:1;min-width:0;}
+.nb-dd-name{
+  font-size:13px;font-weight:700;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.nb-dd-meta{font-size:10px;color:var(--text2);margin-top:1px;}
+.nb-dd-badge{
+  flex-shrink:0;font-size:9px;font-weight:800;
+  color:var(--blue-lt);
+  background:rgba(93,173,226,.12);
+  border:1px solid rgba(93,173,226,.22);
+  border-radius:6px;padding:2px 7px;
+  white-space:nowrap;
+}
+.nb-dd-empty{
+  padding:28px 16px;text-align:center;
+  font-size:12px;color:var(--text2);line-height:1.6;
+}
+.nb-dd-footer{
+  padding:7px 14px;border-top:1px solid var(--border);
+  background:var(--surface2);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.nb-dd-footer-hint{font-size:10px;color:var(--text3);}
+[data-theme="light"] .nb-dropdown{
+  box-shadow:0 20px 60px rgba(0,0,0,.14),0 4px 20px rgba(0,0,0,.08);
+}
+[data-theme="light"] .nb-search-bar{background:#f0f5f9;}
+[data-theme="light"] .nb-search-bar:focus-within{background:#fff;}
+mark.nb-hl{
+  background:rgba(93,173,226,.28);color:inherit;
+  border-radius:2px;padding:0 1px;
+}
 
 /* theme toggle */
 .theme-toggle{
@@ -1186,16 +1394,7 @@ body::before{
 /* ════════════════════════════════════════════
    RESPONSIVE
 ════════════════════════════════════════════ */
-@media(max-width:640px){
-  .top-bar{padding:10px 14px;}
-  .brand-text .b-name{font-size:14px;}
-  #dashboard{padding:14px 12px 60px;}
-  .welcome-card{flex-direction:column;text-align:center;}
-  .welcome-card::after{display:none;}
-  .stats-grid{grid-template-columns:1fr 1fr;}
-  .act-btns{width:100%;}
-  .btn{flex:1;justify-content:center;}
-}
+
 
 /* ════════════════════════════════════════════
    AVATAR LOADING SPINNER
@@ -1344,6 +1543,23 @@ body::before{
       <div class="b-sub">Student Portal</div>
     </div>
   </div>
+
+  <!-- ── UNIVERSAL NAVBAR SEARCH ── -->
+  <div class="nb-search-wrap hidden" id="nb-search-wrap">
+    <div class="nb-search-bar" onclick="document.getElementById('nb-input').focus()">
+      <span class="nb-search-icon">🔍</span>
+      <input type="search" id="nb-input" class="nb-search-input"
+        placeholder="Search any student…"
+        autocomplete="off" spellcheck="false"
+        oninput="_nbOnInput()"
+        onfocus="_nbOnFocus()"
+        onkeydown="_nbOnKeydown(event)">
+      <button class="nb-clear-btn" id="nb-clear" onclick="_nbClear()" tabindex="-1" title="Clear">✕</button>
+      <div class="nb-search-hint"><span class="nb-kbd">?</span></div>
+    </div>
+    <div class="nb-dropdown" id="nb-dropdown"></div>
+  </div>
+
   <div class="topbar-right">
     <!-- theme toggle -->
     <span id="net-pill" title="Network status"><span class="net-dot"></span><span id="net-label">Online</span></span>
@@ -2102,6 +2318,9 @@ async function _onAuthSuccess(user){
   document.getElementById('pill-name').textContent  = currentAdminEmail;
   document.getElementById('pill-grade').textContent = 'Administrator';
   notify(`✅ Welcome, <strong>${currentAdminEmail}</strong>!`,'success',5000);
+  // Show universal search
+  const _nbW = document.getElementById('nb-search-wrap');
+  if(_nbW) _nbW.classList.remove('hidden');
   // No student loaded yet? Jump straight into the class/student picker
   // instead of leaving a blank dashboard behind the top bar.
   if(!allRecs || !allRecs.length){
@@ -2187,12 +2406,190 @@ function doSignOut(){
   document.getElementById('inp-admin-pass').value='';
   document.getElementById('pill-av').innerHTML = '?';
   document.getElementById('w-av').innerHTML    = '?';
+  // Hide search bar and clear it
+  const _nbW = document.getElementById('nb-search-wrap');
+  if(_nbW){ _nbW.classList.add('hidden'); }
+  const _nbI = document.getElementById('nb-input');
+  if(_nbI){ _nbI.value = ''; }
+  _nbCloseDD();
   notify('👋 Signed out.','info');
 }
 window.doSignOut = doSignOut;
 
 // ═══════════════════════════════════════════════════
-//  STUDENT SWITCHER
+//  UNIVERSAL NAVBAR SEARCH
+// ═══════════════════════════════════════════════════
+let _nbResults  = [];
+let _nbActiveIdx = -1;
+
+/* Build a flat list of all students from _swGradeMap */
+function _nbAllStudents(){
+  if(!_swGradeMap) return [];
+  const all = [];
+  _swGradeMap.forEach((map, grade)=>{
+    map.forEach(st=> all.push({ ...st, grade }));
+  });
+  return all;
+}
+
+/* Highlight matching substring */
+function _nbHl(text, q){
+  if(!q) return _esc(text);
+  return _esc(text).replace(
+    new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
+    '<mark class="nb-hl">$1</mark>'
+  );
+}
+function _esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function _nbRender(q){
+  const dd = document.getElementById('nb-dropdown');
+  const clearBtn = document.getElementById('nb-clear');
+  if(clearBtn) clearBtn.classList.toggle('on', !!q);
+  _nbResults = [];
+
+  const all = _nbAllStudents();
+  const ql  = q.toLowerCase();
+
+  let matches;
+  if(q){
+    // Score: name-starts-with > name-contains > asm-contains > grade-contains
+    matches = all
+      .map(st=>{
+        const n = st.name.toLowerCase(), a = st.asm.toLowerCase(), g = (st.grade||'').toLowerCase();
+        let score = 0;
+        if(n.startsWith(ql))      score = 4;
+        else if(n.includes(ql))   score = 3;
+        else if(a.includes(ql))   score = 2;
+        else if(g.includes(ql))   score = 1;
+        return score ? { ...st, score } : null;
+      })
+      .filter(Boolean)
+      .sort((a,b)=> b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, 14);
+  } else {
+    // No query → show recent history
+    const hist = _swHistory();
+    const allMap = new Map(all.map(s=>[s.asm, s]));
+    matches = hist.map(h=> allMap.get(h.asm) || { name:h.name, asm:h.asm, grade:'—' }).slice(0,7);
+  }
+
+  _nbResults = matches;
+
+  if(!matches.length){
+    dd.innerHTML = q
+      ? `<div class="nb-dd-empty">😕 No students match <strong>"${_esc(q)}"</strong><br><span style="font-size:11px;opacity:.7">Try a name, assessment no, or grade</span></div>`
+      : `<div class="nb-dd-empty">Start typing to search all students</div>`;
+    return;
+  }
+
+  const sectionLabel = q ? `${matches.length} result${matches.length!==1?'s':''}` : 'Recent';
+  dd.innerHTML = `
+    <div class="nb-dd-section">
+      <div class="nb-dd-label">${sectionLabel}</div>
+      ${matches.map((st,i)=>`
+        <button class="nb-dd-item" data-idx="${i}" onclick="_nbSelect(${i})">
+          <div class="nb-dd-av">${_esc((st.name[0]||'?').toUpperCase())}</div>
+          <div class="nb-dd-info">
+            <div class="nb-dd-name">${_nbHl(st.name, q)}</div>
+            <div class="nb-dd-meta">${_nbHl(st.asm, q)}</div>
+          </div>
+          <div class="nb-dd-badge">${_esc(st.grade||'—')}</div>
+        </button>`).join('')}
+    </div>
+    <div class="nb-dd-footer">
+      <span class="nb-dd-footer-hint">
+        <kbd class="nb-kbd">↑↓</kbd> navigate &nbsp;
+        <kbd class="nb-kbd">↵</kbd> select &nbsp;
+        <kbd class="nb-kbd">Esc</kbd> close
+      </span>
+      <span class="nb-dd-footer-hint">${all.length} students total</span>
+    </div>`;
+}
+
+function _nbOpenDD(){
+  const dd = document.getElementById('nb-dropdown');
+  if(dd) dd.classList.add('open');
+}
+function _nbCloseDD(){
+  const dd = document.getElementById('nb-dropdown');
+  if(dd) dd.classList.remove('open');
+  _nbActiveIdx = -1;
+}
+
+function _nbOnFocus(){
+  const q = (document.getElementById('nb-input').value||'').trim();
+  _nbRender(q);
+  _nbOpenDD();
+}
+function _nbOnInput(){
+  const q = (document.getElementById('nb-input').value||'').trim();
+  _nbActiveIdx = -1;
+  _nbRender(q);
+  _nbOpenDD();
+}
+function _nbClear(){
+  const inp = document.getElementById('nb-input');
+  if(inp){ inp.value=''; inp.focus(); }
+  _nbActiveIdx = -1;
+  _nbRender('');
+  _nbOpenDD();
+}
+function _nbHighlight(){
+  document.querySelectorAll('.nb-dd-item').forEach((el,i)=>{
+    el.classList.toggle('nb-active', i===_nbActiveIdx);
+    if(i===_nbActiveIdx) el.scrollIntoView({block:'nearest'});
+  });
+}
+function _nbOnKeydown(e){
+  const dd = document.getElementById('nb-dropdown');
+  const isOpen = dd && dd.classList.contains('open');
+  if(e.key==='Escape'){ _nbCloseDD(); e.preventDefault(); return; }
+  if(!isOpen) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    _nbActiveIdx = Math.min(_nbActiveIdx+1, _nbResults.length-1);
+    _nbHighlight();
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    _nbActiveIdx = Math.max(_nbActiveIdx-1, -1);
+    _nbHighlight();
+  } else if(e.key==='Enter'){
+    e.preventDefault();
+    if(_nbActiveIdx>=0) _nbSelect(_nbActiveIdx);
+    else if(_nbResults.length===1) _nbSelect(0);
+  }
+}
+async function _nbSelect(idx){
+  const st = _nbResults[idx];
+  if(!st) return;
+  _nbCloseDD();
+  document.getElementById('nb-input').value='';
+  document.getElementById('nb-clear').classList.remove('on');
+  await selectSwitcherStudent(st.asm);
+}
+window._nbSelect   = _nbSelect;
+window._nbOnInput  = _nbOnInput;
+window._nbOnFocus  = _nbOnFocus;
+window._nbOnKeydown= _nbOnKeydown;
+window._nbClear    = _nbClear;
+window._nbCloseDD  = _nbCloseDD;
+
+// Close dropdown on outside click
+document.addEventListener('mousedown', e=>{
+  const wrap = document.getElementById('nb-search-wrap');
+  if(wrap && !wrap.contains(e.target)) _nbCloseDD();
+});
+
+// ? or / focuses search bar when admin is logged in
+document.addEventListener('keydown', e=>{
+  if(!adminLoggedIn) return;
+  if((e.key==='/'||e.key==='?') && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){
+    e.preventDefault();
+    const inp = document.getElementById('nb-input');
+    if(inp){ inp.focus(); inp.select(); }
+  }
+});
 // ═══════════════════════════════════════════════════
 const SW_HISTORY_KEY = 'kss_sw_history';
 const SW_MAX = 6;
@@ -3582,9 +3979,8 @@ function openShareModal(){
               avg: parseFloat(calcStats(r).avg)||0,
               lbl: (()=>{
                 const t = r['Term']||'';
-                const grade = (t.match(/^(Grade\s*\d+)/i)||[])[1]||'';
-                const term  = (t.match(/((?:End|Mid)[-\s]*Term\s*\d+)/i)||[])[1]||'';
-                return [grade, term].filter(Boolean).join(' ').replace(/-/g,' ') || cleanTerm(t);
+                const m = t.match(/((?:End|Mid)[-\s]*Term\s*\d+)/i);
+                return m ? m[1].replace(/-/g,' ') : cleanTerm(t).split(' ').slice(-2).join(' ');
               })()
             }));
             if(pts.length < 2) return `<div style="font-size:7px;color:#5b87a6;margin-top:5px;">Not enough terms for graph</div>`;
@@ -3855,9 +4251,8 @@ async function bulkDownloadShareCardsForGrade(grade, format='png'){
         avg: parseFloat(calcStats(r).avg)||0,
         lbl: (()=>{
           const t = r['Term']||'';
-          const g2 = (t.match(/^(Grade\s*\d+)/i)||[])[1]||'';
-          const t2 = (t.match(/((?:End|Mid)[-\s]*Term\s*\d+)/i)||[])[1]||'';
-          return [g2,t2].filter(Boolean).join(' ').replace(/-/g,' ') || cleanTerm(t);
+          const m = t.match(/((?:End|Mid)[-\s]*Term\s*\d+)/i);
+          return m ? m[1].replace(/-/g,' ') : cleanTerm(t).split(' ').slice(-2).join(' ');
         })()
       }));
       if(pts.length < 2) return `<div style="font-size:7px;color:#5b87a6;margin-top:5px;">Not enough terms for graph</div>`;
