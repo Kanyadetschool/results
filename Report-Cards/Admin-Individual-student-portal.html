@@ -347,69 +347,23 @@ body::before{
 [data-theme="light"] .kbd{background:#eef2f7;border-color:rgba(41,128,185,.2);color:#3a6080;}
 
 /* user pill */
-/* ── USER AVATAR BUTTON + POPOVER ── */
 .user-pill{
-  display:none;position:relative;
-}
-.user-pill.on{display:block;}
-.u-av-btn{
-  width:36px;height:36px;border-radius:50%;
-  background:linear-gradient(135deg,var(--orange),var(--gold));
-  display:flex;align-items:center;justify-content:center;
-  font-size:14px;font-weight:800;color:#fff;
-  border:2px solid rgba(255,255,255,.25);
-  cursor:pointer;transition:var(--transition);
-  overflow:hidden;flex-shrink:0;
-  box-shadow:0 2px 8px rgba(230,126,34,.35);
-}
-.u-av-btn:hover{transform:scale(1.08);box-shadow:0 4px 14px rgba(230,126,34,.45);}
-.u-av-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-
-/* Popover */
-.u-popover{
-  position:absolute;top:calc(100% + 10px);right:0;
+  display:none;align-items:center;gap:8px;
   background:var(--surface);
-  border:1.5px solid var(--border-strong);
-  border-radius:16px;
-  box-shadow:0 20px 56px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.15);
-  min-width:240px;z-index:9999;
-  display:none;overflow:hidden;
-  transform-origin:top right;
+  border:1px solid var(--border);
+  border-radius:40px;padding:4px 12px 4px 5px;
+  transition:var(--transition);
 }
-.u-popover.open{display:block;animation:popIn .18s cubic-bezier(.34,1.56,.64,1);}
-@keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
-.u-pop-header{
-  display:flex;align-items:center;gap:12px;
-  padding:16px 16px 12px;
-  border-bottom:1px solid var(--border);
-}
-.u-pop-av{
-  width:44px;height:44px;border-radius:50%;flex-shrink:0;
+.user-pill.on{display:flex;}
+.w-av{
+  width:56px;height:56px;border-radius:14px;flex-shrink:0;
   background:linear-gradient(135deg,var(--orange),var(--gold));
   display:flex;align-items:center;justify-content:center;
-  font-size:18px;font-weight:800;color:#fff;
+  font-size:24px;font-weight:800;color:#fff;
+  box-shadow:0 6px 20px rgba(230,126,34,.3);
   overflow:hidden;
-  box-shadow:0 4px 12px rgba(230,126,34,.3);
 }
-.u-pop-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.u-pop-name{font-size:13px;font-weight:800;color:var(--text);line-height:1.3;word-break:break-all;}
-.u-pop-role{font-size:10px;color:var(--text2);margin-top:2px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
-.u-pop-item{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 16px;cursor:pointer;
-  font-size:12px;font-weight:700;color:var(--text2);
-  border:none;background:transparent;width:100%;text-align:left;
-  font-family:'Plus Jakarta Sans',sans-serif;
-  transition:background .15s,color .15s;
-}
-.u-pop-item:hover{background:var(--surface2);color:var(--text);}
-.u-pop-item.danger{color:#e74c3c;}
-.u-pop-item.danger:hover{background:rgba(231,76,60,.08);color:#e74c3c;}
-.u-pop-divider{height:1px;background:var(--border);margin:2px 0;}
-[data-theme="light"] .u-popover{box-shadow:0 20px 56px rgba(0,0,0,.14),0 4px 16px rgba(0,0,0,.07);}
-[data-theme="light"] .u-av-btn{border-color:rgba(255,255,255,.6);}
-
-/* legacy .u-av / .u-name / .u-grade kept for welcome card use */
+.w-av img{width:100%;height:100%;object-fit:cover;border-radius:14px;}
 .u-av{
   width:28px;height:28px;border-radius:50%;
   background:linear-gradient(135deg,var(--orange),var(--gold));
@@ -1514,22 +1468,14 @@ body::before{
       <span class="theme-icon sun">☀️</span>
     </button>
     <div class="user-pill" id="user-pill">
-      <button class="u-av-btn" id="pill-av" onclick="toggleUserPopover()" aria-label="Account menu">?</button>
-      <div class="u-popover" id="u-popover">
-        <div class="u-pop-header">
-          <div class="u-pop-av" id="pop-av">?</div>
-          <div>
-            <div class="u-pop-name" id="pill-name">Admin</div>
-            <div class="u-pop-role" id="pill-grade">Administrator</div>
-          </div>
-        </div>
-        <button class="u-pop-item" onclick="openSwitcher();closeUserPopover()">👤 Switch Student</button>
-        <button class="u-pop-item" onclick="openBulkShareModal();closeUserPopover()">📦 Bulk Share Cards</button>
-        <button class="u-pop-item" onclick="toggleTheme();closeUserPopover()">🌙 Toggle Theme</button>
-        <div class="u-pop-divider"></div>
-        <button class="u-pop-item danger" onclick="doSignOut()">🚪 Sign Out</button>
+      <div class="u-av" id="pill-av">?</div>
+      <div>
+        <div class="u-name"  id="pill-name">Student</div>
+        <div class="u-grade" id="pill-grade">–</div>
       </div>
     </div>
+    <button class="switch-student-btn" id="switch-student-btn" onclick="openSwitcher()">👤 Switch Student</button>
+    <button class="signout-btn" id="signout-btn" onclick="doSignOut()">🚪 Sign Out</button>
   </div>
 </div>
 
@@ -2342,20 +2288,19 @@ async function _onAuthSuccess(user){
   currentAdminEmail = user.email || user.displayName || 'Admin';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('user-pill').classList.add('on');
-  // Set avatar on button and popover header
-  const av    = document.getElementById('pill-av');
-  const popAv = document.getElementById('pop-av');
-  const wav   = document.getElementById('w-av');
+  document.getElementById('signout-btn').classList.add('on');
+  document.getElementById('switch-student-btn').classList.add('on');
+  // Set pill avatar from Google photo or initial
+  const av = document.getElementById('pill-av');
+  const wav = document.getElementById('w-av');
   if(user.photoURL){
-    const imgPill = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-    av.innerHTML    = imgPill;
-    if(popAv) popAv.innerHTML = imgPill;
-    if(wav)   wav.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
+    const img = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    av.innerHTML = img;
+    wav.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
   } else {
     const init = (currentAdminEmail[0]||'A').toUpperCase();
     av.textContent  = init;
-    if(popAv) popAv.textContent = init;
-    if(wav)   wav.textContent   = init;
+    wav.textContent = init;
   }
   document.getElementById('pill-name').textContent  = currentAdminEmail;
   document.getElementById('pill-grade').textContent = 'Administrator';
@@ -2434,7 +2379,6 @@ window.doAdminLogin = doAdminLogin;
 // ═══════════════════════════════════════════════════
 function doSignOut(){
   _stopSessionWatch();
-  closeUserPopover();
   sessionStorage.removeItem('kss_recs');
   allRecs=[]; activeIdx=0;
   adminLoggedIn=false; currentAdminEmail='';
@@ -2446,11 +2390,12 @@ function doSignOut(){
   document.getElementById('dashboard').classList.remove('on');
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('user-pill').classList.remove('on');
+  document.getElementById('signout-btn').classList.remove('on');
+  document.getElementById('switch-student-btn').classList.remove('on');
   document.getElementById('inp-admin-user').value='';
   document.getElementById('inp-admin-pass').value='';
-  document.getElementById('pill-av').textContent = '?';
-  const popAv = document.getElementById('pop-av'); if(popAv) popAv.textContent='?';
-  const wav = document.getElementById('w-av'); if(wav) wav.innerHTML='?';
+  document.getElementById('pill-av').innerHTML = '?';
+  document.getElementById('w-av').innerHTML    = '?';
   const nbWrap = document.getElementById('nb-search-wrap');
   if(nbWrap){ nbWrap.classList.add('hidden'); document.getElementById('nb-search-input').value=''; nbCloseDropdown(); }
   notify('👋 Signed out.','info');
@@ -2582,23 +2527,7 @@ function nbCloseDropdown(){
 document.addEventListener('mousedown', e=>{
   const wrap = document.getElementById('nb-search-wrap');
   if(wrap && !wrap.contains(e.target)) nbCloseDropdown();
-  // Also close user popover
-  const pill = document.getElementById('user-pill');
-  if(pill && !pill.contains(e.target)) closeUserPopover();
 });
-
-// ── User popover ──
-function toggleUserPopover(){
-  const pop = document.getElementById('u-popover');
-  if(!pop) return;
-  pop.classList.toggle('open');
-}
-function closeUserPopover(){
-  const pop = document.getElementById('u-popover');
-  if(pop) pop.classList.remove('open');
-}
-window.toggleUserPopover = toggleUserPopover;
-window.closeUserPopover  = closeUserPopover;
 
 // ? or / focuses the navbar search (overrides the kbd-hint toggle when search is visible)
 // This is handled in the main shortcut listener below by removing the / toggle
@@ -2833,6 +2762,8 @@ function renderDash(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('dashboard').classList.add('on');
   document.getElementById('user-pill').classList.add('on');
+  document.getElementById('signout-btn').classList.add('on');
+  document.getElementById('switch-student-btn').classList.add('on');
 
   // Set initial text fallback while photo loads
   document.getElementById('pill-av').textContent    = first[0]||'?';
