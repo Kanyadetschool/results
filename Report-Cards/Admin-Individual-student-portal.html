@@ -1514,7 +1514,7 @@ body::before{
       <span class="theme-icon sun">☀️</span>
     </button>
     <div class="user-pill" id="user-pill">
-      <button class="u-av-btn" id="pill-av" aria-label="Account menu"><span id="pill-av-inner">?</span></button>
+      <button class="u-av-btn" id="pill-av" onclick="toggleUserPopover()" aria-label="Account menu">?</button>
       <div class="u-popover" id="u-popover">
         <div class="u-pop-header">
           <div class="u-pop-av" id="pop-av">?</div>
@@ -2342,8 +2342,21 @@ async function _onAuthSuccess(user){
   currentAdminEmail = user.email || user.displayName || 'Admin';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('user-pill').classList.add('on');
-  // Set avatar on button inner span, popover header, and welcome card
-  _setAdminAvatar(user.photoURL, (currentAdminEmail[0]||'A').toUpperCase());
+  // Set avatar on button and popover header
+  const av    = document.getElementById('pill-av');
+  const popAv = document.getElementById('pop-av');
+  const wav   = document.getElementById('w-av');
+  if(user.photoURL){
+    const imgPill = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    av.innerHTML    = imgPill;
+    if(popAv) popAv.innerHTML = imgPill;
+    if(wav)   wav.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
+  } else {
+    const init = (currentAdminEmail[0]||'A').toUpperCase();
+    av.textContent  = init;
+    if(popAv) popAv.textContent = init;
+    if(wav)   wav.textContent   = init;
+  }
   document.getElementById('pill-name').textContent  = currentAdminEmail;
   document.getElementById('pill-grade').textContent = 'Administrator';
   notify(`✅ Welcome, <strong>${currentAdminEmail}</strong>!`,'success',5000);
@@ -2435,7 +2448,7 @@ function doSignOut(){
   document.getElementById('user-pill').classList.remove('on');
   document.getElementById('inp-admin-user').value='';
   document.getElementById('inp-admin-pass').value='';
-  const inner = document.getElementById('pill-av-inner'); if(inner) inner.textContent='?';
+  document.getElementById('pill-av').textContent = '?';
   const popAv = document.getElementById('pop-av'); if(popAv) popAv.textContent='?';
   const wav = document.getElementById('w-av'); if(wav) wav.innerHTML='?';
   const nbWrap = document.getElementById('nb-search-wrap');
@@ -2575,27 +2588,6 @@ document.addEventListener('mousedown', e=>{
 });
 
 // ── User popover ──
-document.addEventListener('DOMContentLoaded', ()=>{
-  const btn = document.getElementById('pill-av');
-  if(btn) btn.addEventListener('click', toggleUserPopover);
-});
-
-function _setAdminAvatar(photoURL, initial){
-  const inner = document.getElementById('pill-av-inner');
-  const popAv = document.getElementById('pop-av');
-  const wav   = document.getElementById('w-av');
-  if(photoURL){
-    const imgHtml = `<img src="${photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-    if(inner) inner.innerHTML = imgHtml;
-    if(popAv) popAv.innerHTML = imgHtml;
-    if(wav)   wav.innerHTML   = `<img src="${photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
-  } else {
-    if(inner) inner.textContent = initial;
-    if(popAv) popAv.textContent = initial;
-    if(wav)   wav.textContent   = initial;
-  }
-}
-
 function toggleUserPopover(){
   const pop = document.getElementById('u-popover');
   if(!pop) return;
@@ -2843,7 +2835,7 @@ function renderDash(){
   document.getElementById('user-pill').classList.add('on');
 
   // Set initial text fallback while photo loads
-  const _inner = document.getElementById('pill-av-inner'); if(_inner) _inner.textContent = first[0]||'?';
+  document.getElementById('pill-av').textContent    = first[0]||'?';
   document.getElementById('pill-name').textContent  = s['Official Student Name']||'–';
   document.getElementById('pill-grade').textContent = gShort(s['Grade']);
 
@@ -2857,8 +2849,8 @@ function renderDash(){
     <span class="bdg gold">📊 Avg ${stats.avg}%</span>`;
 
   // Photo: load from ./student_images/{Grade}/{Name}.jpg
-  loadPhotoInto(document.getElementById('w-av'), s['Official Student Name']||'', s['Grade']||'');
-  loadPhotoInto(document.getElementById('pop-av'), s['Official Student Name']||'', s['Grade']||'');
+  loadPhotoInto(document.getElementById('w-av'),    s['Official Student Name']||'', s['Grade']||'');
+  loadPhotoInto(document.getElementById('pill-av'), s['Official Student Name']||'', s['Grade']||'');
 
   // Update switcher history once photo resolves
   setTimeout(()=>{
