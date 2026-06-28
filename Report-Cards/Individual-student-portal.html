@@ -3528,9 +3528,9 @@ function openShareModal(){
               avg: parseFloat(calcStats(r).avg)||0,
               lbl: (()=>{
                 const t = r['Term']||'';
-                const grade = (t.match(/^(Grade\s*\d+)/i)||[])[1]||'';
-                const term  = (t.match(/((?:End|Mid)[-\s]*Term\s*\d+)/i)||[])[1]||'';
-                return [grade, term].filter(Boolean).join(' ').replace(/-/g,' ') || cleanTerm(t);
+                const m = t.match(/((?:End|Mid)[-\s]*Term[-\s]*\d+)/i);
+                if(m) return m[1].replace(/-/g,' ').replace(/\s+/g,' ').trim();
+                return cleanTerm(t);
               })()
             }));
             if(pts.length < 2) return `<div style="font-size:7px;color:#5b87a6;margin-top:5px;">Not enough terms for graph</div>`;
