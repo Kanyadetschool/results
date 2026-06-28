@@ -1499,6 +1499,179 @@ mark.nb-hl{
   background:rgba(230,126,34,.12);border:1px solid rgba(230,126,34,.3);
   color:#e67e22;border-radius:10px;padding:1px 8px;font-size:9.5px;font-weight:700;
 }
+
+/* ════════════════════════════════════════════
+   FLOAT SWITCH STUDENT BUTTON
+════════════════════════════════════════════ */
+.float-switch-btn{
+  position:fixed;right:18px;bottom:80px;z-index:4000;
+  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
+  color:#fff;border-radius:18px;
+  padding:10px 14px 10px 12px;
+  display:none;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(41,128,185,.4),0 2px 8px rgba(0,0,0,.18);
+  border:1.5px solid rgba(93,173,226,.35);
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+  user-select:none;
+}
+.float-switch-btn.on{display:flex;animation:floatIn .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes floatIn{from{transform:scale(0) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.float-switch-btn:hover{transform:scale(1.08) translateY(-2px);box-shadow:0 12px 32px rgba(41,128,185,.55);}
+.float-switch-btn:active{transform:scale(.97);}
+.float-switch-icon{font-size:20px;line-height:1;}
+.float-switch-label{font-size:9px;font-weight:800;text-align:center;letter-spacing:.04em;line-height:1.2;text-transform:uppercase;}
+
+/* Reposition when on mobile */
+@media(max-width:480px){
+  .float-switch-btn{right:12px;bottom:70px;}
+}
+
+/* ════════════════════════════════════════════
+   KEYBOARD SHORTCUT PANEL
+════════════════════════════════════════════ */
+.shortcut-panel{
+  position:fixed;bottom:80px;left:18px;z-index:4000;
+  background:var(--surface);
+  border:1.5px solid var(--border-strong);
+  border-radius:var(--radius-lg);
+  padding:0;
+  width:280px;
+  box-shadow:0 16px 48px rgba(0,0,0,.32);
+  display:none;
+  animation:scPanelIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+.shortcut-panel.on{display:block;}
+@keyframes scPanelIn{from{transform:translateY(12px) scale(.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.sc-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:800;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.07em;
+}
+.sc-close{
+  background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;transition:background .15s;
+}
+.sc-close:hover{background:var(--surface2);color:var(--text);}
+.sc-grid{padding:8px 10px 12px;display:flex;flex-direction:column;gap:2px;}
+.sc-item{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 6px;border-radius:8px;
+  font-size:11.5px;color:var(--text2);
+  transition:background .12s;
+}
+.sc-item:hover{background:rgba(41,128,185,.08);}
+.sc-item span{flex:1;}
+.sc-item kbd{flex-shrink:0;}
+
+/* ════════════════════════════════════════════
+   STACKED TIMELINE (COLLAPSIBLE STAGES)
+════════════════════════════════════════════ */
+.tl-stacked{
+  display:flex;flex-direction:column;gap:0;
+  margin-bottom:18px;
+}
+.tl-stage{
+  border:1px solid var(--border);
+  border-radius:0;
+  background:var(--surface);
+  transition:var(--transition);
+  overflow:hidden;
+}
+.tl-stage:first-child{border-radius:var(--radius-md) var(--radius-md) 0 0;}
+.tl-stage:last-child{border-radius:0 0 var(--radius-md) var(--radius-md);}
+.tl-stage:only-child{border-radius:var(--radius-md);}
+.tl-stage + .tl-stage{border-top:none;}
+.tl-stage.tl-active{
+  background:rgba(41,128,185,.07);
+  border-color:var(--border-strong);
+  z-index:1;position:relative;
+}
+.tl-stage-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 16px;cursor:pointer;
+  user-select:none;
+  transition:background .15s;
+}
+.tl-stage-hdr:hover{background:rgba(41,128,185,.06);}
+.tl-stage-dot{
+  width:12px;height:12px;border-radius:50%;flex-shrink:0;
+  border:2.5px solid var(--bg);
+  box-shadow:0 0 0 2px currentColor;
+}
+.tl-stage.tl-active .tl-stage-dot{
+  box-shadow:0 0 0 3px rgba(41,128,185,.35);
+}
+.tl-stage-term{
+  font-size:13px;font-weight:800;color:var(--text);flex:1;
+  display:flex;align-items:center;gap:7px;
+}
+.tl-stage-cur{
+  font-size:9px;font-weight:800;
+  background:var(--blue);color:#fff;
+  padding:2px 7px;border-radius:8px;letter-spacing:.03em;
+}
+.tl-stage-avg{
+  font-size:18px;font-weight:800;
+  font-family:'JetBrains Mono',monospace;
+  line-height:1;
+}
+.tl-stage-level{
+  font-size:10px;font-weight:600;color:var(--text2);
+  text-align:right;line-height:1.2;
+  max-width:80px;
+}
+.tl-stage-chev{
+  font-size:12px;color:var(--text3);
+  transition:transform .25s;flex-shrink:0;
+}
+.tl-stage.tl-open .tl-stage-chev{transform:rotate(180deg);}
+
+.tl-stage-body{
+  display:none;
+  padding:0 16px 14px 40px;
+  border-top:1px dashed var(--border);
+}
+.tl-stage.tl-open .tl-stage-body{display:block;}
+
+.tl-stage-bar-wrap{
+  height:5px;background:var(--border);border-radius:3px;
+  overflow:hidden;margin-bottom:10px;margin-top:8px;
+}
+.tl-stage-bar-fill{height:100%;border-radius:3px;transition:width 1s cubic-bezier(.22,1,.36,1);}
+
+.tl-subj-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.tl-chip{
+  font-size:10px;padding:3px 8px;border-radius:10px;
+  font-weight:700;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+}
+.tl-chip:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12);}
+
+.tl-stage-actions{display:flex;gap:7px;margin-top:4px;}
+.tl-act-btn{
+  padding:5px 11px;border-radius:8px;
+  background:var(--surface2);border:1.5px solid var(--border);
+  color:var(--text2);font-size:10.5px;font-weight:700;
+  cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;
+  transition:var(--transition);
+}
+.tl-act-btn:hover{border-color:var(--blue-lt);color:var(--blue-lt);}
+.tl-act-btn.active{
+  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
+  border-color:var(--blue);color:#fff;
+}
+
+.tl-delta{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:700;padding:2px 8px;
+  border-radius:9px;margin-left:6px;
+}
+.tl-delta.up{background:rgba(39,174,96,.12);color:#4dbb77;}
+.tl-delta.dn{background:rgba(231,76,60,.10);color:#e25b4b;}
+.tl-delta.eq{background:rgba(128,128,128,.10);color:var(--text3);}
 </style>
 </head>
 <body>
@@ -1662,10 +1835,47 @@ mark.nb-hl{
   </div>
 </div>
 
+<!-- ── FLOAT SWITCH STUDENT BTN ── -->
+<div id="float-switch-btn" class="float-switch-btn" onclick="openSwitcher()" title="Switch Student (Shortcut: W)" style="display:none">
+  <span class="float-switch-icon">👤</span>
+  <span class="float-switch-label">Switch<br>Student</span>
+</div>
+
+<!-- ── SHORTCUT HELP PANEL ── -->
+<div id="shortcut-panel" class="shortcut-panel" style="display:none">
+  <div class="sc-hdr">
+    <span>⌨️ Keyboard Shortcuts</span>
+    <button class="sc-close" onclick="document.getElementById('shortcut-panel').classList.remove('on')">✕</button>
+  </div>
+  <div class="sc-grid">
+    <div class="sc-item"><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd><span>Switch terms</span></div>
+    <div class="sc-item"><kbd class="kbd">P</kbd><span>Preview report card</span></div>
+    <div class="sc-item"><kbd class="kbd">S</kbd><span>Share results</span></div>
+    <div class="sc-item"><kbd class="kbd">W</kbd><span>Switch student</span></div>
+    <div class="sc-item"><kbd class="kbd">1</kbd><span>Jump to Profile</span></div>
+    <div class="sc-item"><kbd class="kbd">2</kbd><span>Jump to Results</span></div>
+    <div class="sc-item"><kbd class="kbd">3</kbd><span>Jump to Timeline</span></div>
+    <div class="sc-item"><kbd class="kbd">4</kbd><span>Jump to Charts</span></div>
+    <div class="sc-item"><kbd class="kbd">G</kbd><span>Grade Scale</span></div>
+    <div class="sc-item"><kbd class="kbd">?</kbd><span>This help panel</span></div>
+    <div class="sc-item"><kbd class="kbd">Esc</kbd><span>Close modal / panel</span></div>
+  </div>
+</div>
+
 <!-- ── DASHBOARD ── -->
 <div id="dashboard">
 
-  <!-- Achievements -->
+  <!-- Welcome / Student Profile FIRST -->
+  <div class="welcome-card" id="section-profile">
+    <div class="w-av" id="w-av">?</div>
+    <div class="w-txt">
+      <h2 id="w-name">Welcome!</h2>
+      <p  id="w-sub">Loading academic records…</p>
+      <div class="badge-row" id="badge-row"></div>
+    </div>
+  </div>
+
+  <!-- Achievements (now below profile) -->
   <div id="achievements-section" style="display:none">
     <div class="sec-hdr">
       <h3>🏆 Achievements</h3>
@@ -1674,26 +1884,10 @@ mark.nb-hl{
     <div class="achievements-row" id="achievements-row"></div>
   </div>
 
-  <!-- Term Timeline (shown when multi-term) -->
+  <!-- Term Timeline (shown when multi-term) — stacked collapsible stages -->
   <div id="timeline-section" style="display:none">
     <div class="sec-hdr"><h3>📅 Academic Journey</h3></div>
-    <div class="timeline-card">
-      <div class="timeline-title">📅 Term-by-Term Timeline</div>
-      <div class="tl-wrap">
-        <div class="tl-line"></div>
-        <div id="tl-body"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Welcome -->
-  <div class="welcome-card">
-    <div class="w-av" id="w-av">?</div>
-    <div class="w-txt">
-      <h2 id="w-name">Welcome!</h2>
-      <p  id="w-sub">Loading academic records…</p>
-      <div class="badge-row" id="badge-row"></div>
-    </div>
+    <div class="tl-stacked" id="tl-stacked"></div>
   </div>
 
   <!-- Term Tabs -->
@@ -1705,7 +1899,7 @@ mark.nb-hl{
   <div class="stats-grid" id="stats-grid"></div>
 
   <!-- Results -->
-  <div class="sec-hdr">
+  <div class="sec-hdr" id="section-results">
     <h3>Academic Results</h3>
     <div class="act-btns">
       <button class="btn btn-outline" onclick="openPreview()">📄 View Report Card</button>
@@ -1721,7 +1915,7 @@ mark.nb-hl{
   <div class="insights-row" id="insights-row"></div>
 
   <!-- Charts -->
-  <div class="charts-row" id="charts-row">
+  <div class="charts-row" id="charts-row" data-section="section-charts">
     <div class="chart-card">
       <div class="chart-card-title">📊 Subject Performance</div>
       <div class="chart-wrap"><canvas id="chart-radar"></canvas></div>
@@ -1807,11 +2001,14 @@ mark.nb-hl{
 
   <!-- Keyboard shortcuts hint -->
   <div class="kbd-hint" id="kbd-hint" style="display:none">
-    <span>⌨️ Keyboard:</span>
-    <span><kbd class="kbd">←</kbd> <kbd class="kbd">→</kbd> switch terms</span>
-    <span><kbd class="kbd">Esc</kbd> close modal</span>
-    <span><kbd class="kbd">P</kbd> preview report card</span>
-    <span><kbd class="kbd">S</kbd> share results</span>
+    <span>⌨️ Shortcuts:</span>
+    <span><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> terms</span>
+    <span><kbd class="kbd">1</kbd>–<kbd class="kbd">4</kbd> jump to section</span>
+    <span><kbd class="kbd">P</kbd> preview</span>
+    <span><kbd class="kbd">S</kbd> share</span>
+    <span><kbd class="kbd">W</kbd> switch student</span>
+    <span><kbd class="kbd">G</kbd> grade scale</span>
+    <span><kbd class="kbd">?</kbd> all shortcuts</span>
   </div>
 
 </div><!-- /dashboard -->
@@ -2412,6 +2609,11 @@ function doSignOut(){
   const _nbI = document.getElementById('nb-input');
   if(_nbI){ _nbI.value = ''; }
   _nbCloseDD();
+  // Hide float switch button
+  const floatHide = document.getElementById('float-switch-btn');
+  if(floatHide) floatHide.classList.remove('on');
+  const spHide = document.getElementById('shortcut-panel');
+  if(spHide) spHide.classList.remove('on');
   notify('👋 Signed out.','info');
 }
 window.doSignOut = doSignOut;
@@ -3580,22 +3782,54 @@ function renderComparison(){
 }
 
 // ═══════════════════════════════════════════════════
-//  KEYBOARD SHORTCUTS
+//  KEYBOARD SHORTCUTS (extended)
 // ═══════════════════════════════════════════════════
 document.addEventListener('keydown', e=>{
   const modalOpen = document.getElementById('modal-overlay').classList.contains('on');
   const dashOpen  = document.getElementById('dashboard').classList.contains('on');
+  const tag       = document.activeElement.tagName;
+  const inInput   = tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
 
-  if(e.key==='Escape' && modalOpen){ closeModal(); return; }
-  if(!dashOpen) return;
+  if(e.key==='Escape'){
+    if(modalOpen){ closeModal(); return; }
+    // Close shortcut panel
+    const sp = document.getElementById('shortcut-panel');
+    if(sp && sp.classList.contains('on')){ sp.classList.remove('on'); return; }
+    return;
+  }
 
+  if(!dashOpen || inInput) return;
+
+  // Term navigation
   if(e.key==='ArrowLeft' && activeIdx>0 && !modalOpen){
-    activeIdx--; renderDash();
-  } else if(e.key==='ArrowRight' && activeIdx<allRecs.length-1 && !modalOpen){
-    activeIdx++; renderDash();
-  } else if((e.key==='p'||e.key==='P') && !modalOpen && !e.ctrlKey && !e.metaKey){
-    const tag = document.activeElement.tagName;
-    if(tag!=='INPUT'&&tag!=='TEXTAREA') openPreview();
+    activeIdx--; renderDash(); return;
+  }
+  if(e.key==='ArrowRight' && activeIdx<allRecs.length-1 && !modalOpen){
+    activeIdx++; renderDash(); return;
+  }
+
+  // Action shortcuts
+  if((e.key==='p'||e.key==='P') && !modalOpen && !e.ctrlKey && !e.metaKey){ openPreview(); return; }
+  if((e.key==='s'||e.key==='S') && !modalOpen){ openShareModal(); return; }
+  if((e.key==='g'||e.key==='G') && !modalOpen){ openScaleModal(); return; }
+  if((e.key==='w'||e.key==='W') && !modalOpen){ openSwitcher(); return; }
+
+  // Section jumps (number keys)
+  const sectionMap = {
+    '1':'section-profile','2':'section-results',
+    '3':'timeline-section','4':'charts-row'
+  };
+  if(sectionMap[e.key] && !modalOpen){
+    const el = document.getElementById(sectionMap[e.key]);
+    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+
+  // Shortcut help panel toggle
+  if(e.key==='?'){
+    const sp = document.getElementById('shortcut-panel');
+    if(sp) sp.classList.toggle('on');
+    return;
   }
 });
 
@@ -3617,7 +3851,10 @@ renderDash = function(){
   renderComparison();
   // Show keyboard hint once logged in
   const hint = document.getElementById('kbd-hint');
-  if(hint) hint.style.display='flex';
+  if(hint){ hint.style.display='flex'; }
+  // Show float switch button
+  const floatBtn = document.getElementById('float-switch-btn');
+  if(floatBtn) floatBtn.classList.add('on');
   // New features
   renderAchievements(s, stats);
   renderTimeline();
@@ -3680,31 +3917,90 @@ function renderAchievements(s, stats){
 }
 
 // ═══════════════════════════════════════════════════
-//  ACADEMIC TIMELINE
+//  ACADEMIC TIMELINE — stacked collapsible stages
 // ═══════════════════════════════════════════════════
+let _tlOpenSet = new Set();
 function renderTimeline(){
   const section = document.getElementById('timeline-section');
   if(allRecs.length < 2){ section.style.display='none'; return; }
   section.style.display='';
-  const body = document.getElementById('tl-body');
-  body.innerHTML = allRecs.map((rec,i)=>{
-    const st = calcStats(rec);
-    const avg = parseFloat(st.avg);
-    const color = avg>=75?'#27ae60':avg>=58?'#f39c12':avg>=41?'#e67e22':'#e74c3c';
+  const container = document.getElementById('tl-stacked');
+  if(!container) return;
+
+  // Auto-open current and prev term on first render
+  if(_tlOpenSet.size===0){
+    _tlOpenSet.add(activeIdx);
+    if(activeIdx>0) _tlOpenSet.add(activeIdx-1);
+  }
+
+  container.innerHTML = allRecs.map((rec,i)=>{
+    const st   = calcStats(rec);
+    const avg  = parseFloat(st.avg);
+    const color= avg>=90?'#27ae60':avg>=75?'#2ecc71':avg>=58?'#f39c12':avg>=41?'#e67e22':'#e74c3c';
     const isActive = i===activeIdx;
-    const topSubjs = getSubjects(rec).map(s=>({s,v:parseFloat(rec[s])})).filter(x=>!isNaN(x.v)).sort((a,b)=>b.v-a.v).slice(0,3);
-    return `<div class="tl-item">
-      <div class="tl-dot${isActive?' active':''}" style="background:${color}"></div>
-      <div style="cursor:pointer" onclick="activeIdx=${i};renderDash()">
-        <div class="tl-term" style="color:${isActive?'var(--blue-lt)':'var(--text)'}">${cleanTerm(rec['Term'])}${isActive?' <span style="font-size:9px;background:var(--blue);color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px">Current</span>':''}</div>
-        <div class="tl-avg" style="color:${color}">${st.avg}%</div>
-        <div class="tl-level">${st.level} — ${st.label}</div>
-        <div class="tl-bar-wrap"><div class="tl-bar-fill" style="width:${avg}%;background:${color}"></div></div>
-        <div class="tl-subjects">${topSubjs.map(x=>`<span class="tl-s" style="background:${color}22;color:${color}">${x.s.split(' ')[0]} ${x.v}</span>`).join('')}</div>
+    const isOpen   = _tlOpenSet.has(i);
+
+    // Delta vs prev
+    let deltaHtml = '';
+    if(i>0){
+      const prevAvg = parseFloat(calcStats(allRecs[i-1]).avg);
+      const d = (avg - prevAvg).toFixed(1);
+      const cls = d>0?'up':d<0?'dn':'eq';
+      const arrow = d>0?'▲':d<0?'▼':'—';
+      deltaHtml = `<span class="tl-delta ${cls}">${arrow} ${Math.abs(d)}%</span>`;
+    }
+
+    // All subjects for chips
+    const subjs = getSubjects(rec).map(s=>({s,v:parseFloat(rec[s])})).filter(x=>!isNaN(x.v))
+      .sort((a,b)=>b.v-a.v);
+    const chipsHtml = subjs.map(x=>{
+      const c2 = x.v>=90?'#27ae60':x.v>=75?'#2980b9':x.v>=58?'#f39c12':x.v>=41?'#e67e22':'#e74c3c';
+      return `<span class="tl-chip" style="background:${c2}22;color:${c2};border:1px solid ${c2}44" title="${x.s}">${x.s.length>12?x.s.slice(0,11)+'…':x.s} <strong>${x.v}</strong></span>`;
+    }).join('');
+
+    return `<div class="tl-stage${isActive?' tl-active':''}${isOpen?' tl-open':''}" data-tl-idx="${i}">
+      <div class="tl-stage-hdr" onclick="_tlToggle(${i})">
+        <div class="tl-stage-dot" style="color:${color};background:${color}"></div>
+        <div class="tl-stage-term">
+          ${cleanTerm(rec['Term'])}
+          ${isActive?`<span class="tl-stage-cur">Current</span>`:''}
+          ${deltaHtml}
+        </div>
+        <div style="text-align:right">
+          <div class="tl-stage-avg" style="color:${color}">${st.avg}%</div>
+          <div style="font-size:9.5px;color:var(--text3);margin-top:1px">${st.level}</div>
+        </div>
+        <div class="tl-stage-chev">▼</div>
+      </div>
+      <div class="tl-stage-body">
+        <div class="tl-stage-bar-wrap">
+          <div class="tl-stage-bar-fill" style="width:${avg}%;background:${color}"></div>
+        </div>
+        <div class="tl-subj-chips">${chipsHtml}</div>
+        <div class="tl-stage-actions">
+          <button class="tl-act-btn${isActive?' active':''}" onclick="activeIdx=${i};renderDash();_scrollTo('section-results')">
+            ${isActive?'✓ Viewing':'👁 View Results'}
+          </button>
+          <button class="tl-act-btn" onclick="activeIdx=${i};renderDash();openPreview()">📄 Report Card</button>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
+
+function _tlToggle(idx){
+  if(_tlOpenSet.has(idx)) _tlOpenSet.delete(idx);
+  else _tlOpenSet.add(idx);
+  // Re-render just the timeline to reflect open/closed states
+  renderTimeline();
+}
+window._tlToggle = _tlToggle;
+
+function _scrollTo(id){
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+window._scrollTo = _scrollTo;
 
 // ═══════════════════════════════════════════════════
 //  SCORE HEATMAP
