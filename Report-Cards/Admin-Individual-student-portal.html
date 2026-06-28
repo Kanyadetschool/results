@@ -109,99 +109,8 @@ body::before{
 }
 
 /* ════════════════════════════════════════════
-   NAVBAR SEARCH BAR
+   TOP BAR
 ════════════════════════════════════════════ */
-.nb-search-wrap{
-  flex:1;max-width:420px;margin:0 18px;position:relative;
-}
-.nb-search-wrap.hidden{display:none;}
-.nb-search-inner{
-  display:flex;align-items:center;gap:8px;
-  background:var(--surface2);
-  border:1.5px solid var(--border);
-  border-radius:24px;
-  padding:7px 14px 7px 12px;
-  transition:border-color .2s, box-shadow .2s, background .2s;
-  cursor:text;
-}
-.nb-search-inner:focus-within{
-  border-color:var(--blue-lt);
-  background:var(--surface);
-  box-shadow:0 0 0 3px rgba(93,173,226,.15);
-}
-.nb-search-icon{font-size:14px;flex-shrink:0;opacity:.6;}
-.nb-search-input{
-  border:none;background:transparent;outline:none;
-  font-family:'Plus Jakarta Sans',sans-serif;
-  font-size:13px;font-weight:600;color:var(--text);
-  width:100%;min-width:0;
-}
-.nb-search-input::placeholder{color:var(--text3);font-weight:500;}
-.nb-search-kbd{
-  flex-shrink:0;display:flex;align-items:center;gap:4px;
-  opacity:.5;transition:opacity .2s;
-}
-.nb-search-inner:focus-within .nb-search-kbd{opacity:0;pointer-events:none;}
-.nb-kbd{
-  font-size:9px;font-weight:700;color:var(--text2);
-  background:var(--surface);border:1px solid var(--border-strong);
-  border-radius:4px;padding:2px 5px;font-family:'Plus Jakarta Sans',sans-serif;
-  letter-spacing:.03em;
-}
-
-/* dropdown */
-.nb-dropdown{
-  position:absolute;top:calc(100% + 8px);left:0;right:0;
-  background:var(--surface);
-  border:1.5px solid var(--border-strong);
-  border-radius:14px;
-  box-shadow:0 16px 48px rgba(0,0,0,.28),0 4px 16px rgba(0,0,0,.14);
-  z-index:9999;overflow:hidden;
-  display:none;max-height:360px;overflow-y:auto;
-}
-.nb-dropdown.open{display:block;}
-.nb-dd-section{padding:8px 0 4px;}
-.nb-dd-label{
-  font-size:9px;font-weight:800;color:var(--text3);
-  letter-spacing:.1em;text-transform:uppercase;
-  padding:0 14px 4px;
-}
-.nb-dd-item{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 14px;cursor:pointer;
-  transition:background .15s;border:none;background:transparent;
-  width:100%;text-align:left;font-family:'Plus Jakarta Sans',sans-serif;
-}
-.nb-dd-item:hover,.nb-dd-item.active{background:rgba(93,173,226,.10);}
-.nb-dd-item.active{border-left:3px solid var(--blue-lt);}
-.nb-dd-av{
-  width:30px;height:30px;border-radius:50%;flex-shrink:0;
-  background:linear-gradient(135deg,var(--orange),var(--gold));
-  color:#fff;font-size:12px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;overflow:hidden;
-}
-.nb-dd-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.nb-dd-info{min-width:0;flex:1;}
-.nb-dd-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.nb-dd-meta{font-size:10px;color:var(--text2);margin-top:1px;}
-.nb-dd-grade-badge{
-  font-size:9px;font-weight:800;color:var(--blue-lt);
-  background:rgba(93,173,226,.12);border:1px solid rgba(93,173,226,.2);
-  border-radius:6px;padding:2px 7px;flex-shrink:0;
-}
-.nb-dd-empty{
-  padding:28px 14px;text-align:center;
-  font-size:12px;color:var(--text2);
-}
-.nb-dd-footer{
-  padding:8px 14px;border-top:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-  background:var(--surface2);
-}
-.nb-dd-footer-hint{font-size:10px;color:var(--text3);}
-[data-theme="light"] .nb-dropdown{box-shadow:0 16px 48px rgba(0,0,0,.14),0 4px 16px rgba(0,0,0,.08);}
-[data-theme="light"] .nb-search-inner{background:#f0f5f9;}
-[data-theme="light"] .nb-search-inner:focus-within{background:#fff;}
 .top-bar{
   display:flex;align-items:center;justify-content:space-between;
   padding:12px 28px;
@@ -225,13 +134,7 @@ body::before{
 .brand-text .b-name{font-size:16px;font-weight:800;color:var(--text);line-height:1.1;}
 .brand-text .b-sub{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:.04em;}
 
-.topbar-right{
-  display:flex;align-items:center;gap:10px;
-  overflow-x:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;flex-shrink:1;min-width:0;
-  padding-bottom:2px; /* prevent clipping on scroll */
-}
-.topbar-right::-webkit-scrollbar{display:none;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
 
 /* theme toggle */
 .theme-toggle{
@@ -413,7 +316,7 @@ body::before{
   border-bottom:1px solid var(--border);
 }
 #switcher-drawer.open{
-  max-height:620px;
+  max-height:540px;
   box-shadow:0 6px 24px rgba(0,0,0,.18);
 }
 .sw-inner{padding:16px 22px 18px;max-width:1180px;margin:0 auto;}
@@ -1441,25 +1344,6 @@ body::before{
       <div class="b-sub">Student Portal</div>
     </div>
   </div>
-
-  <!-- ── NAVBAR SEARCH ── -->
-  <div class="nb-search-wrap hidden" id="nb-search-wrap">
-    <div class="nb-search-inner" onclick="document.getElementById('nb-search-input').focus()">
-      <span class="nb-search-icon">🔍</span>
-      <input type="search" id="nb-search-input" class="nb-search-input"
-        placeholder="Search any student…"
-        autocomplete="off" spellcheck="false"
-        oninput="nbSearchInput()"
-        onfocus="nbSearchFocus()"
-        onkeydown="nbSearchKeydown(event)">
-      <div class="nb-search-kbd">
-        <span class="nb-kbd">?</span>
-      </div>
-    </div>
-    <!-- Dropdown -->
-    <div class="nb-dropdown" id="nb-dropdown"></div>
-  </div>
-
   <div class="topbar-right">
     <!-- theme toggle -->
     <span id="net-pill" title="Network status"><span class="net-dot"></span><span id="net-label">Online</span></span>
@@ -1543,9 +1427,8 @@ body::before{
     <!-- Previously viewed students chips -->
     <div id="sw-history" class="sw-history"></div>
     <div class="sw-fields">
-      <!-- Grade select + live filter on one row -->
-      <div style="display:flex;align-items:flex-end;gap:10px;">
-        <div class="fg" style="flex:1.2;margin-bottom:0">
+      <div class="sw-row">
+        <div class="fg" style="flex:1;margin-bottom:0">
           <label>📚 Class / Grade</label>
           <div class="iw">
             <span class="ii">📚</span>
@@ -1554,22 +1437,7 @@ body::before{
             </select>
           </div>
         </div>
-        <!-- Live student filter (hidden until grade is selected) -->
-        <div id="sw-filter-row" style="display:none;flex:1;margin-bottom:0;">
-          <label style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em;display:block;">🔍 Filter Student</label>
-          <div class="iw" style="position:relative;">
-            <span class="ii">🔍</span>
-            <input type="search" id="sw-filter-input"
-              placeholder="Name or Asm No…"
-              autocomplete="off" spellcheck="false"
-              oninput="onSwitcherFilterInput()"
-              style="width:100%;padding:12px 36px 12px 42px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;outline:none;transition:var(--transition);">
-            <button id="sw-filter-clear" onclick="clearSwitcherFilter()" title="Clear"
-              style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:14px;padding:0;line-height:1;">✕</button>
-          </div>
-        </div>
       </div>
-      <div id="sw-filter-count" style="font-size:10px;color:var(--text2);margin-top:5px;text-align:right;display:none;"></div>
       <div id="sw-roster" class="sw-roster">
         <div class="sw-roster-hint">👆 Select a grade above to see its students.</div>
       </div>
@@ -1723,15 +1591,11 @@ body::before{
 
   <!-- Keyboard shortcuts hint -->
   <div class="kbd-hint" id="kbd-hint" style="display:none">
-    <span>⌨️ Shortcuts:</span>
+    <span>⌨️ Keyboard:</span>
     <span><kbd class="kbd">←</kbd> <kbd class="kbd">→</kbd> switch terms</span>
-    <span><kbd class="kbd">G</kbd> switcher</span>
-    <span><kbd class="kbd">P</kbd> preview card</span>
-    <span><kbd class="kbd">S</kbd> share results</span>
-    <span><kbd class="kbd">B</kbd> bulk share</span>
-    <span><kbd class="kbd">T</kbd> theme</span>
     <span><kbd class="kbd">Esc</kbd> close modal</span>
-    <span><kbd class="kbd">?</kbd> focus search</span>
+    <span><kbd class="kbd">P</kbd> preview report card</span>
+    <span><kbd class="kbd">S</kbd> share results</span>
   </div>
 
 </div><!-- /dashboard -->
@@ -2177,91 +2041,24 @@ document.addEventListener('keydown', e=>{
 let adminLoggedIn    = false;
 let currentAdminEmail = '';
 
-// ═══════════════════════════════════════════════════
-//  SESSION TIMEOUT — 5 minutes, resets on activity
-// ═══════════════════════════════════════════════════
-const SESSION_MS      = 5 * 60 * 1000;   // 5 minutes
-const SESSION_WARN_MS = 4 * 60 * 1000;   // warn at 4 min (1 min left)
-let _sessionTimer  = null;
-let _sessionWarnTimer = null;
-let _sessionWarnNotifId = null;
-
-function _clearSessionTimers(){
-  clearTimeout(_sessionTimer);
-  clearTimeout(_sessionWarnTimer);
-  _sessionTimer = _sessionWarnTimer = null;
-}
-
-function _resetSession(){
-  if(!adminLoggedIn) return;
-  _clearSessionTimers();
-  // Dismiss the warning toast if it's showing
-  if(_sessionWarnNotifId !== null){
-    const el = document.getElementById('notif-'+_sessionWarnNotifId);
-    if(el) el.remove();
-    _sessionWarnNotifId = null;
-  }
-  _sessionWarnTimer = setTimeout(()=>{
-    _sessionWarnNotifId = Date.now();
-    notify(`⏳ Session expires in <strong>1 minute</strong> — move the mouse to stay logged in.`,'warning', 60000);
-  }, SESSION_WARN_MS);
-  _sessionTimer = setTimeout(()=>{
-    notify('🔒 Session expired. Please sign in again.','error',6000);
-    doSignOut();
-  }, SESSION_MS);
-}
-
-function _startSessionWatch(){
-  _resetSession();
-  ['mousemove','keydown','click','touchstart','scroll'].forEach(ev=>{
-    window.addEventListener(ev, _resetSession, { passive:true });
-  });
-}
-
-function _stopSessionWatch(){
-  _clearSessionTimers();
-  ['mousemove','keydown','click','touchstart','scroll'].forEach(ev=>{
-    window.removeEventListener(ev, _resetSession);
-  });
-}
-
 function _watchAuthState(app){
   const { getAuth, onAuthStateChanged } = window._fb;
-  onAuthStateChanged(getAuth(app), async user=>{
-    if(!user || user.isAnonymous){
-      // signed out externally — ensure UI reflects that
-      if(adminLoggedIn) doSignOut();
-      return;
+  onAuthStateChanged(getAuth(app), user=>{
+    if(user && !user.isAnonymous && adminLoggedIn){
+      // session already restored — nothing to do
+    } else if(user && !user.isAnonymous){
+      // page refreshed while signed in
+      const saved = sessionStorage.getItem('kss_recs');
+      if(saved){
+        try{
+          allRecs = JSON.parse(saved); activeIdx = allRecs.length-1;
+          adminLoggedIn = true; currentAdminEmail = user.email||'';
+          _onAuthSuccess(user);
+          if(allRecs && allRecs.length) renderDash();
+        }catch(e){ sessionStorage.removeItem('kss_recs'); }
+      }
     }
-    if(adminLoggedIn){
-      // session already active — nothing to do
-      return;
-    }
-    // ── Auto-login: Firebase already has a valid session ─────────────────
-    // Re-run the AdvancedAdmin check then restore the session silently.
-    let allowed = false;
-    try{
-      const { doc, getDoc } = window._fb;
-      const snap = await getDoc(doc(firestoreDb, 'users', user.uid));
-      allowed = snap.exists() && snap.data().Advancedadmin === true;
-    }catch(err){ console.error('[AdvancedAdmin] Auto-login check failed:', err); }
-
-    if(!allowed){
-      // Not an advanced admin — sign them out quietly
-      try{ const { getAuth, signOut } = window._fb; await signOut(getAuth()); }catch(e){}
-      return;
-    }
-
-    // Restore cached roster if available, then call success handler
-    const saved = sessionStorage.getItem('kss_recs');
-    if(saved){
-      try{
-        allRecs = JSON.parse(saved);
-        activeIdx = allRecs.length - 1;
-      }catch(e){ sessionStorage.removeItem('kss_recs'); }
-    }
-    await _onAuthSuccess(user);
-    if(allRecs && allRecs.length) renderDash();
+    // if !user → login screen already visible
   });
 }
 
@@ -2305,11 +2102,6 @@ async function _onAuthSuccess(user){
   document.getElementById('pill-name').textContent  = currentAdminEmail;
   document.getElementById('pill-grade').textContent = 'Administrator';
   notify(`✅ Welcome, <strong>${currentAdminEmail}</strong>!`,'success',5000);
-  // Show navbar search
-  const nbWrap = document.getElementById('nb-search-wrap');
-  if(nbWrap) nbWrap.classList.remove('hidden');
-  // Start 5-min session timeout
-  _startSessionWatch();
   // No student loaded yet? Jump straight into the class/student picker
   // instead of leaving a blank dashboard behind the top bar.
   if(!allRecs || !allRecs.length){
@@ -2378,7 +2170,6 @@ window.doAdminLogin = doAdminLogin;
 //  SIGN OUT
 // ═══════════════════════════════════════════════════
 function doSignOut(){
-  _stopSessionWatch();
   sessionStorage.removeItem('kss_recs');
   allRecs=[]; activeIdx=0;
   adminLoggedIn=false; currentAdminEmail='';
@@ -2396,141 +2187,12 @@ function doSignOut(){
   document.getElementById('inp-admin-pass').value='';
   document.getElementById('pill-av').innerHTML = '?';
   document.getElementById('w-av').innerHTML    = '?';
-  const nbWrap = document.getElementById('nb-search-wrap');
-  if(nbWrap){ nbWrap.classList.add('hidden'); document.getElementById('nb-search-input').value=''; nbCloseDropdown(); }
   notify('👋 Signed out.','info');
 }
 window.doSignOut = doSignOut;
 
 // ═══════════════════════════════════════════════════
-//  NAVBAR SEARCH
-// ═══════════════════════════════════════════════════
-let _nbActiveIdx = -1;
-let _nbResults   = [];
-
-function nbSearchFocus(){
-  const inp = document.getElementById('nb-search-input');
-  if(!inp.value.trim()){
-    // Show recent students as default when empty
-    nbRenderDropdown('');
-  }
-  document.getElementById('nb-dropdown').classList.add('open');
-}
-
-function nbSearchInput(){
-  const q = (document.getElementById('nb-search-input').value||'').trim();
-  nbRenderDropdown(q);
-  document.getElementById('nb-dropdown').classList.add('open');
-  _nbActiveIdx = -1;
-}
-
-function nbRenderDropdown(q){
-  const dd = document.getElementById('nb-dropdown');
-  _nbResults = [];
-  if(!_swGradeMap){ dd.innerHTML='<div class="nb-dd-empty">Load a class first to enable search.</div>'; return; }
-
-  const ql = q.toLowerCase();
-  // Collect all students across all grades
-  const all = [];
-  _swGradeMap.forEach((map, grade)=>{
-    map.forEach(st=>all.push({...st, grade}));
-  });
-
-  let matches = q
-    ? all.filter(st=>
-        st.name.toLowerCase().includes(ql) ||
-        st.asm.toLowerCase().includes(ql)  ||
-        (st.grade||'').toLowerCase().includes(ql)
-      ).slice(0,12)
-    : _swHistory().slice(0,6).map(h=>{
-        // find full record for avatar
-        const found = all.find(s=>s.asm===h.asm);
-        return found || {name:h.name, asm:h.asm, grade:'—'};
-      }).filter(Boolean);
-
-  _nbResults = matches;
-
-  if(!matches.length){
-    dd.innerHTML = q
-      ? `<div class="nb-dd-empty">No students match "<strong>${q}</strong>"</div>`
-      : '<div class="nb-dd-empty">Start typing to search all students</div>';
-    return;
-  }
-
-  const highlight = (text)=>{
-    if(!q) return text;
-    return text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
-      '<mark style="background:rgba(93,173,226,.3);color:inherit;border-radius:2px;padding:0 1px;">$1</mark>');
-  };
-
-  const label = q ? `${matches.length} result${matches.length!==1?'s':''}` : 'Recent';
-  dd.innerHTML = `
-    <div class="nb-dd-section">
-      <div class="nb-dd-label">${label}</div>
-      ${matches.map((st,i)=>`
-        <button class="nb-dd-item" data-idx="${i}" onclick="nbSelectResult(${i})">
-          <div class="nb-dd-av">${(st.name[0]||'?').toUpperCase()}</div>
-          <div class="nb-dd-info">
-            <div class="nb-dd-name">${highlight(st.name)}</div>
-            <div class="nb-dd-meta">${highlight(st.asm)}</div>
-          </div>
-          <div class="nb-dd-grade-badge">${st.grade||'—'}</div>
-        </button>`).join('')}
-    </div>
-    <div class="nb-dd-footer">
-      <span class="nb-dd-footer-hint"><kbd class="nb-kbd">↑↓</kbd> navigate &nbsp; <kbd class="nb-kbd">Enter</kbd> select &nbsp; <kbd class="nb-kbd">Esc</kbd> close</span>
-    </div>`;
-}
-
-function nbSearchKeydown(e){
-  const dd = document.getElementById('nb-dropdown');
-  const isOpen = dd.classList.contains('open');
-  if(e.key==='Escape'){ nbCloseDropdown(); e.preventDefault(); return; }
-  if(!isOpen) return;
-  if(e.key==='ArrowDown'){
-    e.preventDefault();
-    _nbActiveIdx = Math.min(_nbActiveIdx+1, _nbResults.length-1);
-    nbHighlightItem();
-  } else if(e.key==='ArrowUp'){
-    e.preventDefault();
-    _nbActiveIdx = Math.max(_nbActiveIdx-1, -1);
-    nbHighlightItem();
-  } else if(e.key==='Enter' && _nbActiveIdx>=0){
-    e.preventDefault();
-    nbSelectResult(_nbActiveIdx);
-  }
-}
-
-function nbHighlightItem(){
-  document.querySelectorAll('.nb-dd-item').forEach((el,i)=>{
-    el.classList.toggle('active', i===_nbActiveIdx);
-    if(i===_nbActiveIdx) el.scrollIntoView({block:'nearest'});
-  });
-}
-
-async function nbSelectResult(idx){
-  const st = _nbResults[idx];
-  if(!st) return;
-  nbCloseDropdown();
-  document.getElementById('nb-search-input').value='';
-  await selectSwitcherStudent(st.asm);
-}
-window.nbSelectResult = nbSelectResult;
-
-function nbCloseDropdown(){
-  const dd = document.getElementById('nb-dropdown');
-  if(dd) dd.classList.remove('open');
-  _nbActiveIdx = -1;
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('mousedown', e=>{
-  const wrap = document.getElementById('nb-search-wrap');
-  if(wrap && !wrap.contains(e.target)) nbCloseDropdown();
-});
-
-// ? or / focuses the navbar search (overrides the kbd-hint toggle when search is visible)
-// This is handled in the main shortcut listener below by removing the / toggle
+//  STUDENT SWITCHER
 // ═══════════════════════════════════════════════════
 const SW_HISTORY_KEY = 'kss_sw_history';
 const SW_MAX = 6;
@@ -2652,82 +2314,36 @@ async function _populateSwitcherGrades(){
   }
 }
 
-function _renderRoster(grade, filter){
-  const rosterEl   = document.getElementById('sw-roster');
-  const filterRow  = document.getElementById('sw-filter-row');
-  const filterCount= document.getElementById('sw-filter-count');
+function _renderRoster(grade){
+  const rosterEl = document.getElementById('sw-roster');
   rosterEl.innerHTML = '';
   if(grade==='loading'){
-    if(filterRow){ filterRow.style.display='none'; }
-    if(filterCount){ filterCount.style.display='none'; }
     rosterEl.innerHTML = '<div class="sw-roster-hint">⏳ Loading student roster…</div>';
     return;
   }
   if(!grade){
-    if(filterRow){ filterRow.style.display='none'; }
-    if(filterCount){ filterCount.style.display='none'; }
     rosterEl.innerHTML = '<div class="sw-roster-hint">👆 Select a grade above to see its students.</div>';
     return;
   }
   const studentsMap = _swGradeMap && _swGradeMap.get(grade);
   if(!studentsMap || !studentsMap.size){
-    if(filterRow){ filterRow.style.display='none'; }
-    if(filterCount){ filterCount.style.display='none'; }
     rosterEl.innerHTML = '<div class="sw-roster-hint">No students found in this grade.</div>';
     return;
   }
-  // Show filter column
-  if(filterRow) filterRow.style.display='flex';
-  if(filterCount) filterCount.style.display='block';
-
-  const q = (filter||'').trim().toLowerCase();
-  let list = Array.from(studentsMap.values()).sort((a,b)=>a.name.localeCompare(b.name));
-  const total = list.length;
-  if(q) list = list.filter(st=>st.name.toLowerCase().includes(q) || st.asm.toLowerCase().includes(q));
-
-  // Update count label
-  if(filterCount) filterCount.textContent = q ? `${list.length} of ${total} students` : `${total} student${total!==1?'s':''}`;
-
-  // Toggle clear button
-  const clearBtn = document.getElementById('sw-filter-clear');
-  if(clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-
-  if(!list.length){
-    rosterEl.innerHTML = `<div class="sw-roster-hint">No students match "<strong>${q}</strong>".</div>`;
-    return;
-  }
+  const list = Array.from(studentsMap.values()).sort((a,b)=>a.name.localeCompare(b.name));
   list.forEach(st=>{
     const btn = document.createElement('button');
     btn.className = 'sw-student-btn';
-    const displayName = q ? st.name.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark style="background:rgba(93,173,226,.35);color:inherit;border-radius:2px;padding:0 1px;">$1</mark>') : '';
-    btn.innerHTML = `<span class="sw-student-av">${(st.name[0]||'?').toUpperCase()}</span><span class="sw-student-info"><span class="sw-student-name">${displayName||''}</span><span class="sw-student-asm"></span></span>`;
-    if(!q) btn.querySelector('.sw-student-name').textContent = st.name;
-    btn.querySelector('.sw-student-asm').textContent = st.asm;
+    btn.innerHTML = `<span class="sw-student-av">${(st.name[0]||'?').toUpperCase()}</span><span class="sw-student-info"><span class="sw-student-name"></span><span class="sw-student-asm"></span></span>`;
+    btn.querySelector('.sw-student-name').textContent = st.name;
+    btn.querySelector('.sw-student-asm').textContent  = st.asm;
     btn.onclick = ()=>selectSwitcherStudent(st.asm);
     rosterEl.appendChild(btn);
   });
 }
 
-function onSwitcherFilterInput(){
-  const grade = document.getElementById('sw-grade').value;
-  const q     = document.getElementById('sw-filter-input').value;
-  _renderRoster(grade, q);
-}
-window.onSwitcherFilterInput = onSwitcherFilterInput;
-
-function clearSwitcherFilter(){
-  const inp = document.getElementById('sw-filter-input');
-  if(inp){ inp.value=''; inp.focus(); }
-  onSwitcherFilterInput();
-}
-window.clearSwitcherFilter = clearSwitcherFilter;
-
 function onSwitcherGradeChange(){
-  const inp = document.getElementById('sw-filter-input');
-  if(inp) inp.value = '';
   _renderRoster(document.getElementById('sw-grade').value);
-  // Auto-focus the filter so user can type immediately
-  if(inp && document.getElementById('sw-grade').value) setTimeout(()=>inp.focus(), 50);
 }
 window.onSwitcherGradeChange = onSwitcherGradeChange;
 
@@ -3570,47 +3186,19 @@ function renderComparison(){
 //  KEYBOARD SHORTCUTS
 // ═══════════════════════════════════════════════════
 document.addEventListener('keydown', e=>{
-  const modalOpen    = document.getElementById('modal-overlay').classList.contains('on');
-  const dashOpen     = document.getElementById('dashboard').classList.contains('on');
-  const switcherOpen = document.getElementById('switcher-drawer').classList.contains('open');
-  const tag          = document.activeElement.tagName;
-  const isTyping     = tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+  const modalOpen = document.getElementById('modal-overlay').classList.contains('on');
+  const dashOpen  = document.getElementById('dashboard').classList.contains('on');
 
   if(e.key==='Escape' && modalOpen){ closeModal(); return; }
+  if(!dashOpen) return;
 
-  // All letter shortcuts require admin to be logged in
-  if(!adminLoggedIn) return;
-
-  // Arrow keys: switch terms (dashboard open, no modal, no switcher)
-  if(e.key==='ArrowLeft' && activeIdx>0 && !modalOpen && dashOpen && !switcherOpen){
-    activeIdx--; renderDash(); return;
-  }
-  if(e.key==='ArrowRight' && activeIdx<allRecs.length-1 && !modalOpen && dashOpen && !switcherOpen){
-    activeIdx++; renderDash(); return;
-  }
-
-  if(isTyping) return; // don't fire letter shortcuts when typing in fields
-
-  // P — preview report card
-  if((e.key==='p'||e.key==='P') && !modalOpen && !e.ctrlKey && !e.metaKey && dashOpen){ openPreview(); return; }
-  // S — share results
-  if((e.key==='s'||e.key==='S') && !modalOpen && !e.ctrlKey && !e.metaKey && dashOpen){ openShareModal(); return; }
-  // G — open/close student switcher
-  if((e.key==='g'||e.key==='G') && !e.ctrlKey && !e.metaKey){
-    switcherOpen ? closeSwitcher() : openSwitcher(); return;
-  }
-  // B — open bulk share modal
-  if((e.key==='b'||e.key==='B') && !e.ctrlKey && !e.metaKey){ openBulkShareModal(); return; }
-  // T — toggle dark/light theme
-  if((e.key==='t'||e.key==='T') && !e.ctrlKey && !e.metaKey){ toggleTheme(); return; }
-  // ? or / — focus navbar search bar
-  if(e.key==='?'||e.key==='/'){
-    e.preventDefault();
-    const inp = document.getElementById('nb-search-input');
-    if(inp && !document.getElementById('nb-search-wrap').classList.contains('hidden')){
-      inp.focus(); inp.select();
-    }
-    return;
+  if(e.key==='ArrowLeft' && activeIdx>0 && !modalOpen){
+    activeIdx--; renderDash();
+  } else if(e.key==='ArrowRight' && activeIdx<allRecs.length-1 && !modalOpen){
+    activeIdx++; renderDash();
+  } else if((e.key==='p'||e.key==='P') && !modalOpen && !e.ctrlKey && !e.metaKey){
+    const tag = document.activeElement.tagName;
+    if(tag!=='INPUT'&&tag!=='TEXTAREA') openPreview();
   }
 });
 
@@ -4598,11 +4186,15 @@ async function bulkDownloadShareCardsForGrade(grade, format='png'){
 window.bulkDownloadShareCardsForGrade = bulkDownloadShareCardsForGrade;
 
 
-// ─── Escape also closes share/scale modals ───
+// ─── Escape also closes new modals ───
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(document.getElementById('scale-modal').classList.contains('on')){ closeScaleModal(); return; }
     if(document.getElementById('share-modal').classList.contains('on')){ closeShareModal(); return; }
+  }
+  if((e.key==='s'||e.key==='S') && document.getElementById('dashboard').classList.contains('on')){
+    const tag=document.activeElement.tagName;
+    if(tag!=='INPUT'&&tag!=='TEXTAREA'&&!document.getElementById('modal-overlay').classList.contains('on')) openShareModal();
   }
 });
 
