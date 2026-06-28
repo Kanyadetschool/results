@@ -109,8 +109,99 @@ body::before{
 }
 
 /* ════════════════════════════════════════════
-   TOP BAR
+   NAVBAR SEARCH BAR
 ════════════════════════════════════════════ */
+.nb-search-wrap{
+  flex:1;max-width:420px;margin:0 18px;position:relative;
+}
+.nb-search-wrap.hidden{display:none;}
+.nb-search-inner{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:24px;
+  padding:7px 14px 7px 12px;
+  transition:border-color .2s, box-shadow .2s, background .2s;
+  cursor:text;
+}
+.nb-search-inner:focus-within{
+  border-color:var(--blue-lt);
+  background:var(--surface);
+  box-shadow:0 0 0 3px rgba(93,173,226,.15);
+}
+.nb-search-icon{font-size:14px;flex-shrink:0;opacity:.6;}
+.nb-search-input{
+  border:none;background:transparent;outline:none;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:13px;font-weight:600;color:var(--text);
+  width:100%;min-width:0;
+}
+.nb-search-input::placeholder{color:var(--text3);font-weight:500;}
+.nb-search-kbd{
+  flex-shrink:0;display:flex;align-items:center;gap:4px;
+  opacity:.5;transition:opacity .2s;
+}
+.nb-search-inner:focus-within .nb-search-kbd{opacity:0;pointer-events:none;}
+.nb-kbd{
+  font-size:9px;font-weight:700;color:var(--text2);
+  background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:4px;padding:2px 5px;font-family:'Plus Jakarta Sans',sans-serif;
+  letter-spacing:.03em;
+}
+
+/* dropdown */
+.nb-dropdown{
+  position:absolute;top:calc(100% + 8px);left:0;right:0;
+  background:var(--surface);
+  border:1.5px solid var(--border-strong);
+  border-radius:14px;
+  box-shadow:0 16px 48px rgba(0,0,0,.28),0 4px 16px rgba(0,0,0,.14);
+  z-index:9999;overflow:hidden;
+  display:none;max-height:360px;overflow-y:auto;
+}
+.nb-dropdown.open{display:block;}
+.nb-dd-section{padding:8px 0 4px;}
+.nb-dd-label{
+  font-size:9px;font-weight:800;color:var(--text3);
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:0 14px 4px;
+}
+.nb-dd-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;cursor:pointer;
+  transition:background .15s;border:none;background:transparent;
+  width:100%;text-align:left;font-family:'Plus Jakarta Sans',sans-serif;
+}
+.nb-dd-item:hover,.nb-dd-item.active{background:rgba(93,173,226,.10);}
+.nb-dd-item.active{border-left:3px solid var(--blue-lt);}
+.nb-dd-av{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--orange),var(--gold));
+  color:#fff;font-size:12px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.nb-dd-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.nb-dd-info{min-width:0;flex:1;}
+.nb-dd-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nb-dd-meta{font-size:10px;color:var(--text2);margin-top:1px;}
+.nb-dd-grade-badge{
+  font-size:9px;font-weight:800;color:var(--blue-lt);
+  background:rgba(93,173,226,.12);border:1px solid rgba(93,173,226,.2);
+  border-radius:6px;padding:2px 7px;flex-shrink:0;
+}
+.nb-dd-empty{
+  padding:28px 14px;text-align:center;
+  font-size:12px;color:var(--text2);
+}
+.nb-dd-footer{
+  padding:8px 14px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface2);
+}
+.nb-dd-footer-hint{font-size:10px;color:var(--text3);}
+[data-theme="light"] .nb-dropdown{box-shadow:0 16px 48px rgba(0,0,0,.14),0 4px 16px rgba(0,0,0,.08);}
+[data-theme="light"] .nb-search-inner{background:#f0f5f9;}
+[data-theme="light"] .nb-search-inner:focus-within{background:#fff;}
 .top-bar{
   display:flex;align-items:center;justify-content:space-between;
   padding:12px 28px;
@@ -134,215 +225,13 @@ body::before{
 .brand-text .b-name{font-size:16px;font-weight:800;color:var(--text);line-height:1.1;}
 .brand-text .b-sub{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:.04em;}
 
-/* ════════════════════════════════════════════
-   TOP BAR
-════════════════════════════════════════════ */
-.top-bar{
-  display:flex;align-items:center;justify-content:space-between;
-  flex-wrap:wrap;gap:8px;
-  padding:10px 24px;
-  background:var(--topbar);
-  backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:200;
-  transition:var(--transition);
-}
-.brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.brand-logo{
-  width:38px;height:38px;
-  border-radius:10px;overflow:hidden;
-  border:1.5px solid var(--border-strong);
-  display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
-  font-size:18px;flex-shrink:0;
-}
-.brand-logo img{width:100%;height:100%;object-fit:cover;}
-.brand-text .b-name{font-size:16px;font-weight:800;color:var(--text);line-height:1.1;}
-.brand-text .b-sub{font-size:10px;color:var(--text2);font-weight:500;letter-spacing:.04em;}
-
 .topbar-right{
-  display:flex;align-items:center;gap:8px;
-  flex-shrink:0;
-}
-
-/* ── RESPONSIVE NAVBAR ── */
-
-/* 900px: shrink button labels */
-@media(max-width:900px){
-  .top-bar{padding:10px 16px;}
-  .switch-student-btn,.signout-btn{
-    font-size:0;             /* hide text */
-    padding:7px 10px;
-    border-radius:50%;
-    width:36px;height:36px;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .switch-student-btn::before{content:'👤';font-size:16px;}
-  .signout-btn::before{content:'🚪';font-size:16px;}
-  #net-label{display:none;}
-  #net-pill{padding:6px 8px;border-radius:50%;min-width:unset;}
-}
-
-/* 700px: search goes full-width on its own row below */
-@media(max-width:700px){
-  .top-bar{
-    display:grid;
-    grid-template-columns:auto 1fr auto;
-    grid-template-rows:auto auto;
-    align-items:center;
-    column-gap:10px;row-gap:8px;
-    padding:10px 14px;
-  }
-  .brand{grid-column:1;grid-row:1;}
-  .nb-search-wrap{
-    grid-column:1/-1;grid-row:2;
-    max-width:100%;margin:0;
-    order:3;
-  }
-  .nb-search-wrap.hidden{display:none;}
-  .topbar-right{grid-column:2/-1;grid-row:1;justify-content:flex-end;}
-}
-
-/* 480px: hide brand subtitle, tighten padding */
-@media(max-width:480px){
-  .top-bar{padding:8px 10px;row-gap:6px;}
-  .brand-text .b-sub{display:none;}
-  .brand-text .b-name{font-size:14px;}
-  .topbar-right{gap:6px;}
-  .theme-toggle{width:44px;height:24px;}
-  .u-av-btn{width:32px;height:32px;font-size:12px;}
-}
-
-@media(max-width:640px){
-  #dashboard{padding:14px 12px 60px;}
-  .welcome-card{flex-direction:column;text-align:center;}
-  .welcome-card::after{display:none;}
-  .stats-grid{grid-template-columns:1fr 1fr;}
-  .act-btns{width:100%;}
-  .btn{flex:1;justify-content:center;}
-}
-
-/* ════════════════════════════════════════════
-   NAVBAR SEARCH
-════════════════════════════════════════════ */
-.nb-search-wrap{
-  flex:1;max-width:440px;margin:0 16px;position:relative;
-  transition:var(--transition);
-}
-.nb-search-wrap.hidden{display:none;}
-.nb-search-bar{
-  display:flex;align-items:center;gap:9px;
-  background:var(--surface2);
-  border:1.5px solid var(--border);
-  border-radius:28px;
-  padding:8px 14px 8px 13px;
-  cursor:text;
-  transition:border-color .2s,box-shadow .2s,background .2s;
-}
-.nb-search-bar:focus-within{
-  border-color:var(--blue-lt);
-  background:var(--surface);
-  box-shadow:0 0 0 3px rgba(93,173,226,.14);
-}
-.nb-search-icon{font-size:14px;flex-shrink:0;opacity:.55;transition:opacity .2s;}
-.nb-search-bar:focus-within .nb-search-icon{opacity:.9;}
-.nb-search-input{
-  border:none;background:transparent;outline:none;
-  font-family:'Plus Jakarta Sans',sans-serif;
-  font-size:13px;font-weight:600;color:var(--text);
-  flex:1;min-width:0;
-}
-.nb-search-input::placeholder{color:var(--text3);font-weight:500;}
-.nb-search-hint{
-  display:flex;align-items:center;gap:4px;flex-shrink:0;
-  opacity:.45;transition:opacity .2s;pointer-events:none;
-}
-.nb-search-bar:focus-within .nb-search-hint{opacity:0;}
-.nb-kbd{
-  font-size:9px;font-weight:700;color:var(--text2);
-  background:var(--surface);border:1px solid var(--border-strong);
-  border-radius:4px;padding:2px 5px;
-  font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.03em;
-}
-.nb-clear-btn{
-  display:none;background:none;border:none;cursor:pointer;
-  color:var(--text2);font-size:14px;line-height:1;padding:0;flex-shrink:0;
-  opacity:.6;transition:opacity .2s;
-}
-.nb-clear-btn:hover{opacity:1;}
-.nb-clear-btn.on{display:block;}
-
-/* Dropdown */
-.nb-dropdown{
-  position:absolute;top:calc(100% + 8px);left:0;right:0;
-  background:var(--surface);
-  border:1.5px solid var(--border-strong);
-  border-radius:16px;
-  box-shadow:0 20px 60px rgba(0,0,0,.32),0 4px 20px rgba(0,0,0,.18);
-  z-index:9999;overflow:hidden;
-  display:none;max-height:400px;overflow-y:auto;
-  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
-}
-.nb-dropdown.open{display:block;animation:nbDdIn .16s cubic-bezier(.4,0,.2,1);}
-@keyframes nbDdIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-.nb-dd-section{padding:6px 0;}
-.nb-dd-label{
-  font-size:9px;font-weight:800;color:var(--text3);
-  letter-spacing:.12em;text-transform:uppercase;
-  padding:8px 14px 4px;
-}
-.nb-dd-item{
   display:flex;align-items:center;gap:10px;
-  padding:9px 14px;cursor:pointer;
-  border:none;background:transparent;width:100%;text-align:left;
-  font-family:'Plus Jakarta Sans',sans-serif;
-  transition:background .12s;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;flex-shrink:1;min-width:0;
+  padding-bottom:2px; /* prevent clipping on scroll */
 }
-.nb-dd-item:hover,.nb-dd-item.nb-active{
-  background:rgba(93,173,226,.1);
-}
-.nb-dd-item.nb-active{border-left:3px solid var(--blue-lt);padding-left:11px;}
-.nb-dd-av{
-  width:32px;height:32px;border-radius:50%;flex-shrink:0;
-  background:linear-gradient(135deg,var(--orange),var(--gold));
-  color:#fff;font-size:13px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;overflow:hidden;
-}
-.nb-dd-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.nb-dd-info{flex:1;min-width:0;}
-.nb-dd-name{
-  font-size:13px;font-weight:700;color:var(--text);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.nb-dd-meta{font-size:10px;color:var(--text2);margin-top:1px;}
-.nb-dd-badge{
-  flex-shrink:0;font-size:9px;font-weight:800;
-  color:var(--blue-lt);
-  background:rgba(93,173,226,.12);
-  border:1px solid rgba(93,173,226,.22);
-  border-radius:6px;padding:2px 7px;
-  white-space:nowrap;
-}
-.nb-dd-empty{
-  padding:28px 16px;text-align:center;
-  font-size:12px;color:var(--text2);line-height:1.6;
-}
-.nb-dd-footer{
-  padding:7px 14px;border-top:1px solid var(--border);
-  background:var(--surface2);
-  display:flex;align-items:center;justify-content:space-between;
-}
-.nb-dd-footer-hint{font-size:10px;color:var(--text3);}
-[data-theme="light"] .nb-dropdown{
-  box-shadow:0 20px 60px rgba(0,0,0,.14),0 4px 20px rgba(0,0,0,.08);
-}
-[data-theme="light"] .nb-search-bar{background:#f0f5f9;}
-[data-theme="light"] .nb-search-bar:focus-within{background:#fff;}
-mark.nb-hl{
-  background:rgba(93,173,226,.28);color:inherit;
-  border-radius:2px;padding:0 1px;
-}
+.topbar-right::-webkit-scrollbar{display:none;}
 
 /* theme toggle */
 .theme-toggle{
@@ -458,14 +347,7 @@ mark.nb-hl{
 [data-theme="light"] .kbd{background:#eef2f7;border-color:rgba(41,128,185,.2);color:#3a6080;}
 
 /* user pill */
-.user-pill{
-  display:none;align-items:center;gap:8px;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:40px;padding:4px 12px 4px 5px;
-  transition:var(--transition);
-}
-.user-pill.on{display:flex;}
+/* ── WELCOME CARD AVATAR ── */
 .w-av{
   width:56px;height:56px;border-radius:14px;flex-shrink:0;
   background:linear-gradient(135deg,var(--orange),var(--gold));
@@ -475,6 +357,70 @@ mark.nb-hl{
   overflow:hidden;
 }
 .w-av img{width:100%;height:100%;object-fit:cover;border-radius:14px;}
+
+/* ── USER AVATAR BUTTON + POPOVER ── */
+.user-pill{
+  display:none;position:relative;
+}
+.user-pill.on{display:block;}
+.u-av-btn{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,var(--orange),var(--gold));
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:#fff;
+  border:2px solid rgba(255,255,255,.25);
+  cursor:pointer;transition:var(--transition);
+  overflow:hidden;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(230,126,34,.35);
+}
+.u-av-btn:hover{transform:scale(1.08);box-shadow:0 4px 14px rgba(230,126,34,.45);}
+.u-av-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+
+/* Popover */
+.u-popover{
+  position:absolute;top:calc(100% + 10px);right:0;
+  background:var(--surface);
+  border:1.5px solid var(--border-strong);
+  border-radius:16px;
+  box-shadow:0 20px 56px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.15);
+  min-width:240px;z-index:9999;
+  display:none;overflow:hidden;
+  transform-origin:top right;
+}
+.u-popover.open{display:block;animation:popIn .18s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+.u-pop-header{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 16px 12px;
+  border-bottom:1px solid var(--border);
+}
+.u-pop-av{
+  width:44px;height:44px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--orange),var(--gold));
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;color:#fff;
+  overflow:hidden;
+  box-shadow:0 4px 12px rgba(230,126,34,.3);
+}
+.u-pop-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.u-pop-name{font-size:13px;font-weight:800;color:var(--text);line-height:1.3;word-break:break-all;}
+.u-pop-role{font-size:10px;color:var(--text2);margin-top:2px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
+.u-pop-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;cursor:pointer;
+  font-size:12px;font-weight:700;color:var(--text2);
+  border:none;background:transparent;width:100%;text-align:left;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  transition:background .15s,color .15s;
+}
+.u-pop-item:hover{background:var(--surface2);color:var(--text);}
+.u-pop-item.danger{color:#e74c3c;}
+.u-pop-item.danger:hover{background:rgba(231,76,60,.08);color:#e74c3c;}
+.u-pop-divider{height:1px;background:var(--border);margin:2px 0;}
+[data-theme="light"] .u-popover{box-shadow:0 20px 56px rgba(0,0,0,.14),0 4px 16px rgba(0,0,0,.07);}
+[data-theme="light"] .u-av-btn{border-color:rgba(255,255,255,.6);}
+
+/* legacy .u-av / .u-name / .u-grade kept for welcome card use */
 .u-av{
   width:28px;height:28px;border-radius:50%;
   background:linear-gradient(135deg,var(--orange),var(--gold));
@@ -494,10 +440,28 @@ mark.nb-hl{
   padding:6px 14px;border-radius:20px;
   cursor:pointer;font-size:11px;font-family:'Plus Jakarta Sans',sans-serif;
   font-weight:700;letter-spacing:.03em;
-  transition:var(--transition);
+  transition:var(--transition);white-space:nowrap;
 }
 .signout-btn:hover{background:rgba(231,76,60,.1);}
 .signout-btn.on{display:block;}
+
+/* ── SWITCH STUDENT BUTTON ── */
+.switch-student-btn{
+  display:none;
+  background:transparent;
+  border:1.5px solid rgba(41,128,185,.4);
+  color:var(--blue-lt);
+  padding:6px 14px;border-radius:20px;
+  cursor:pointer;font-size:11px;font-family:'Plus Jakarta Sans',sans-serif;
+  font-weight:700;letter-spacing:.03em;
+  transition:var(--transition);white-space:nowrap;
+}
+.switch-student-btn:hover{background:rgba(93,173,226,.1);}
+.switch-student-btn.on{display:block;}
+[data-theme="light"] .switch-student-btn{border-color:rgba(41,128,185,.35);color:#1a5276;}
+[data-theme="light"] .switch-student-btn:hover{background:rgba(41,128,185,.07);}
+[data-theme="light"] .signout-btn{border-color:rgba(231,76,60,.3);color:#c0392b;}
+[data-theme="light"] .signout-btn:hover{background:rgba(231,76,60,.07);}
 
 /* ── SWITCH STUDENT BUTTON ── */
 .switch-student-btn{
@@ -524,7 +488,7 @@ mark.nb-hl{
   border-bottom:1px solid var(--border);
 }
 #switcher-drawer.open{
-  max-height:540px;
+  max-height:620px;
   box-shadow:0 6px 24px rgba(0,0,0,.18);
 }
 .sw-inner{padding:16px 22px 18px;max-width:1180px;margin:0 auto;}
@@ -1394,7 +1358,16 @@ mark.nb-hl{
 /* ════════════════════════════════════════════
    RESPONSIVE
 ════════════════════════════════════════════ */
-
+@media(max-width:640px){
+  .top-bar{padding:10px 14px;}
+  .brand-text .b-name{font-size:14px;}
+  #dashboard{padding:14px 12px 60px;}
+  .welcome-card{flex-direction:column;text-align:center;}
+  .welcome-card::after{display:none;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .act-btns{width:100%;}
+  .btn{flex:1;justify-content:center;}
+}
 
 /* ════════════════════════════════════════════
    AVATAR LOADING SPINNER
@@ -1499,179 +1472,6 @@ mark.nb-hl{
   background:rgba(230,126,34,.12);border:1px solid rgba(230,126,34,.3);
   color:#e67e22;border-radius:10px;padding:1px 8px;font-size:9.5px;font-weight:700;
 }
-
-/* ════════════════════════════════════════════
-   FLOAT SWITCH STUDENT BUTTON
-════════════════════════════════════════════ */
-.float-switch-btn{
-  position:fixed;right:18px;bottom:80px;z-index:4000;
-  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
-  color:#fff;border-radius:18px;
-  padding:10px 14px 10px 12px;
-  display:none;flex-direction:column;align-items:center;gap:3px;
-  cursor:pointer;
-  box-shadow:0 8px 24px rgba(41,128,185,.4),0 2px 8px rgba(0,0,0,.18);
-  border:1.5px solid rgba(93,173,226,.35);
-  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
-  user-select:none;
-}
-.float-switch-btn.on{display:flex;animation:floatIn .4s cubic-bezier(.34,1.56,.64,1);}
-@keyframes floatIn{from{transform:scale(0) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
-.float-switch-btn:hover{transform:scale(1.08) translateY(-2px);box-shadow:0 12px 32px rgba(41,128,185,.55);}
-.float-switch-btn:active{transform:scale(.97);}
-.float-switch-icon{font-size:20px;line-height:1;}
-.float-switch-label{font-size:9px;font-weight:800;text-align:center;letter-spacing:.04em;line-height:1.2;text-transform:uppercase;}
-
-/* Reposition when on mobile */
-@media(max-width:480px){
-  .float-switch-btn{right:12px;bottom:70px;}
-}
-
-/* ════════════════════════════════════════════
-   KEYBOARD SHORTCUT PANEL
-════════════════════════════════════════════ */
-.shortcut-panel{
-  position:fixed;bottom:80px;left:18px;z-index:4000;
-  background:var(--surface);
-  border:1.5px solid var(--border-strong);
-  border-radius:var(--radius-lg);
-  padding:0;
-  width:280px;
-  box-shadow:0 16px 48px rgba(0,0,0,.32);
-  display:none;
-  animation:scPanelIn .3s cubic-bezier(.34,1.56,.64,1);
-}
-.shortcut-panel.on{display:block;}
-@keyframes scPanelIn{from{transform:translateY(12px) scale(.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
-.sc-hdr{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px;border-bottom:1px solid var(--border);
-  font-size:11px;font-weight:800;color:var(--text2);
-  text-transform:uppercase;letter-spacing:.07em;
-}
-.sc-close{
-  background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;
-  display:flex;align-items:center;justify-content:center;
-  width:22px;height:22px;border-radius:50%;transition:background .15s;
-}
-.sc-close:hover{background:var(--surface2);color:var(--text);}
-.sc-grid{padding:8px 10px 12px;display:flex;flex-direction:column;gap:2px;}
-.sc-item{
-  display:flex;align-items:center;gap:8px;
-  padding:5px 6px;border-radius:8px;
-  font-size:11.5px;color:var(--text2);
-  transition:background .12s;
-}
-.sc-item:hover{background:rgba(41,128,185,.08);}
-.sc-item span{flex:1;}
-.sc-item kbd{flex-shrink:0;}
-
-/* ════════════════════════════════════════════
-   STACKED TIMELINE (COLLAPSIBLE STAGES)
-════════════════════════════════════════════ */
-.tl-stacked{
-  display:flex;flex-direction:column;gap:0;
-  margin-bottom:18px;
-}
-.tl-stage{
-  border:1px solid var(--border);
-  border-radius:0;
-  background:var(--surface);
-  transition:var(--transition);
-  overflow:hidden;
-}
-.tl-stage:first-child{border-radius:var(--radius-md) var(--radius-md) 0 0;}
-.tl-stage:last-child{border-radius:0 0 var(--radius-md) var(--radius-md);}
-.tl-stage:only-child{border-radius:var(--radius-md);}
-.tl-stage + .tl-stage{border-top:none;}
-.tl-stage.tl-active{
-  background:rgba(41,128,185,.07);
-  border-color:var(--border-strong);
-  z-index:1;position:relative;
-}
-.tl-stage-hdr{
-  display:flex;align-items:center;gap:12px;
-  padding:13px 16px;cursor:pointer;
-  user-select:none;
-  transition:background .15s;
-}
-.tl-stage-hdr:hover{background:rgba(41,128,185,.06);}
-.tl-stage-dot{
-  width:12px;height:12px;border-radius:50%;flex-shrink:0;
-  border:2.5px solid var(--bg);
-  box-shadow:0 0 0 2px currentColor;
-}
-.tl-stage.tl-active .tl-stage-dot{
-  box-shadow:0 0 0 3px rgba(41,128,185,.35);
-}
-.tl-stage-term{
-  font-size:13px;font-weight:800;color:var(--text);flex:1;
-  display:flex;align-items:center;gap:7px;
-}
-.tl-stage-cur{
-  font-size:9px;font-weight:800;
-  background:var(--blue);color:#fff;
-  padding:2px 7px;border-radius:8px;letter-spacing:.03em;
-}
-.tl-stage-avg{
-  font-size:18px;font-weight:800;
-  font-family:'JetBrains Mono',monospace;
-  line-height:1;
-}
-.tl-stage-level{
-  font-size:10px;font-weight:600;color:var(--text2);
-  text-align:right;line-height:1.2;
-  max-width:80px;
-}
-.tl-stage-chev{
-  font-size:12px;color:var(--text3);
-  transition:transform .25s;flex-shrink:0;
-}
-.tl-stage.tl-open .tl-stage-chev{transform:rotate(180deg);}
-
-.tl-stage-body{
-  display:none;
-  padding:0 16px 14px 40px;
-  border-top:1px dashed var(--border);
-}
-.tl-stage.tl-open .tl-stage-body{display:block;}
-
-.tl-stage-bar-wrap{
-  height:5px;background:var(--border);border-radius:3px;
-  overflow:hidden;margin-bottom:10px;margin-top:8px;
-}
-.tl-stage-bar-fill{height:100%;border-radius:3px;transition:width 1s cubic-bezier(.22,1,.36,1);}
-
-.tl-subj-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
-.tl-chip{
-  font-size:10px;padding:3px 8px;border-radius:10px;
-  font-weight:700;cursor:pointer;
-  transition:transform .15s,box-shadow .15s;
-}
-.tl-chip:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12);}
-
-.tl-stage-actions{display:flex;gap:7px;margin-top:4px;}
-.tl-act-btn{
-  padding:5px 11px;border-radius:8px;
-  background:var(--surface2);border:1.5px solid var(--border);
-  color:var(--text2);font-size:10.5px;font-weight:700;
-  cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;
-  transition:var(--transition);
-}
-.tl-act-btn:hover{border-color:var(--blue-lt);color:var(--blue-lt);}
-.tl-act-btn.active{
-  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
-  border-color:var(--blue);color:#fff;
-}
-
-.tl-delta{
-  display:inline-flex;align-items:center;gap:4px;
-  font-size:10px;font-weight:700;padding:2px 8px;
-  border-radius:9px;margin-left:6px;
-}
-.tl-delta.up{background:rgba(39,174,96,.12);color:#4dbb77;}
-.tl-delta.dn{background:rgba(231,76,60,.10);color:#e25b4b;}
-.tl-delta.eq{background:rgba(128,128,128,.10);color:var(--text3);}
 </style>
 </head>
 <body>
@@ -1717,19 +1517,21 @@ mark.nb-hl{
     </div>
   </div>
 
-  <!-- ── UNIVERSAL NAVBAR SEARCH ── -->
+  <!-- ── NAVBAR SEARCH ── -->
   <div class="nb-search-wrap hidden" id="nb-search-wrap">
-    <div class="nb-search-bar" onclick="document.getElementById('nb-input').focus()">
+    <div class="nb-search-inner" onclick="document.getElementById('nb-search-input').focus()">
       <span class="nb-search-icon">🔍</span>
-      <input type="search" id="nb-input" class="nb-search-input"
+      <input type="search" id="nb-search-input" class="nb-search-input"
         placeholder="Search any student…"
         autocomplete="off" spellcheck="false"
-        oninput="_nbOnInput()"
-        onfocus="_nbOnFocus()"
-        onkeydown="_nbOnKeydown(event)">
-      <button class="nb-clear-btn" id="nb-clear" onclick="_nbClear()" tabindex="-1" title="Clear">✕</button>
-      <div class="nb-search-hint"><span class="nb-kbd">?</span></div>
+        oninput="nbSearchInput()"
+        onfocus="nbSearchFocus()"
+        onkeydown="nbSearchKeydown(event)">
+      <div class="nb-search-kbd">
+        <span class="nb-kbd">?</span>
+      </div>
     </div>
+    <!-- Dropdown -->
     <div class="nb-dropdown" id="nb-dropdown"></div>
   </div>
 
@@ -1740,15 +1542,27 @@ mark.nb-hl{
       <span class="theme-icon moon">🌙</span>
       <span class="theme-icon sun">☀️</span>
     </button>
+    <!-- Switch Student — always visible when logged in -->
+    <button class="switch-student-btn on" id="switch-student-btn" onclick="openSwitcher()" title="Switch Student">👤 Switch Student</button>
+    <!-- Sign Out — always visible when logged in -->
+    <button class="signout-btn on" id="signout-btn" onclick="doSignOut()" title="Sign Out">🚪 Sign Out</button>
     <div class="user-pill" id="user-pill">
-      <div class="u-av" id="pill-av">?</div>
-      <div>
-        <div class="u-name"  id="pill-name">Student</div>
-        <div class="u-grade" id="pill-grade">–</div>
+      <button class="u-av-btn" id="pill-av" aria-label="Account menu"><span id="pill-av-inner">?</span></button>
+      <div class="u-popover" id="u-popover">
+        <div class="u-pop-header">
+          <div class="u-pop-av" id="pop-av">?</div>
+          <div>
+            <div class="u-pop-name" id="pill-name">Admin</div>
+            <div class="u-pop-role" id="pill-grade">Administrator</div>
+          </div>
+        </div>
+        <button class="u-pop-item" onclick="openSwitcher();closeUserPopover()">👤 Switch Student</button>
+        <button class="u-pop-item" onclick="openBulkShareModal();closeUserPopover()">📦 Bulk Share Cards</button>
+        <button class="u-pop-item" onclick="toggleTheme();closeUserPopover()">🌙 Toggle Theme</button>
+        <div class="u-pop-divider"></div>
+        <button class="u-pop-item danger" onclick="doSignOut()">🚪 Sign Out</button>
       </div>
     </div>
-    <button class="switch-student-btn" id="switch-student-btn" onclick="openSwitcher()">👤 Switch Student</button>
-    <button class="signout-btn" id="signout-btn" onclick="doSignOut()">🚪 Sign Out</button>
   </div>
 </div>
 
@@ -1816,8 +1630,9 @@ mark.nb-hl{
     <!-- Previously viewed students chips -->
     <div id="sw-history" class="sw-history"></div>
     <div class="sw-fields">
-      <div class="sw-row">
-        <div class="fg" style="flex:1;margin-bottom:0">
+      <!-- Grade select + live filter on one row -->
+      <div style="display:flex;align-items:flex-end;gap:10px;">
+        <div class="fg" style="flex:1.2;margin-bottom:0">
           <label>📚 Class / Grade</label>
           <div class="iw">
             <span class="ii">📚</span>
@@ -1826,7 +1641,22 @@ mark.nb-hl{
             </select>
           </div>
         </div>
+        <!-- Live student filter (hidden until grade is selected) -->
+        <div id="sw-filter-row" style="display:none;flex:1;margin-bottom:0;">
+          <label style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em;display:block;">🔍 Filter Student</label>
+          <div class="iw" style="position:relative;">
+            <span class="ii">🔍</span>
+            <input type="search" id="sw-filter-input"
+              placeholder="Name or Asm No…"
+              autocomplete="off" spellcheck="false"
+              oninput="onSwitcherFilterInput()"
+              style="width:100%;padding:12px 36px 12px 42px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;outline:none;transition:var(--transition);">
+            <button id="sw-filter-clear" onclick="clearSwitcherFilter()" title="Clear"
+              style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:14px;padding:0;line-height:1;">✕</button>
+          </div>
+        </div>
       </div>
+      <div id="sw-filter-count" style="font-size:10px;color:var(--text2);margin-top:5px;text-align:right;display:none;"></div>
       <div id="sw-roster" class="sw-roster">
         <div class="sw-roster-hint">👆 Select a grade above to see its students.</div>
       </div>
@@ -1835,47 +1665,10 @@ mark.nb-hl{
   </div>
 </div>
 
-<!-- ── FLOAT SWITCH STUDENT BTN ── -->
-<div id="float-switch-btn" class="float-switch-btn" onclick="openSwitcher()" title="Switch Student (Shortcut: W)" style="display:none">
-  <span class="float-switch-icon">👤</span>
-  <span class="float-switch-label">Switch<br>Student</span>
-</div>
-
-<!-- ── SHORTCUT HELP PANEL ── -->
-<div id="shortcut-panel" class="shortcut-panel" style="display:none">
-  <div class="sc-hdr">
-    <span>⌨️ Keyboard Shortcuts</span>
-    <button class="sc-close" onclick="document.getElementById('shortcut-panel').classList.remove('on')">✕</button>
-  </div>
-  <div class="sc-grid">
-    <div class="sc-item"><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd><span>Switch terms</span></div>
-    <div class="sc-item"><kbd class="kbd">P</kbd><span>Preview report card</span></div>
-    <div class="sc-item"><kbd class="kbd">S</kbd><span>Share results</span></div>
-    <div class="sc-item"><kbd class="kbd">W</kbd><span>Switch student</span></div>
-    <div class="sc-item"><kbd class="kbd">1</kbd><span>Jump to Profile</span></div>
-    <div class="sc-item"><kbd class="kbd">2</kbd><span>Jump to Results</span></div>
-    <div class="sc-item"><kbd class="kbd">3</kbd><span>Jump to Timeline</span></div>
-    <div class="sc-item"><kbd class="kbd">4</kbd><span>Jump to Charts</span></div>
-    <div class="sc-item"><kbd class="kbd">G</kbd><span>Grade Scale</span></div>
-    <div class="sc-item"><kbd class="kbd">?</kbd><span>This help panel</span></div>
-    <div class="sc-item"><kbd class="kbd">Esc</kbd><span>Close modal / panel</span></div>
-  </div>
-</div>
-
 <!-- ── DASHBOARD ── -->
 <div id="dashboard">
 
-  <!-- Welcome / Student Profile FIRST -->
-  <div class="welcome-card" id="section-profile">
-    <div class="w-av" id="w-av">?</div>
-    <div class="w-txt">
-      <h2 id="w-name">Welcome!</h2>
-      <p  id="w-sub">Loading academic records…</p>
-      <div class="badge-row" id="badge-row"></div>
-    </div>
-  </div>
-
-  <!-- Achievements (now below profile) -->
+  <!-- Achievements -->
   <div id="achievements-section" style="display:none">
     <div class="sec-hdr">
       <h3>🏆 Achievements</h3>
@@ -1884,10 +1677,26 @@ mark.nb-hl{
     <div class="achievements-row" id="achievements-row"></div>
   </div>
 
-  <!-- Term Timeline (shown when multi-term) — stacked collapsible stages -->
+  <!-- Term Timeline (shown when multi-term) -->
   <div id="timeline-section" style="display:none">
     <div class="sec-hdr"><h3>📅 Academic Journey</h3></div>
-    <div class="tl-stacked" id="tl-stacked"></div>
+    <div class="timeline-card">
+      <div class="timeline-title">📅 Term-by-Term Timeline</div>
+      <div class="tl-wrap">
+        <div class="tl-line"></div>
+        <div id="tl-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome -->
+  <div class="welcome-card">
+    <div class="w-av" id="w-av">?</div>
+    <div class="w-txt">
+      <h2 id="w-name">Welcome!</h2>
+      <p  id="w-sub">Loading academic records…</p>
+      <div class="badge-row" id="badge-row"></div>
+    </div>
   </div>
 
   <!-- Term Tabs -->
@@ -1899,7 +1708,7 @@ mark.nb-hl{
   <div class="stats-grid" id="stats-grid"></div>
 
   <!-- Results -->
-  <div class="sec-hdr" id="section-results">
+  <div class="sec-hdr">
     <h3>Academic Results</h3>
     <div class="act-btns">
       <button class="btn btn-outline" onclick="openPreview()">📄 View Report Card</button>
@@ -1915,7 +1724,7 @@ mark.nb-hl{
   <div class="insights-row" id="insights-row"></div>
 
   <!-- Charts -->
-  <div class="charts-row" id="charts-row" data-section="section-charts">
+  <div class="charts-row" id="charts-row">
     <div class="chart-card">
       <div class="chart-card-title">📊 Subject Performance</div>
       <div class="chart-wrap"><canvas id="chart-radar"></canvas></div>
@@ -2002,13 +1811,14 @@ mark.nb-hl{
   <!-- Keyboard shortcuts hint -->
   <div class="kbd-hint" id="kbd-hint" style="display:none">
     <span>⌨️ Shortcuts:</span>
-    <span><kbd class="kbd">←</kbd><kbd class="kbd">→</kbd> terms</span>
-    <span><kbd class="kbd">1</kbd>–<kbd class="kbd">4</kbd> jump to section</span>
-    <span><kbd class="kbd">P</kbd> preview</span>
-    <span><kbd class="kbd">S</kbd> share</span>
-    <span><kbd class="kbd">W</kbd> switch student</span>
-    <span><kbd class="kbd">G</kbd> grade scale</span>
-    <span><kbd class="kbd">?</kbd> all shortcuts</span>
+    <span><kbd class="kbd">←</kbd> <kbd class="kbd">→</kbd> switch terms</span>
+    <span><kbd class="kbd">G</kbd> switcher</span>
+    <span><kbd class="kbd">P</kbd> preview card</span>
+    <span><kbd class="kbd">S</kbd> share results</span>
+    <span><kbd class="kbd">B</kbd> bulk share</span>
+    <span><kbd class="kbd">T</kbd> theme</span>
+    <span><kbd class="kbd">Esc</kbd> close modal</span>
+    <span><kbd class="kbd">?</kbd> focus search</span>
   </div>
 
 </div><!-- /dashboard -->
@@ -2454,24 +2264,91 @@ document.addEventListener('keydown', e=>{
 let adminLoggedIn    = false;
 let currentAdminEmail = '';
 
+// ═══════════════════════════════════════════════════
+//  SESSION TIMEOUT — 5 minutes, resets on activity
+// ═══════════════════════════════════════════════════
+const SESSION_MS      = 5 * 60 * 1000;   // 5 minutes
+const SESSION_WARN_MS = 4 * 60 * 1000;   // warn at 4 min (1 min left)
+let _sessionTimer  = null;
+let _sessionWarnTimer = null;
+let _sessionWarnNotifId = null;
+
+function _clearSessionTimers(){
+  clearTimeout(_sessionTimer);
+  clearTimeout(_sessionWarnTimer);
+  _sessionTimer = _sessionWarnTimer = null;
+}
+
+function _resetSession(){
+  if(!adminLoggedIn) return;
+  _clearSessionTimers();
+  // Dismiss the warning toast if it's showing
+  if(_sessionWarnNotifId !== null){
+    const el = document.getElementById('notif-'+_sessionWarnNotifId);
+    if(el) el.remove();
+    _sessionWarnNotifId = null;
+  }
+  _sessionWarnTimer = setTimeout(()=>{
+    _sessionWarnNotifId = Date.now();
+    notify(`⏳ Session expires in <strong>1 minute</strong> — move the mouse to stay logged in.`,'warning', 60000);
+  }, SESSION_WARN_MS);
+  _sessionTimer = setTimeout(()=>{
+    notify('🔒 Session expired. Please sign in again.','error',6000);
+    doSignOut();
+  }, SESSION_MS);
+}
+
+function _startSessionWatch(){
+  _resetSession();
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(ev=>{
+    window.addEventListener(ev, _resetSession, { passive:true });
+  });
+}
+
+function _stopSessionWatch(){
+  _clearSessionTimers();
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(ev=>{
+    window.removeEventListener(ev, _resetSession);
+  });
+}
+
 function _watchAuthState(app){
   const { getAuth, onAuthStateChanged } = window._fb;
-  onAuthStateChanged(getAuth(app), user=>{
-    if(user && !user.isAnonymous && adminLoggedIn){
-      // session already restored — nothing to do
-    } else if(user && !user.isAnonymous){
-      // page refreshed while signed in
-      const saved = sessionStorage.getItem('kss_recs');
-      if(saved){
-        try{
-          allRecs = JSON.parse(saved); activeIdx = allRecs.length-1;
-          adminLoggedIn = true; currentAdminEmail = user.email||'';
-          _onAuthSuccess(user);
-          if(allRecs && allRecs.length) renderDash();
-        }catch(e){ sessionStorage.removeItem('kss_recs'); }
-      }
+  onAuthStateChanged(getAuth(app), async user=>{
+    if(!user || user.isAnonymous){
+      // signed out externally — ensure UI reflects that
+      if(adminLoggedIn) doSignOut();
+      return;
     }
-    // if !user → login screen already visible
+    if(adminLoggedIn){
+      // session already active — nothing to do
+      return;
+    }
+    // ── Auto-login: Firebase already has a valid session ─────────────────
+    // Re-run the AdvancedAdmin check then restore the session silently.
+    let allowed = false;
+    try{
+      const { doc, getDoc } = window._fb;
+      const snap = await getDoc(doc(firestoreDb, 'users', user.uid));
+      allowed = snap.exists() && snap.data().Advancedadmin === true;
+    }catch(err){ console.error('[AdvancedAdmin] Auto-login check failed:', err); }
+
+    if(!allowed){
+      // Not an advanced admin — sign them out quietly
+      try{ const { getAuth, signOut } = window._fb; await signOut(getAuth()); }catch(e){}
+      return;
+    }
+
+    // Restore cached roster if available, then call success handler
+    const saved = sessionStorage.getItem('kss_recs');
+    if(saved){
+      try{
+        allRecs = JSON.parse(saved);
+        activeIdx = allRecs.length - 1;
+      }catch(e){ sessionStorage.removeItem('kss_recs'); }
+    }
+    await _onAuthSuccess(user);
+    if(allRecs && allRecs.length) renderDash();
   });
 }
 
@@ -2500,24 +2377,16 @@ async function _onAuthSuccess(user){
   document.getElementById('user-pill').classList.add('on');
   document.getElementById('signout-btn').classList.add('on');
   document.getElementById('switch-student-btn').classList.add('on');
-  // Set pill avatar from Google photo or initial
-  const av = document.getElementById('pill-av');
-  const wav = document.getElementById('w-av');
-  if(user.photoURL){
-    const img = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-    av.innerHTML = img;
-    wav.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
-  } else {
-    const init = (currentAdminEmail[0]||'A').toUpperCase();
-    av.textContent  = init;
-    wav.textContent = init;
-  }
+  // Set avatar on button inner span, popover header, and welcome card
+  _setAdminAvatar(user.photoURL, (currentAdminEmail[0]||'A').toUpperCase());
   document.getElementById('pill-name').textContent  = currentAdminEmail;
   document.getElementById('pill-grade').textContent = 'Administrator';
   notify(`✅ Welcome, <strong>${currentAdminEmail}</strong>!`,'success',5000);
-  // Show universal search
-  const _nbW = document.getElementById('nb-search-wrap');
-  if(_nbW) _nbW.classList.remove('hidden');
+  // Show navbar search
+  const nbWrap = document.getElementById('nb-search-wrap');
+  if(nbWrap) nbWrap.classList.remove('hidden');
+  // Start 5-min session timeout
+  _startSessionWatch();
   // No student loaded yet? Jump straight into the class/student picker
   // instead of leaving a blank dashboard behind the top bar.
   if(!allRecs || !allRecs.length){
@@ -2586,6 +2455,8 @@ window.doAdminLogin = doAdminLogin;
 //  SIGN OUT
 // ═══════════════════════════════════════════════════
 function doSignOut(){
+  _stopSessionWatch();
+  closeUserPopover();
   sessionStorage.removeItem('kss_recs');
   allRecs=[]; activeIdx=0;
   adminLoggedIn=false; currentAdminEmail='';
@@ -2601,197 +2472,181 @@ function doSignOut(){
   document.getElementById('switch-student-btn').classList.remove('on');
   document.getElementById('inp-admin-user').value='';
   document.getElementById('inp-admin-pass').value='';
-  document.getElementById('pill-av').innerHTML = '?';
-  document.getElementById('w-av').innerHTML    = '?';
-  // Hide search bar and clear it
-  const _nbW = document.getElementById('nb-search-wrap');
-  if(_nbW){ _nbW.classList.add('hidden'); }
-  const _nbI = document.getElementById('nb-input');
-  if(_nbI){ _nbI.value = ''; }
-  _nbCloseDD();
-  // Hide float switch button
-  const floatHide = document.getElementById('float-switch-btn');
-  if(floatHide) floatHide.classList.remove('on');
-  const spHide = document.getElementById('shortcut-panel');
-  if(spHide) spHide.classList.remove('on');
+  const inner = document.getElementById('pill-av-inner'); if(inner) inner.textContent='?';
+  const popAv = document.getElementById('pop-av'); if(popAv) popAv.textContent='?';
+  const wav = document.getElementById('w-av'); if(wav) wav.innerHTML='?';
+  const nbWrap = document.getElementById('nb-search-wrap');
+  if(nbWrap){ nbWrap.classList.add('hidden'); document.getElementById('nb-search-input').value=''; nbCloseDropdown(); }
   notify('👋 Signed out.','info');
 }
 window.doSignOut = doSignOut;
 
 // ═══════════════════════════════════════════════════
-//  UNIVERSAL NAVBAR SEARCH
+//  NAVBAR SEARCH
 // ═══════════════════════════════════════════════════
-let _nbResults  = [];
 let _nbActiveIdx = -1;
+let _nbResults   = [];
 
-/* Build a flat list of all students from _swGradeMap */
-function _nbAllStudents(){
-  if(!_swGradeMap) return [];
+function nbSearchFocus(){
+  const inp = document.getElementById('nb-search-input');
+  if(!inp.value.trim()){
+    // Show recent students as default when empty
+    nbRenderDropdown('');
+  }
+  document.getElementById('nb-dropdown').classList.add('open');
+}
+
+function nbSearchInput(){
+  const q = (document.getElementById('nb-search-input').value||'').trim();
+  nbRenderDropdown(q);
+  document.getElementById('nb-dropdown').classList.add('open');
+  _nbActiveIdx = -1;
+}
+
+function nbRenderDropdown(q){
+  const dd = document.getElementById('nb-dropdown');
+  _nbResults = [];
+  if(!_swGradeMap){ dd.innerHTML='<div class="nb-dd-empty">Load a class first to enable search.</div>'; return; }
+
+  const ql = q.toLowerCase();
+  // Collect all students across all grades
   const all = [];
   _swGradeMap.forEach((map, grade)=>{
-    map.forEach(st=> all.push({ ...st, grade }));
+    map.forEach(st=>all.push({...st, grade}));
   });
-  return all;
-}
 
-/* Highlight matching substring */
-function _nbHl(text, q){
-  if(!q) return _esc(text);
-  return _esc(text).replace(
-    new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
-    '<mark class="nb-hl">$1</mark>'
-  );
-}
-function _esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function _nbRender(q){
-  const dd = document.getElementById('nb-dropdown');
-  const clearBtn = document.getElementById('nb-clear');
-  if(clearBtn) clearBtn.classList.toggle('on', !!q);
-  _nbResults = [];
-
-  const all = _nbAllStudents();
-  const ql  = q.toLowerCase();
-
-  let matches;
-  if(q){
-    // Score: name-starts-with > name-contains > asm-contains > grade-contains
-    matches = all
-      .map(st=>{
-        const n = st.name.toLowerCase(), a = st.asm.toLowerCase(), g = (st.grade||'').toLowerCase();
-        let score = 0;
-        if(n.startsWith(ql))      score = 4;
-        else if(n.includes(ql))   score = 3;
-        else if(a.includes(ql))   score = 2;
-        else if(g.includes(ql))   score = 1;
-        return score ? { ...st, score } : null;
-      })
-      .filter(Boolean)
-      .sort((a,b)=> b.score - a.score || a.name.localeCompare(b.name))
-      .slice(0, 14);
-  } else {
-    // No query → show recent history
-    const hist = _swHistory();
-    const allMap = new Map(all.map(s=>[s.asm, s]));
-    matches = hist.map(h=> allMap.get(h.asm) || { name:h.name, asm:h.asm, grade:'—' }).slice(0,7);
-  }
+  let matches = q
+    ? all.filter(st=>
+        st.name.toLowerCase().includes(ql) ||
+        st.asm.toLowerCase().includes(ql)  ||
+        (st.grade||'').toLowerCase().includes(ql)
+      ).slice(0,12)
+    : _swHistory().slice(0,6).map(h=>{
+        // find full record for avatar
+        const found = all.find(s=>s.asm===h.asm);
+        return found || {name:h.name, asm:h.asm, grade:'—'};
+      }).filter(Boolean);
 
   _nbResults = matches;
 
   if(!matches.length){
     dd.innerHTML = q
-      ? `<div class="nb-dd-empty">😕 No students match <strong>"${_esc(q)}"</strong><br><span style="font-size:11px;opacity:.7">Try a name, assessment no, or grade</span></div>`
-      : `<div class="nb-dd-empty">Start typing to search all students</div>`;
+      ? `<div class="nb-dd-empty">No students match "<strong>${q}</strong>"</div>`
+      : '<div class="nb-dd-empty">Start typing to search all students</div>';
     return;
   }
 
-  const sectionLabel = q ? `${matches.length} result${matches.length!==1?'s':''}` : 'Recent';
+  const highlight = (text)=>{
+    if(!q) return text;
+    return text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
+      '<mark style="background:rgba(93,173,226,.3);color:inherit;border-radius:2px;padding:0 1px;">$1</mark>');
+  };
+
+  const label = q ? `${matches.length} result${matches.length!==1?'s':''}` : 'Recent';
   dd.innerHTML = `
     <div class="nb-dd-section">
-      <div class="nb-dd-label">${sectionLabel}</div>
+      <div class="nb-dd-label">${label}</div>
       ${matches.map((st,i)=>`
-        <button class="nb-dd-item" data-idx="${i}" onclick="_nbSelect(${i})">
-          <div class="nb-dd-av">${_esc((st.name[0]||'?').toUpperCase())}</div>
+        <button class="nb-dd-item" data-idx="${i}" onclick="nbSelectResult(${i})">
+          <div class="nb-dd-av">${(st.name[0]||'?').toUpperCase()}</div>
           <div class="nb-dd-info">
-            <div class="nb-dd-name">${_nbHl(st.name, q)}</div>
-            <div class="nb-dd-meta">${_nbHl(st.asm, q)}</div>
+            <div class="nb-dd-name">${highlight(st.name)}</div>
+            <div class="nb-dd-meta">${highlight(st.asm)}</div>
           </div>
-          <div class="nb-dd-badge">${_esc(st.grade||'—')}</div>
+          <div class="nb-dd-grade-badge">${st.grade||'—'}</div>
         </button>`).join('')}
     </div>
     <div class="nb-dd-footer">
-      <span class="nb-dd-footer-hint">
-        <kbd class="nb-kbd">↑↓</kbd> navigate &nbsp;
-        <kbd class="nb-kbd">↵</kbd> select &nbsp;
-        <kbd class="nb-kbd">Esc</kbd> close
-      </span>
-      <span class="nb-dd-footer-hint">${all.length} students total</span>
+      <span class="nb-dd-footer-hint"><kbd class="nb-kbd">↑↓</kbd> navigate &nbsp; <kbd class="nb-kbd">Enter</kbd> select &nbsp; <kbd class="nb-kbd">Esc</kbd> close</span>
     </div>`;
 }
 
-function _nbOpenDD(){
+function nbSearchKeydown(e){
   const dd = document.getElementById('nb-dropdown');
-  if(dd) dd.classList.add('open');
+  const isOpen = dd.classList.contains('open');
+  if(e.key==='Escape'){ nbCloseDropdown(); e.preventDefault(); return; }
+  if(!isOpen) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    _nbActiveIdx = Math.min(_nbActiveIdx+1, _nbResults.length-1);
+    nbHighlightItem();
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    _nbActiveIdx = Math.max(_nbActiveIdx-1, -1);
+    nbHighlightItem();
+  } else if(e.key==='Enter' && _nbActiveIdx>=0){
+    e.preventDefault();
+    nbSelectResult(_nbActiveIdx);
+  }
 }
-function _nbCloseDD(){
+
+function nbHighlightItem(){
+  document.querySelectorAll('.nb-dd-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===_nbActiveIdx);
+    if(i===_nbActiveIdx) el.scrollIntoView({block:'nearest'});
+  });
+}
+
+async function nbSelectResult(idx){
+  const st = _nbResults[idx];
+  if(!st) return;
+  nbCloseDropdown();
+  document.getElementById('nb-search-input').value='';
+  await selectSwitcherStudent(st.asm);
+}
+window.nbSelectResult = nbSelectResult;
+
+function nbCloseDropdown(){
   const dd = document.getElementById('nb-dropdown');
   if(dd) dd.classList.remove('open');
   _nbActiveIdx = -1;
 }
 
-function _nbOnFocus(){
-  const q = (document.getElementById('nb-input').value||'').trim();
-  _nbRender(q);
-  _nbOpenDD();
-}
-function _nbOnInput(){
-  const q = (document.getElementById('nb-input').value||'').trim();
-  _nbActiveIdx = -1;
-  _nbRender(q);
-  _nbOpenDD();
-}
-function _nbClear(){
-  const inp = document.getElementById('nb-input');
-  if(inp){ inp.value=''; inp.focus(); }
-  _nbActiveIdx = -1;
-  _nbRender('');
-  _nbOpenDD();
-}
-function _nbHighlight(){
-  document.querySelectorAll('.nb-dd-item').forEach((el,i)=>{
-    el.classList.toggle('nb-active', i===_nbActiveIdx);
-    if(i===_nbActiveIdx) el.scrollIntoView({block:'nearest'});
-  });
-}
-function _nbOnKeydown(e){
-  const dd = document.getElementById('nb-dropdown');
-  const isOpen = dd && dd.classList.contains('open');
-  if(e.key==='Escape'){ _nbCloseDD(); e.preventDefault(); return; }
-  if(!isOpen) return;
-  if(e.key==='ArrowDown'){
-    e.preventDefault();
-    _nbActiveIdx = Math.min(_nbActiveIdx+1, _nbResults.length-1);
-    _nbHighlight();
-  } else if(e.key==='ArrowUp'){
-    e.preventDefault();
-    _nbActiveIdx = Math.max(_nbActiveIdx-1, -1);
-    _nbHighlight();
-  } else if(e.key==='Enter'){
-    e.preventDefault();
-    if(_nbActiveIdx>=0) _nbSelect(_nbActiveIdx);
-    else if(_nbResults.length===1) _nbSelect(0);
-  }
-}
-async function _nbSelect(idx){
-  const st = _nbResults[idx];
-  if(!st) return;
-  _nbCloseDD();
-  document.getElementById('nb-input').value='';
-  document.getElementById('nb-clear').classList.remove('on');
-  await selectSwitcherStudent(st.asm);
-}
-window._nbSelect   = _nbSelect;
-window._nbOnInput  = _nbOnInput;
-window._nbOnFocus  = _nbOnFocus;
-window._nbOnKeydown= _nbOnKeydown;
-window._nbClear    = _nbClear;
-window._nbCloseDD  = _nbCloseDD;
-
-// Close dropdown on outside click
+// Close dropdown when clicking outside
 document.addEventListener('mousedown', e=>{
   const wrap = document.getElementById('nb-search-wrap');
-  if(wrap && !wrap.contains(e.target)) _nbCloseDD();
+  if(wrap && !wrap.contains(e.target)) nbCloseDropdown();
+  // Also close user popover
+  const pill = document.getElementById('user-pill');
+  if(pill && !pill.contains(e.target)) closeUserPopover();
 });
 
-// ? or / focuses search bar when admin is logged in
-document.addEventListener('keydown', e=>{
-  if(!adminLoggedIn) return;
-  if((e.key==='/'||e.key==='?') && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){
-    e.preventDefault();
-    const inp = document.getElementById('nb-input');
-    if(inp){ inp.focus(); inp.select(); }
-  }
+// ── User popover ──
+document.addEventListener('DOMContentLoaded', ()=>{
+  const btn = document.getElementById('pill-av');
+  if(btn) btn.addEventListener('click', toggleUserPopover);
 });
+
+function _setAdminAvatar(photoURL, initial){
+  const inner = document.getElementById('pill-av-inner');
+  const popAv = document.getElementById('pop-av');
+  const wav   = document.getElementById('w-av');
+  if(photoURL){
+    const imgHtml = `<img src="${photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    if(inner) inner.innerHTML = imgHtml;
+    if(popAv) popAv.innerHTML = imgHtml;
+    if(wav)   wav.innerHTML   = `<img src="${photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
+  } else {
+    if(inner) inner.textContent = initial;
+    if(popAv) popAv.textContent = initial;
+    if(wav)   wav.textContent   = initial;
+  }
+}
+
+function toggleUserPopover(){
+  const pop = document.getElementById('u-popover');
+  if(!pop) return;
+  pop.classList.toggle('open');
+}
+function closeUserPopover(){
+  const pop = document.getElementById('u-popover');
+  if(pop) pop.classList.remove('open');
+}
+window.toggleUserPopover = toggleUserPopover;
+window.closeUserPopover  = closeUserPopover;
+
+// ? or / focuses the navbar search (overrides the kbd-hint toggle when search is visible)
+// This is handled in the main shortcut listener below by removing the / toggle
 // ═══════════════════════════════════════════════════
 const SW_HISTORY_KEY = 'kss_sw_history';
 const SW_MAX = 6;
@@ -2913,36 +2768,82 @@ async function _populateSwitcherGrades(){
   }
 }
 
-function _renderRoster(grade){
-  const rosterEl = document.getElementById('sw-roster');
+function _renderRoster(grade, filter){
+  const rosterEl   = document.getElementById('sw-roster');
+  const filterRow  = document.getElementById('sw-filter-row');
+  const filterCount= document.getElementById('sw-filter-count');
   rosterEl.innerHTML = '';
   if(grade==='loading'){
+    if(filterRow){ filterRow.style.display='none'; }
+    if(filterCount){ filterCount.style.display='none'; }
     rosterEl.innerHTML = '<div class="sw-roster-hint">⏳ Loading student roster…</div>';
     return;
   }
   if(!grade){
+    if(filterRow){ filterRow.style.display='none'; }
+    if(filterCount){ filterCount.style.display='none'; }
     rosterEl.innerHTML = '<div class="sw-roster-hint">👆 Select a grade above to see its students.</div>';
     return;
   }
   const studentsMap = _swGradeMap && _swGradeMap.get(grade);
   if(!studentsMap || !studentsMap.size){
+    if(filterRow){ filterRow.style.display='none'; }
+    if(filterCount){ filterCount.style.display='none'; }
     rosterEl.innerHTML = '<div class="sw-roster-hint">No students found in this grade.</div>';
     return;
   }
-  const list = Array.from(studentsMap.values()).sort((a,b)=>a.name.localeCompare(b.name));
+  // Show filter column
+  if(filterRow) filterRow.style.display='flex';
+  if(filterCount) filterCount.style.display='block';
+
+  const q = (filter||'').trim().toLowerCase();
+  let list = Array.from(studentsMap.values()).sort((a,b)=>a.name.localeCompare(b.name));
+  const total = list.length;
+  if(q) list = list.filter(st=>st.name.toLowerCase().includes(q) || st.asm.toLowerCase().includes(q));
+
+  // Update count label
+  if(filterCount) filterCount.textContent = q ? `${list.length} of ${total} students` : `${total} student${total!==1?'s':''}`;
+
+  // Toggle clear button
+  const clearBtn = document.getElementById('sw-filter-clear');
+  if(clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+  if(!list.length){
+    rosterEl.innerHTML = `<div class="sw-roster-hint">No students match "<strong>${q}</strong>".</div>`;
+    return;
+  }
   list.forEach(st=>{
     const btn = document.createElement('button');
     btn.className = 'sw-student-btn';
-    btn.innerHTML = `<span class="sw-student-av">${(st.name[0]||'?').toUpperCase()}</span><span class="sw-student-info"><span class="sw-student-name"></span><span class="sw-student-asm"></span></span>`;
-    btn.querySelector('.sw-student-name').textContent = st.name;
-    btn.querySelector('.sw-student-asm').textContent  = st.asm;
+    const displayName = q ? st.name.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark style="background:rgba(93,173,226,.35);color:inherit;border-radius:2px;padding:0 1px;">$1</mark>') : '';
+    btn.innerHTML = `<span class="sw-student-av">${(st.name[0]||'?').toUpperCase()}</span><span class="sw-student-info"><span class="sw-student-name">${displayName||''}</span><span class="sw-student-asm"></span></span>`;
+    if(!q) btn.querySelector('.sw-student-name').textContent = st.name;
+    btn.querySelector('.sw-student-asm').textContent = st.asm;
     btn.onclick = ()=>selectSwitcherStudent(st.asm);
     rosterEl.appendChild(btn);
   });
 }
 
+function onSwitcherFilterInput(){
+  const grade = document.getElementById('sw-grade').value;
+  const q     = document.getElementById('sw-filter-input').value;
+  _renderRoster(grade, q);
+}
+window.onSwitcherFilterInput = onSwitcherFilterInput;
+
+function clearSwitcherFilter(){
+  const inp = document.getElementById('sw-filter-input');
+  if(inp){ inp.value=''; inp.focus(); }
+  onSwitcherFilterInput();
+}
+window.clearSwitcherFilter = clearSwitcherFilter;
+
 function onSwitcherGradeChange(){
+  const inp = document.getElementById('sw-filter-input');
+  if(inp) inp.value = '';
   _renderRoster(document.getElementById('sw-grade').value);
+  // Auto-focus the filter so user can type immediately
+  if(inp && document.getElementById('sw-grade').value) setTimeout(()=>inp.focus(), 50);
 }
 window.onSwitcherGradeChange = onSwitcherGradeChange;
 
@@ -2977,12 +2878,9 @@ function renderDash(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('dashboard').classList.add('on');
   document.getElementById('user-pill').classList.add('on');
-  document.getElementById('signout-btn').classList.add('on');
-  document.getElementById('switch-student-btn').classList.add('on');
 
-  // Set initial text fallback while photo loads
-  document.getElementById('pill-av').textContent    = first[0]||'?';
-  document.getElementById('pill-name').textContent  = s['Official Student Name']||'–';
+  // Set welcome card initial while photo loads
+  document.getElementById('w-av').textContent = first[0]||'?';  document.getElementById('pill-name').textContent  = s['Official Student Name']||'–';
   document.getElementById('pill-grade').textContent = gShort(s['Grade']);
 
   document.getElementById('w-av').textContent = first[0]||'?';
@@ -2994,9 +2892,8 @@ function renderDash(){
     <span class="bdg green">🏆 ${stats.level} — ${stats.label}</span>
     <span class="bdg gold">📊 Avg ${stats.avg}%</span>`;
 
-  // Photo: load from ./student_images/{Grade}/{Name}.jpg
-  loadPhotoInto(document.getElementById('w-av'),    s['Official Student Name']||'', s['Grade']||'');
-  loadPhotoInto(document.getElementById('pill-av'), s['Official Student Name']||'', s['Grade']||'');
+  // Photo: student photo into welcome card avatar only
+  loadPhotoInto(document.getElementById('w-av'), s['Official Student Name']||'', s['Grade']||'');
 
   // Update switcher history once photo resolves
   setTimeout(()=>{
@@ -3782,53 +3679,49 @@ function renderComparison(){
 }
 
 // ═══════════════════════════════════════════════════
-//  KEYBOARD SHORTCUTS (extended)
+//  KEYBOARD SHORTCUTS
 // ═══════════════════════════════════════════════════
 document.addEventListener('keydown', e=>{
-  const modalOpen = document.getElementById('modal-overlay').classList.contains('on');
-  const dashOpen  = document.getElementById('dashboard').classList.contains('on');
-  const tag       = document.activeElement.tagName;
-  const inInput   = tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+  const modalOpen    = document.getElementById('modal-overlay').classList.contains('on');
+  const dashOpen     = document.getElementById('dashboard').classList.contains('on');
+  const switcherOpen = document.getElementById('switcher-drawer').classList.contains('open');
+  const tag          = document.activeElement.tagName;
+  const isTyping     = tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
 
-  if(e.key==='Escape'){
-    if(modalOpen){ closeModal(); return; }
-    // Close shortcut panel
-    const sp = document.getElementById('shortcut-panel');
-    if(sp && sp.classList.contains('on')){ sp.classList.remove('on'); return; }
-    return;
-  }
+  if(e.key==='Escape' && modalOpen){ closeModal(); return; }
 
-  if(!dashOpen || inInput) return;
+  // All letter shortcuts require admin to be logged in
+  if(!adminLoggedIn) return;
 
-  // Term navigation
-  if(e.key==='ArrowLeft' && activeIdx>0 && !modalOpen){
+  // Arrow keys: switch terms (dashboard open, no modal, no switcher)
+  if(e.key==='ArrowLeft' && activeIdx>0 && !modalOpen && dashOpen && !switcherOpen){
     activeIdx--; renderDash(); return;
   }
-  if(e.key==='ArrowRight' && activeIdx<allRecs.length-1 && !modalOpen){
+  if(e.key==='ArrowRight' && activeIdx<allRecs.length-1 && !modalOpen && dashOpen && !switcherOpen){
     activeIdx++; renderDash(); return;
   }
 
-  // Action shortcuts
-  if((e.key==='p'||e.key==='P') && !modalOpen && !e.ctrlKey && !e.metaKey){ openPreview(); return; }
-  if((e.key==='s'||e.key==='S') && !modalOpen){ openShareModal(); return; }
-  if((e.key==='g'||e.key==='G') && !modalOpen){ openScaleModal(); return; }
-  if((e.key==='w'||e.key==='W') && !modalOpen){ openSwitcher(); return; }
+  if(isTyping) return; // don't fire letter shortcuts when typing in fields
 
-  // Section jumps (number keys)
-  const sectionMap = {
-    '1':'section-profile','2':'section-results',
-    '3':'timeline-section','4':'charts-row'
-  };
-  if(sectionMap[e.key] && !modalOpen){
-    const el = document.getElementById(sectionMap[e.key]);
-    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-    return;
+  // P — preview report card
+  if((e.key==='p'||e.key==='P') && !modalOpen && !e.ctrlKey && !e.metaKey && dashOpen){ openPreview(); return; }
+  // S — share results
+  if((e.key==='s'||e.key==='S') && !modalOpen && !e.ctrlKey && !e.metaKey && dashOpen){ openShareModal(); return; }
+  // G — open/close student switcher
+  if((e.key==='g'||e.key==='G') && !e.ctrlKey && !e.metaKey){
+    switcherOpen ? closeSwitcher() : openSwitcher(); return;
   }
-
-  // Shortcut help panel toggle
-  if(e.key==='?'){
-    const sp = document.getElementById('shortcut-panel');
-    if(sp) sp.classList.toggle('on');
+  // B — open bulk share modal
+  if((e.key==='b'||e.key==='B') && !e.ctrlKey && !e.metaKey){ openBulkShareModal(); return; }
+  // T — toggle dark/light theme
+  if((e.key==='t'||e.key==='T') && !e.ctrlKey && !e.metaKey){ toggleTheme(); return; }
+  // ? or / — focus navbar search bar
+  if(e.key==='?'||e.key==='/'){
+    e.preventDefault();
+    const inp = document.getElementById('nb-search-input');
+    if(inp && !document.getElementById('nb-search-wrap').classList.contains('hidden')){
+      inp.focus(); inp.select();
+    }
     return;
   }
 });
@@ -3851,10 +3744,7 @@ renderDash = function(){
   renderComparison();
   // Show keyboard hint once logged in
   const hint = document.getElementById('kbd-hint');
-  if(hint){ hint.style.display='flex'; }
-  // Show float switch button
-  const floatBtn = document.getElementById('float-switch-btn');
-  if(floatBtn) floatBtn.classList.add('on');
+  if(hint) hint.style.display='flex';
   // New features
   renderAchievements(s, stats);
   renderTimeline();
@@ -3917,90 +3807,31 @@ function renderAchievements(s, stats){
 }
 
 // ═══════════════════════════════════════════════════
-//  ACADEMIC TIMELINE — stacked collapsible stages
+//  ACADEMIC TIMELINE
 // ═══════════════════════════════════════════════════
-let _tlOpenSet = new Set();
 function renderTimeline(){
   const section = document.getElementById('timeline-section');
   if(allRecs.length < 2){ section.style.display='none'; return; }
   section.style.display='';
-  const container = document.getElementById('tl-stacked');
-  if(!container) return;
-
-  // Auto-open current and prev term on first render
-  if(_tlOpenSet.size===0){
-    _tlOpenSet.add(activeIdx);
-    if(activeIdx>0) _tlOpenSet.add(activeIdx-1);
-  }
-
-  container.innerHTML = allRecs.map((rec,i)=>{
-    const st   = calcStats(rec);
-    const avg  = parseFloat(st.avg);
-    const color= avg>=90?'#27ae60':avg>=75?'#2ecc71':avg>=58?'#f39c12':avg>=41?'#e67e22':'#e74c3c';
+  const body = document.getElementById('tl-body');
+  body.innerHTML = allRecs.map((rec,i)=>{
+    const st = calcStats(rec);
+    const avg = parseFloat(st.avg);
+    const color = avg>=75?'#27ae60':avg>=58?'#f39c12':avg>=41?'#e67e22':'#e74c3c';
     const isActive = i===activeIdx;
-    const isOpen   = _tlOpenSet.has(i);
-
-    // Delta vs prev
-    let deltaHtml = '';
-    if(i>0){
-      const prevAvg = parseFloat(calcStats(allRecs[i-1]).avg);
-      const d = (avg - prevAvg).toFixed(1);
-      const cls = d>0?'up':d<0?'dn':'eq';
-      const arrow = d>0?'▲':d<0?'▼':'—';
-      deltaHtml = `<span class="tl-delta ${cls}">${arrow} ${Math.abs(d)}%</span>`;
-    }
-
-    // All subjects for chips
-    const subjs = getSubjects(rec).map(s=>({s,v:parseFloat(rec[s])})).filter(x=>!isNaN(x.v))
-      .sort((a,b)=>b.v-a.v);
-    const chipsHtml = subjs.map(x=>{
-      const c2 = x.v>=90?'#27ae60':x.v>=75?'#2980b9':x.v>=58?'#f39c12':x.v>=41?'#e67e22':'#e74c3c';
-      return `<span class="tl-chip" style="background:${c2}22;color:${c2};border:1px solid ${c2}44" title="${x.s}">${x.s.length>12?x.s.slice(0,11)+'…':x.s} <strong>${x.v}</strong></span>`;
-    }).join('');
-
-    return `<div class="tl-stage${isActive?' tl-active':''}${isOpen?' tl-open':''}" data-tl-idx="${i}">
-      <div class="tl-stage-hdr" onclick="_tlToggle(${i})">
-        <div class="tl-stage-dot" style="color:${color};background:${color}"></div>
-        <div class="tl-stage-term">
-          ${cleanTerm(rec['Term'])}
-          ${isActive?`<span class="tl-stage-cur">Current</span>`:''}
-          ${deltaHtml}
-        </div>
-        <div style="text-align:right">
-          <div class="tl-stage-avg" style="color:${color}">${st.avg}%</div>
-          <div style="font-size:9.5px;color:var(--text3);margin-top:1px">${st.level}</div>
-        </div>
-        <div class="tl-stage-chev">▼</div>
-      </div>
-      <div class="tl-stage-body">
-        <div class="tl-stage-bar-wrap">
-          <div class="tl-stage-bar-fill" style="width:${avg}%;background:${color}"></div>
-        </div>
-        <div class="tl-subj-chips">${chipsHtml}</div>
-        <div class="tl-stage-actions">
-          <button class="tl-act-btn${isActive?' active':''}" onclick="activeIdx=${i};renderDash();_scrollTo('section-results')">
-            ${isActive?'✓ Viewing':'👁 View Results'}
-          </button>
-          <button class="tl-act-btn" onclick="activeIdx=${i};renderDash();openPreview()">📄 Report Card</button>
-        </div>
+    const topSubjs = getSubjects(rec).map(s=>({s,v:parseFloat(rec[s])})).filter(x=>!isNaN(x.v)).sort((a,b)=>b.v-a.v).slice(0,3);
+    return `<div class="tl-item">
+      <div class="tl-dot${isActive?' active':''}" style="background:${color}"></div>
+      <div style="cursor:pointer" onclick="activeIdx=${i};renderDash()">
+        <div class="tl-term" style="color:${isActive?'var(--blue-lt)':'var(--text)'}">${cleanTerm(rec['Term'])}${isActive?' <span style="font-size:9px;background:var(--blue);color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px">Current</span>':''}</div>
+        <div class="tl-avg" style="color:${color}">${st.avg}%</div>
+        <div class="tl-level">${st.level} — ${st.label}</div>
+        <div class="tl-bar-wrap"><div class="tl-bar-fill" style="width:${avg}%;background:${color}"></div></div>
+        <div class="tl-subjects">${topSubjs.map(x=>`<span class="tl-s" style="background:${color}22;color:${color}">${x.s.split(' ')[0]} ${x.v}</span>`).join('')}</div>
       </div>
     </div>`;
   }).join('');
 }
-
-function _tlToggle(idx){
-  if(_tlOpenSet.has(idx)) _tlOpenSet.delete(idx);
-  else _tlOpenSet.add(idx);
-  // Re-render just the timeline to reflect open/closed states
-  renderTimeline();
-}
-window._tlToggle = _tlToggle;
-
-function _scrollTo(id){
-  const el = document.getElementById(id);
-  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-}
-window._scrollTo = _scrollTo;
 
 // ═══════════════════════════════════════════════════
 //  SCORE HEATMAP
@@ -4877,15 +4708,11 @@ async function bulkDownloadShareCardsForGrade(grade, format='png'){
 window.bulkDownloadShareCardsForGrade = bulkDownloadShareCardsForGrade;
 
 
-// ─── Escape also closes new modals ───
+// ─── Escape also closes share/scale modals ───
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(document.getElementById('scale-modal').classList.contains('on')){ closeScaleModal(); return; }
     if(document.getElementById('share-modal').classList.contains('on')){ closeShareModal(); return; }
-  }
-  if((e.key==='s'||e.key==='S') && document.getElementById('dashboard').classList.contains('on')){
-    const tag=document.activeElement.tagName;
-    if(tag!=='INPUT'&&tag!=='TEXTAREA'&&!document.getElementById('modal-overlay').classList.contains('on')) openShareModal();
   }
 });
 
