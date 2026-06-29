@@ -768,21 +768,11 @@ async function drawBottomSection(d, yPos, student, pageWidth, pageHeight) {
     const remarkBoxY = yPos + 3;
     const remarkBoxH = 18;                    // slightly taller for 3 lines
 
-    // Light blue background box for the remark
-    d.setFillColor(235, 245, 255);
-    d.setDrawColor(41, 128, 185);
-    d.setLineWidth(0.3);
-    d.roundedRect(remarkBoxX, remarkBoxY, remarkBoxW, remarkBoxH, 1.5, 1.5, 'FD');
-
-    // Coloured left accent bar
-    d.setFillColor(41, 128, 185);
-    d.roundedRect(remarkBoxX, remarkBoxY, 2.5, remarkBoxH, 0.8, 0.8, 'F');
-
-    // Remark text — wrapped inside the box, font size 7.5 for better fit
+    // Remark text — no background or border, just italic text
     d.setFont(undefined, 'italic'); d.setFontSize(7.5);
     d.setTextColor(30, 60, 100);
     const wrappedRemark = d.splitTextToSize(autoRemark, remarkBoxW - 9);
-    // Print up to 3 lines inside the box
+    // Print up to 3 lines
     wrappedRemark.slice(0, 3).forEach((line, i) => {
         d.text(line, remarkBoxX + 5, remarkBoxY + 5.5 + i * 4.5);
     });
@@ -957,49 +947,36 @@ async function _drawMultiTermReportPage(doc, mergedStudent, logoRes, studentImag
     const gradeLabels = gradeList.map(g => g);   // exact DB string
     const termHeader  = gradeLabels.join('  |  ');
 
-    // ── HEADER — two-tone navy gradient matching HTML design ─────────────────
-    // Top band: dark navy
-    doc.setFillColor(44, 62, 80);
-    doc.rect(0, 0, pageWidth, 20, 'F');
-    // Bottom band: blue
+    // ── HEADER ──────────────────────────────────────────────
     doc.setFillColor(41, 128, 185);
-    doc.rect(0, 20, pageWidth, 18, 'F');
-    // Subtle accent line between bands
-    doc.setFillColor(52, 152, 219);
-    doc.rect(0, 19.5, pageWidth, 1, 'F');
-
+    doc.rect(0, 0, pageWidth, 38, 'F');
     if (logoRes && logoRes.loaded) {
-        try { doc.addImage(logoRes.img, 'PNG', 15, 4, 24, 24); } catch(e) {}
+        try { doc.addImage(logoRes.img, 'PNG', 15, 5, 25, 25); } catch(e) {}
     }
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(17); doc.setFont(undefined, 'bold');
     doc.text('KANYADET PRI & JUNIOR SCHOOL', pageWidth / 2, 10, { align: 'center' });
     doc.setFontSize(11);
     doc.text('P O BOX 45 40139 AKALA, KENYA', pageWidth / 2, 17, { align: 'center' });
-    doc.text('STUDENT PERFORMANCE REPORT', pageWidth / 2, 25, { align: 'center' });
+    doc.text('STUDENT PERFORMANCE REPORT', pageWidth / 2, 23, { align: 'center' });
     // Show each selected DB grade on its own line if needed
     doc.setFontSize(7); doc.setFont(undefined, 'normal');
     const hLines = gradeLabels.length > 2
         ? [gradeLabels.slice(0,2).join('  |  '), gradeLabels[2] + `  |  ${new Date().getFullYear()}`]
         : [termHeader + `  |  ${new Date().getFullYear()}`];
-    hLines.forEach((line, i) => doc.text(line, pageWidth / 2, 32 + i * 4, { align: 'center' }));
+    hLines.forEach((line, i) => doc.text(line, pageWidth / 2, 30 + i * 5, { align: 'center' }));
 
     // ── STUDENT INFO ─────────────────────────────────────────
     let yPos = 38 + hLines.length * 2;
     doc.setTextColor(0, 0, 0);
-    // Info box with left navy accent bar
-    doc.setFillColor(240, 246, 255);
+    doc.setFillColor(240, 240, 240);
     doc.rect(15, yPos, pageWidth - 30, 34, 'F');
-    doc.setFillColor(44, 62, 80);
-    doc.rect(15, yPos, 2.5, 34, 'F');
     if (studentImageData && studentImageData.loaded) {
         try { doc.addImage(studentImageData.img, 'JPEG', pageWidth - 50, yPos + 2, 30, 30); } catch(e) {}
     }
     doc.setFontSize(9); doc.setFont(undefined, 'bold');
-    doc.setTextColor(44, 62, 80);
-    doc.text('STUDENT INFORMATION', 21, yPos + 7);
+    doc.text('STUDENT INFORMATION', 20, yPos + 7);
     doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
-    doc.setTextColor(0, 0, 0);
     // Pick dates from the LAST selected grade (most recent term)
     const lastGrade  = gradeList[gradeList.length - 1];
     const lastRec    = mergedStudent[`__grade_${lastGrade}`] || mergedStudent;
@@ -1020,15 +997,11 @@ async function _drawMultiTermReportPage(doc, mergedStudent, logoRes, studentImag
 
     // ── PERFORMANCE TABLE ────────────────────────────────────
     yPos = iy + 5;
-    // Section label with navy left border accent
-    doc.setFillColor(44, 62, 80);
-    doc.rect(15, yPos - 3.5, 2.5, 7, 'F');
     doc.setFont(undefined, 'bold'); doc.setFontSize(10);
-    doc.setTextColor(44, 62, 80);
     doc.text('ACADEMIC PERFORMANCE', 20, yPos);
     // Closing / Opening date — same line, right-aligned
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
-    doc.setTextColor(80, 80, 80);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
     doc.text(`CLOSING: ${closingDate}   OPENING: ${openingDate}`, pageWidth - 15, yPos, { align: 'right' });
     yPos += 4;
 
@@ -1087,8 +1060,8 @@ async function _drawMultiTermReportPage(doc, mergedStudent, logoRes, studentImag
         startY: yPos + 2,
         margin: { left: 15, right: 15 },
         styles: { fontSize: 7.5, cellPadding: 1.8, overflow: 'linebreak' },
-        headStyles: { fillColor: [44,62,80], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5, halign: 'center' },
-        alternateRowStyles: { fillColor: [240,246,255] },
+        headStyles: { fillColor: [41,128,185], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5, halign: 'center' },
+        alternateRowStyles: { fillColor: [245,245,245] },
         columnStyles: colStyles,
         didParseCell(data) {
             if (data.section === 'body' && data.column.index >= 1) {
@@ -1124,242 +1097,163 @@ async function _drawMultiTermReportPage(doc, mergedStudent, logoRes, studentImag
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ADVANCED PERFORMANCE TREND — smooth bezier line graph
-//  • CBC band zone backgrounds (EE/ME/AE/BE)
-//  • Gradient-filled area under each grade's line
-//  • Smooth bezier curve connecting subject averages
-//  • Glowing dot markers with value labels
-//  • Clean grid, Y-axis scale, X-axis subject labels
-//  • Multi-grade overlay lines with distinct colours
+//  PERFORMANCE BAR + LINE CHART
+//  Drawn with pure jsPDF primitives — no extra library needed.
+//  For each subject: one bar per selected grade, coloured by
+//  CBC band. A dashed line connects the average scores.
+//  Compact height: ~52mm so it fits on the page.
 // ═══════════════════════════════════════════════════════════
 function _drawPerformanceChart(doc, mergedStudent, allSubjects, gradeList, startY, pageWidth) {
-    if (!allSubjects.length || !gradeList.length) return startY;
+    if (!allSubjects.length) return startY;
 
-    // ── Layout ───────────────────────────────────────────────
-    const ML    = 24;                           // left margin (Y-axis labels)
-    const MR    = pageWidth - 16;               // right edge
-    const CHART_W = MR - ML;
-    const CHART_H = 48;                         // plot area height (mm)
-    const LEGEND_H = 7;
-    const FOOTER_H = 12;                        // X-axis label area
-    const TOTAL_H  = LEGEND_H + CHART_H + FOOTER_H + 6;
+    // ── layout constants ──────────────────────────────────────
+    const CHART_L    = 22;                          // left margin
+    const CHART_R    = pageWidth - 18;              // right margin
+    const CHART_W    = CHART_R - CHART_L;
+    const CHART_H    = 34;                          // total chart height (mm)
+    const LABEL_H    = 10;                          // bottom subject label area
+    const LEGEND_H   = 6;                           // top legend area
+    const PLOT_TOP   = startY + LEGEND_H + 4;       // top of plot area
+    const PLOT_BOT   = PLOT_TOP + CHART_H - LABEL_H;
+    const PLOT_H     = PLOT_BOT - PLOT_TOP;         // actual bar plot height
 
-    const PLOT_TOP = startY + LEGEND_H + 4;
-    const PLOT_BOT = PLOT_TOP + CHART_H;
+    // ── CBC band colour helper ────────────────────────────────
+    function bandColor(v) {
+        if (v >= 75) return [39,174,96];
+        if (v >= 58) return [41,128,185];
+        if (v >= 31) return [243,156,18];
+        return [231,76,60];
+    }
 
-    // ── Colour palette per grade line ────────────────────────
-    const LINE_COLORS = [
-        [41,128,185],   // blue
-        [39,174,96],    // green
-        [243,156,18],   // amber
-        [155,89,182],   // purple
-        [231,76,60],    // red
-    ];
+    // ── background + border ───────────────────────────────────
+    doc.setFillColor(248, 250, 255);
+    doc.rect(CHART_L - 4, startY, CHART_W + 8, CHART_H + LEGEND_H + 2, 'F');
+    doc.setDrawColor(180, 210, 240); doc.setLineWidth(0.3);
+    doc.rect(CHART_L - 4, startY, CHART_W + 8, CHART_H + LEGEND_H + 2);
 
-    // ── Band zone colours (CBC) ───────────────────────────────
-    const BANDS = [
-        { min:75, max:100, r:39,  g:174, b:96,  label:'EE', alpha:0.07 },
-        { min:58, max:75,  r:41,  g:128, b:185, label:'ME', alpha:0.07 },
-        { min:31, max:58,  r:243, g:156, b:18,  label:'AE', alpha:0.08 },
-        { min:0,  max:31,  r:231, g:76,  b:60,  label:'BE', alpha:0.09 },
-    ];
-
-    // Helper: map score (0–100) → Y coordinate
-    const toY = v => PLOT_BOT - (Math.max(0,Math.min(100,v)) / 100) * CHART_H;
-    // Helper: map subject index → X coordinate
-    const toX = i => ML + (i / Math.max(allSubjects.length - 1, 1)) * CHART_W;
-
-    // ── Background ───────────────────────────────────────────
-    doc.setFillColor(247, 250, 255);
-    doc.rect(ML - 6, startY, CHART_W + 10, TOTAL_H, 'F');
-    doc.setDrawColor(200, 218, 240); doc.setLineWidth(0.3);
-    doc.rect(ML - 6, startY, CHART_W + 10, TOTAL_H);
-
-    // ── Chart title ──────────────────────────────────────────
+    // ── chart title ───────────────────────────────────────────
     doc.setFontSize(7.5); doc.setFont(undefined, 'bold');
-    doc.setTextColor(44, 62, 80);
-    doc.text('PERFORMANCE TREND ANALYSIS', ML, startY + 4.5);
+    doc.setTextColor(41,128,185);
+    doc.text('PERFORMANCE TREND CHART', CHART_L, startY + 4);
 
-    // ── Band zones ───────────────────────────────────────────
-    BANDS.forEach(band => {
-        const y1 = toY(band.max);
-        const y2 = toY(band.min);
-        doc.setFillColor(band.r, band.g, band.b);
-        // Use a very light fill — jsPDF doesn't support real alpha so approximate with a lighter shade
-        doc.setGState && doc.setGState(new doc.GState({ opacity: band.alpha }));
-        doc.rect(ML, y1, CHART_W, y2 - y1, 'F');
-        doc.setGState && doc.setGState(new doc.GState({ opacity: 1 }));
-        // Band label on right edge
-        doc.setFontSize(5); doc.setFont(undefined, 'bold');
-        doc.setTextColor(band.r, band.g, band.b);
-        doc.text(band.label, MR + 1, (y1 + y2) / 2 + 1.5);
+    // ── legend ────────────────────────────────────────────────
+    const legendColors = [[39,174,96],[41,128,185],[243,156,18]];
+    gradeList.forEach((g, i) => {
+        const lx = CHART_L + 50 + i * 48;
+        const ly = startY + 3;
+        const [r,gv,b] = legendColors[i % legendColors.length];
+        doc.setFillColor(r,gv,b);
+        doc.rect(lx, ly - 2.5, 4, 3, 'F');
+        doc.setFontSize(5.5); doc.setFont(undefined, 'normal');
+        doc.setTextColor(60,60,60);
+        // Truncate long DB names for legend
+        const short = g.length > 22 ? g.substring(0,20)+'…' : g;
+        doc.text(short, lx + 5, ly);
+    });
+    // Average line legend
+    const avgLx = CHART_L + 50 + gradeList.length * 48;
+    doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
+    doc.setLineDash([1,0.8], 0);
+    doc.line(avgLx, startY + 1.5, avgLx + 6, startY + 1.5);
+    doc.setLineDash([], 0);
+    doc.setFontSize(5.5); doc.setTextColor(60,60,60);
+    doc.text('Average', avgLx + 7, startY + 3);
+
+    // ── horizontal grid lines at 25%, 50%, 75%, 100% ─────────
+    doc.setDrawColor(210,220,235); doc.setLineWidth(0.2);
+    [25,50,75,100].forEach(v => {
+        const gy = PLOT_BOT - (v / 100) * PLOT_H;
+        doc.line(CHART_L, gy, CHART_R, gy);
+        doc.setFontSize(5); doc.setTextColor(160,160,160);
+        doc.text(`${v}`, CHART_L - 6, gy + 1, { align: 'right' });
     });
 
-    // ── Horizontal grid lines ────────────────────────────────
-    doc.setLineWidth(0.18);
-    [0, 25, 50, 58, 75, 100].forEach(v => {
-        const gy = toY(v);
-        const isBandLine = [58,75].includes(v);
-        doc.setDrawColor(isBandLine ? 150 : 210, isBandLine ? 170 : 225, isBandLine ? 200 : 240);
-        doc.setLineWidth(isBandLine ? 0.3 : 0.18);
-        doc.line(ML, gy, MR, gy);
-        doc.setFontSize(4.8); doc.setFont(undefined, 'normal');
-        doc.setTextColor(140, 155, 175);
-        doc.text(`${v}`, ML - 7, gy + 1.2, { align: 'right' });
-    });
+    // ── axes ──────────────────────────────────────────────────
+    doc.setDrawColor(100,130,160); doc.setLineWidth(0.4);
+    doc.line(CHART_L, PLOT_TOP, CHART_L, PLOT_BOT);     // Y-axis
+    doc.line(CHART_L, PLOT_BOT, CHART_R, PLOT_BOT);     // X-axis
 
-    // ── Axes ─────────────────────────────────────────────────
-    doc.setDrawColor(100, 120, 150); doc.setLineWidth(0.4);
-    doc.line(ML, PLOT_TOP - 2, ML, PLOT_BOT);     // Y
-    doc.line(ML, PLOT_BOT, MR, PLOT_BOT);         // X
+    // ── bars + average line ───────────────────────────────────
+    const n         = allSubjects.length;
+    const groupW    = CHART_W / n;
+    const barW      = Math.min((groupW / (gradeList.length + 1)) * 0.85, 8);
+    const groupPad  = (groupW - barW * gradeList.length) / 2;
 
-    // ── X-axis subject labels ────────────────────────────────
-    allSubjects.forEach((subj, i) => {
-        const x = toX(i);
-        // Tick mark
-        doc.setDrawColor(150,165,185); doc.setLineWidth(0.2);
-        doc.line(x, PLOT_BOT, x, PLOT_BOT + 1.2);
-        // Label
-        doc.setFontSize(4.6); doc.setFont(undefined, 'normal');
-        doc.setTextColor(50, 60, 75);
-        const short = subj.length > 11 ? subj.substring(0, 10) + '.' : subj;
-        doc.text(short, x, PLOT_BOT + FOOTER_H - 4, { align: 'center', maxWidth: (CHART_W / allSubjects.length) - 1 });
-    });
+    const avgPoints = [];    // collect (cx, cy) for dashed avg line
 
-    // ── Per-grade line + area fill ────────────────────────────
-    gradeList.forEach((grade, gi) => {
-        const [lr, lg, lb] = LINE_COLORS[gi % LINE_COLORS.length];
+    allSubjects.forEach((subj, si) => {
+        const gx   = CHART_L + si * groupW;
+        const cx   = gx + groupW / 2;   // center of group
 
-        // Collect valid points
-        const pts = allSubjects.map((subj, i) => {
-            const rec = mergedStudent[`__grade_${grade}`];
+        const validScores = [];
+        gradeList.forEach((g, gi) => {
+            const rec = mergedStudent[`__grade_${g}`];
             const v   = rec ? parseFloat(rec[subj]) : NaN;
-            return isNaN(v) ? null : { x: toX(i), y: toY(v), v };
-        });
-        const valid = pts.filter(Boolean);
-        if (valid.length < 2) return;
+            if (isNaN(v)) return;
+            validScores.push(v);
 
-        // ── Smooth bezier helper ──────────────────────────────
-        function bezierCPs(points) {
-            // Catmull-Rom to Bezier control points
-            const cps = [];
-            for (let i = 0; i < points.length - 1; i++) {
-                const p0 = points[Math.max(i-1, 0)];
-                const p1 = points[i];
-                const p2 = points[i+1];
-                const p3 = points[Math.min(i+2, points.length-1)];
-                cps.push({
-                    cp1x: p1.x + (p2.x - p0.x) / 6,
-                    cp1y: p1.y + (p2.y - p0.y) / 6,
-                    cp2x: p2.x - (p3.x - p1.x) / 6,
-                    cp2y: p2.y - (p3.y - p1.y) / 6,
-                });
-            }
-            return cps;
-        }
-        const cps = bezierCPs(valid);
+            const barX = gx + groupPad + gi * barW;
+            const barH = (v / 100) * PLOT_H;
+            const barY = PLOT_BOT - barH;
+            const [r,gv,b] = legendColors[gi % legendColors.length];
 
-        // ── Gradient-like area fill (3 passes, decreasing opacity) ─
-        // jsPDF doesn't do real gradients, so we stack light fills
-        for (let pass = 0; pass < 3; pass++) {
-            const shade = 40 + pass * 30;
+            // Bar fill — semi-transparent look via lighter shade first
             doc.setFillColor(
-                Math.min(255, lr + shade),
-                Math.min(255, lg + shade),
-                Math.min(255, lb + shade)
+                Math.min(255, r + 60),
+                Math.min(255, gv + 60),
+                Math.min(255, b + 60)
             );
-            // Build filled polygon path: line → bezier → back along baseline
-            // We approximate the fill by drawing it as a polygon of interpolated points
-            const fillPts = [];
-            fillPts.push({ x: valid[0].x, y: PLOT_BOT });
-            valid.forEach(p => fillPts.push({ x: p.x, y: p.y }));
-            fillPts.push({ x: valid[valid.length-1].x, y: PLOT_BOT });
-            if (fillPts.length >= 3) {
-                // Draw as a jsPDF polygon
-                doc.setLineWidth(0);
-                doc.setDrawColor(
-                    Math.min(255, lr + shade),
-                    Math.min(255, lg + shade),
-                    Math.min(255, lb + shade)
-                );
-                // Approximate with triangle strips
-                for (let j = 0; j < valid.length - 1; j++) {
-                    const trap = [
-                        valid[j].x,   valid[j].y,
-                        valid[j+1].x, valid[j+1].y,
-                        valid[j+1].x, PLOT_BOT,
-                        valid[j].x,   PLOT_BOT,
-                    ];
-                    doc.triangle(
-                        trap[0], trap[1],
-                        trap[2], trap[3],
-                        trap[6], trap[7], 'F'
-                    );
-                    doc.triangle(
-                        trap[2], trap[3],
-                        trap[4], trap[5],
-                        trap[6], trap[7], 'F'
-                    );
-                }
+            doc.rect(barX, barY, barW, barH, 'F');
+            // Bar border in full colour
+            doc.setDrawColor(r,gv,b); doc.setLineWidth(0.3);
+            doc.rect(barX, barY, barW, barH);
+
+            // Score label on top of bar if bar tall enough
+            if (barH > 5) {
+                doc.setFontSize(4.5); doc.setFont(undefined,'bold');
+                doc.setTextColor(r,gv,b);
+                doc.text(`${v}`, barX + barW/2, barY - 1, { align:'center' });
             }
+        });
+
+        // Average point for this subject
+        if (validScores.length > 0) {
+            const avg = validScores.reduce((a,b)=>a+b,0) / validScores.length;
+            const ay  = PLOT_BOT - (avg / 100) * PLOT_H;
+            avgPoints.push({ x: cx, y: ay, avg });
         }
 
-        // ── Draw smooth bezier line ──────────────────────────
-        doc.setDrawColor(lr, lg, lb);
-        doc.setLineWidth(0.7);
+        // Subject label on X-axis — short name
+        doc.setFontSize(4.8); doc.setFont(undefined,'normal');
+        doc.setTextColor(50,50,50);
+        const shortSubj = subj.length > 10 ? subj.substring(0,9)+'.' : subj;
+        doc.text(shortSubj, cx, PLOT_BOT + 4, { align:'center' });
+    });
+
+    // ── dashed average trend line ─────────────────────────────
+    if (avgPoints.length > 1) {
+        doc.setDrawColor(60,60,60); doc.setLineWidth(0.6);
+        doc.setLineDash([1.2,0.8], 0);
+        for (let i = 1; i < avgPoints.length; i++) {
+            doc.line(avgPoints[i-1].x, avgPoints[i-1].y, avgPoints[i].x, avgPoints[i].y);
+        }
         doc.setLineDash([], 0);
-        for (let i = 0; i < valid.length - 1; i++) {
-            const cp = cps[i];
-            doc.lines(
-                [[cp.cp1x - valid[i].x, cp.cp1y - valid[i].y,
-                  cp.cp2x - valid[i].x, cp.cp2y - valid[i].y,
-                  valid[i+1].x - valid[i].x, valid[i+1].y - valid[i].y]],
-                valid[i].x, valid[i].y
-            );
-        }
 
-        // ── Dots + value labels ──────────────────────────────
-        valid.forEach(({ x, y, v }) => {
-            const band = BANDS.find(b => v >= b.min && v < b.max) || BANDS[3];
-            // Outer glow ring
-            doc.setFillColor(
-                Math.min(255, band.r + 80),
-                Math.min(255, band.g + 80),
-                Math.min(255, band.b + 80)
-            );
-            doc.ellipse(x, y, 2, 2, 'F');
-            // Inner dot
-            doc.setFillColor(lr, lg, lb);
-            doc.ellipse(x, y, 1.1, 1.1, 'F');
-            // White centre
-            doc.setFillColor(255, 255, 255);
-            doc.ellipse(x, y, 0.5, 0.5, 'F');
-            // Value label above dot
-            doc.setFontSize(5); doc.setFont(undefined, 'bold');
-            doc.setTextColor(lr, lg, lb);
-            doc.text(`${v}`, x, y - 2.8, { align: 'center' });
+        // Average dots + value labels
+        avgPoints.forEach(({ x, y, avg }) => {
+            const [r,gv,b] = bandColor(avg);
+            doc.setFillColor(r,gv,b);
+            doc.ellipse(x, y, 1.2, 1.2, 'F');
+            doc.setFontSize(4.5); doc.setFont(undefined,'bold');
+            doc.setTextColor(r,gv,b);
+            doc.text(`${avg.toFixed(0)}`, x, y - 2.2, { align:'center' });
         });
-    });
+    }
 
-    // ── Legend ───────────────────────────────────────────────
-    let lx = ML;
-    gradeList.forEach((grade, gi) => {
-        const [lr, lg, lb] = LINE_COLORS[gi % LINE_COLORS.length];
-        // Colour swatch
-        doc.setFillColor(lr, lg, lb);
-        doc.rect(lx, startY + 1.5, 6, 2.5, 'F');
-        doc.setFontSize(5); doc.setFont(undefined, 'normal');
-        doc.setTextColor(60, 70, 85);
-        const lbl = grade.length > 24 ? grade.substring(0, 22) + '…' : grade;
-        doc.text(lbl, lx + 7.5, startY + 3.5);
-        lx += 8 + doc.getTextWidth(lbl) + 6;
-    });
-
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'normal');
+    doc.setTextColor(0,0,0); doc.setFont(undefined,'normal');
     doc.setLineDash([], 0);
 
-    return PLOT_BOT + FOOTER_H + 2;
+    return PLOT_BOT + LABEL_H + 2;   // return Y position after chart
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1570,22 +1464,18 @@ async function generateBulkReportCards() {
 //  Returns after autoTable so caller can run drawSummary / drawBottomSection
 // ═══════════════════════════════════════════════════════════
 function _drawCompactReportPage(doc, student, stats, studentImageData, logoRes, pageWidth, pageHeight) {
-    // ── HEADER — two-tone navy gradient ──
-    doc.setFillColor(44, 62, 80);
-    doc.rect(0, 0, pageWidth, 20, 'F');
+    // ── HEADER ──
     doc.setFillColor(41, 128, 185);
-    doc.rect(0, 20, pageWidth, 15, 'F');
-    doc.setFillColor(52, 152, 219);
-    doc.rect(0, 19.5, pageWidth, 0.8, 'F');
+    doc.rect(0, 0, pageWidth, 35, 'F');
     if (logoRes && logoRes.loaded) {
-        try { doc.addImage(logoRes.img, 'PNG', 15, 4, 24, 24); } catch(e) {}
+        try { doc.addImage(logoRes.img, 'PNG', 15, 5, 25, 25); } catch(e) {}
     }
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18); doc.setFont(undefined, 'bold');
     doc.text('KANYADET PRI & JUNIOR SCHOOL', pageWidth / 2, 10, { align: 'center' });
     doc.setFontSize(12);
-    doc.text('P O BOX 45 40139 AKALA,KENYA', pageWidth / 2, 17, { align: 'center' });
-    doc.text('STUDENT PERFORMANCE REPORT', pageWidth / 2, 24, { align: 'center' });
+    doc.text('P O BOX 45 40139 AKALA,KENYA', pageWidth / 2, 16, { align: 'center' });
+    doc.text('STUDENT PERFORMANCE REPORT', pageWidth / 2, 22, { align: 'center' });
     doc.setFontSize(9); doc.setFont(undefined, 'normal');
     const _termLabel2 = [...selectedGrades].join(' + ');
     doc.text(`${_termLabel2}  |  Academic Year: ${new Date().getFullYear()}`,
@@ -1594,10 +1484,8 @@ function _drawCompactReportPage(doc, student, stats, studentImageData, logoRes, 
     // ── STUDENT INFO ──
     let yPos = 45;
     doc.setTextColor(0, 0, 0);
-    doc.setFillColor(240, 246, 255);
+    doc.setFillColor(240, 240, 240);
     doc.rect(15, yPos, pageWidth - 30, 40, 'F');
-    doc.setFillColor(44, 62, 80);
-    doc.rect(15, yPos, 2.5, 40, 'F');
 
     if (studentImageData && studentImageData.loaded) {
         try {
@@ -1607,10 +1495,8 @@ function _drawCompactReportPage(doc, student, stats, studentImageData, logoRes, 
     }
 
     doc.setFontSize(10); doc.setFont(undefined, 'bold');
-    doc.setTextColor(44, 62, 80);
-    doc.text('STUDENT INFORMATION', 21, yPos + 8);
+    doc.text('STUDENT INFORMATION', 20, yPos + 8);
     doc.setFont(undefined, 'normal'); doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
     const studentInfo = [
         [`Name: ${student['Official Student Name'] || 'N/A'}`, `Assessment No: ${student['Assessment No'] || 'N/A'}`],
         [`UPI: ${student['UPI'] || 'N/A'}`, `${student['Grade'] || 'N/A'}`],
@@ -1618,20 +1504,18 @@ function _drawCompactReportPage(doc, student, stats, studentImageData, logoRes, 
     ];
     let infoY = yPos + 16;
     studentInfo.forEach(([left, right]) => {
-        doc.text(left, 21, infoY);
+        doc.text(left, 20, infoY);
         doc.text(right, pageWidth / 2 - 10, infoY);
         infoY += 7;
     });
 
     // ── PERFORMANCE TABLE ──
     yPos = 95;
-    doc.setFillColor(44, 62, 80);
-    doc.rect(15, yPos - 5, 2.5, 8, 'F');
     doc.setFont(undefined, 'bold'); doc.setFontSize(11);
-    doc.setTextColor(44, 62, 80);
-    doc.text('ACADEMIC PERFORMANCE', 21, yPos);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5);
-    doc.setTextColor(80, 80, 80);
+    doc.text('ACADEMIC PERFORMANCE', 20, yPos);
+    // Closing / Opening date — same line, right-aligned, auto-picked from DB
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
     const _closingDate = student['Closing Date'] || student['Closing'] || '...............';
     const _openingDate = student['Opening Date'] || student['Opening'] || '...............';
     doc.text(`CLOSING: ${_closingDate}   OPENING: ${_openingDate}`, pageWidth - 15, yPos, { align: 'right' });
@@ -1655,8 +1539,8 @@ function _drawCompactReportPage(doc, student, stats, studentImageData, logoRes, 
         startY: yPos + 5,
         margin: { left: 15, right: 15 },
         styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [44,62,80], textColor: [255,255,255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [240,246,255] },
+        headStyles: { fillColor: [41,128,185], textColor: [255,255,255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245,245,245] },
         columnStyles: { 0:{cellWidth:50}, 1:{cellWidth:30}, 2:{cellWidth:30}, 3:{cellWidth:70} }
     });
 }
