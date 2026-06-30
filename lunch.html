@@ -2064,7 +2064,7 @@ function render() {
 
   visible.forEach((m, visIdx) => {
     const s   = status(m.amount, memberStd(m));
-    const url = photoFor(m.name);
+    const url = m.photoUrl || photoFor(m.name);
     const avatarHtml = url
       ? `<img class="avatar" src="${url}" alt="${m.name}" onerror="this.replaceWith(mkPlaceholder('${initials(m.name)}'))">`
       : `<span class="avatar-placeholder">${initials(m.name)}</span>`;
@@ -2239,7 +2239,8 @@ function startEdit(i) {
   const m     = members[i];
   row.classList.add('editing-row');
 
-  row.cells[1].innerHTML = `<input class="inline-input" id="eName" value="${m.name}" style="width:160px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;">`;
+  row.cells[1].innerHTML = `<input class="inline-input" id="eName" value="${m.name}" style="width:160px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;">
+    <input class="inline-input" id="ePhotoUrl" type="url" value="${(m.photoUrl||'').replace(/"/g,'&quot;')}" placeholder="Photo URL (optional)" style="width:160px;font-size:10.5px;margin-top:4px;opacity:.75;" title="Direct image URL for this member's photo">`;
   row.cells[2].innerHTML = `<input class="inline-input" id="ePhone" type="tel" value="${m.phone || ''}" placeholder="+254..." style="width:120px;font-family:'JetBrains Mono',monospace;font-size:12px;">`;
   row.cells[4].innerHTML = `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
     <input class="inline-input" id="eAmt" type="number" value="${m.amount}" min="0" style="width:90px;">
@@ -3192,7 +3193,7 @@ async function confirmNewPeriod() {
       const writes = {};
       Object.values(srcData).forEach(m => {
         const k = Math.random().toString(36).slice(2);
-        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '' };
+        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
       });
 
       if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
@@ -3268,7 +3269,7 @@ async function execCarryForward() {
   const writes = {};
   Object.values(sourceMembers).forEach(m => {
     const newKey = Math.random().toString(36).slice(2);
-    writes[newKey] = { name: m.name, amount: 0, phone: m.phone || '' };
+    writes[newKey] = { name: m.name, amount: 0, phone: m.phone || '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
   });
 
   suppressSeed = true; // prevent seed from overwriting carried-forward members
@@ -3757,7 +3758,7 @@ async function execAutoRollover() {
   const writes = {};
   Object.values(src).forEach(m => {
     const k = Math.random().toString(36).slice(2);
-    writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '' };
+    writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
   });
 
   // Detach existing listener BEFORE writing and before switching period
@@ -3894,7 +3895,7 @@ async function switchToPeriod(periodLabel) {
       const writes = {};
       Object.values(srcData).forEach(m => {
         const k = Math.random().toString(36).slice(2);
-        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '' };
+        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
       });
       if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
       suppressSeed = true;
@@ -4331,10 +4332,11 @@ function saveEdit(i) {
   const amount     = parseFloat(document.getElementById('eAmt').value) || 0;
   const phone      = (document.getElementById('ePhone')?.value || '').trim().replace(/\s+/g, '');
   const customStd  = parseFloat(document.getElementById('eCustomStd')?.value) || 0;
+  const photoUrl   = (document.getElementById('ePhotoUrl')?.value || '').trim();
   if (!name) { showToast('Name cannot be empty'); return; }
   const m      = members[i];
   const paidAt = (amount > 0 && amount !== m.amount) ? new Date().toISOString().slice(0,10) : (m.paidAt || '');
-  update(ref(db, `${membersPath()}/${m.id}`), { name, amount, phone, paidAt, customStd })
+  update(ref(db, `${membersPath()}/${m.id}`), { name, amount, phone, paidAt, customStd, photoUrl })
     .then(() => showToast('Updated'))
     .catch(e => showToast('Error: ' + e.message));
 }
@@ -4362,7 +4364,7 @@ function subscribeToMembers() {
       set(ref(db, path), writes);
       return;
     }
-    members = Object.entries(data).map(([id, v]) => ({ id, name: v.name, amount: v.amount, phone: v.phone || '', note: v.note || '', paidAt: v.paidAt || '', customStd: v.customStd || 0 }));
+    members = Object.entries(data).map(([id, v]) => ({ id, name: v.name, amount: v.amount, phone: v.phone || '', note: v.note || '', paidAt: v.paidAt || '', customStd: v.customStd || 0, photoUrl: v.photoUrl || '' }));
     render();
     checkOverdue();
     checkAutoRollover();
@@ -4543,7 +4545,7 @@ function _buildPaymentCardHTML(m, periodKey, std, sparkPts, qrBoxId, photoDataUr
   const balance = Math.max(0, (m.customStd || std) - m.amount);
   const initial = m.name.trim()[0] || '?';
   const photoHtml = photoDataUrl
-    ? `<img src="${photoDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+    ? `<img src="${photoDataUrl}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.outerHTML='${initial}'">`
     : initial;
   const periodLabel = periodKey.replace(/_/g, ' ');
   const genDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
@@ -4671,7 +4673,7 @@ async function openPaymentCard(idx) {
   const sparkPts = (await _memberCardHistory(m.name, periodKey, m.amount, std))
     .map(p => ({ amt: p.amt, lbl: p.lbl }));
 
-  const photoUrl = photoFor(m.name) || null;
+  const photoUrl = m.photoUrl || photoFor(m.name) || null;
 
   document.getElementById('share-card-preview').innerHTML =
     `<div id="actual-share-card" style="width:100%;aspect-ratio:3/4.2;min-height:520px;">` +
@@ -4804,7 +4806,7 @@ async function bulkDownloadPaymentCards(format) {
       try {
         const sparkPts = (await _memberCardHistory(m.name, periodKey, m.amount, std))
           .map(p => ({ amt: p.amt, lbl: p.lbl }));
-        const photoUrl = photoFor(m.name) || null;
+        const photoUrl = m.photoUrl || photoFor(m.name) || null;
         const qrBoxId = 'bulk-qr-' + (safeName.replace(/\W/g,'') || Math.random().toString(36).slice(2)) + '-' + idx;
 
         const wrapper = document.createElement('div');
