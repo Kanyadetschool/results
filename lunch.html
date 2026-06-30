@@ -1973,6 +1973,35 @@ async function imgToBase64(url) {
   });
 }
 
+// Resolves a manually-pasted photo URL (or any photo URL) to a data: URL
+// so it (a) always shows up regardless of CORS headers on the host, and
+// (b) can be safely captured by html2canvas without tainting the canvas.
+// Tries a plain fetch() first (works for most public image hosts — no
+// crossorigin attribute required on the request), then falls back to the
+// crossOrigin <img> + canvas technique, then finally to the raw URL itself
+// (so at least the on-screen preview can still try to show something).
+async function resolvePhotoToDataUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      const blob = await res.blob();
+      return await new Promise(resolve => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => resolve('');
+        fr.readAsDataURL(blob);
+      });
+    }
+  } catch (e) { /* fetch blocked or failed — fall through */ }
+  try {
+    const viaCanvas = await imgToBase64(url);
+    if (viaCanvas) return viaCanvas;
+  } catch (e) { /* fall through */ }
+  return url; // last resort: raw URL, may still render in preview
+}
+
 // ── FIRESTORE PHOTO LOADER ────────────────────────────────────
 // Fetches users/{uid}/photoURL from Firestore and caches by displayName / name
 async function loadPhotos() {
@@ -4545,7 +4574,7 @@ function _buildPaymentCardHTML(m, periodKey, std, sparkPts, qrBoxId, photoDataUr
   const balance = Math.max(0, (m.customStd || std) - m.amount);
   const initial = m.name.trim()[0] || '?';
   const photoHtml = photoDataUrl
-    ? `<img src="${photoDataUrl}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.outerHTML='${initial}'">`
+    ? `<img src="${photoDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.outerHTML='${initial}'">`
     : initial;
   const periodLabel = periodKey.replace(/_/g, ' ');
   const genDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
@@ -4673,7 +4702,8 @@ async function openPaymentCard(idx) {
   const sparkPts = (await _memberCardHistory(m.name, periodKey, m.amount, std))
     .map(p => ({ amt: p.amt, lbl: p.lbl }));
 
-  const photoUrl = m.photoUrl || photoFor(m.name) || null;
+  const rawPhotoUrl = m.photoUrl || photoFor(m.name) || null;
+  const photoUrl = rawPhotoUrl ? await resolvePhotoToDataUrl(rawPhotoUrl) : null;
 
   document.getElementById('share-card-preview').innerHTML =
     `<div id="actual-share-card" style="width:100%;aspect-ratio:3/4.2;min-height:520px;">` +
@@ -4806,7 +4836,8 @@ async function bulkDownloadPaymentCards(format) {
       try {
         const sparkPts = (await _memberCardHistory(m.name, periodKey, m.amount, std))
           .map(p => ({ amt: p.amt, lbl: p.lbl }));
-        const photoUrl = m.photoUrl || photoFor(m.name) || null;
+        const rawPhotoUrl = m.photoUrl || photoFor(m.name) || null;
+        const photoUrl = rawPhotoUrl ? await resolvePhotoToDataUrl(rawPhotoUrl) : null;
         const qrBoxId = 'bulk-qr-' + (safeName.replace(/\W/g,'') || Math.random().toString(36).slice(2)) + '-' + idx;
 
         const wrapper = document.createElement('div');
