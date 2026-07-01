@@ -1120,9 +1120,59 @@ window.dispatchEvent(new Event('fb-ready'));
   .bulk-prog-bar-track{background:var(--bg2);border-radius:8px;height:8px;overflow:hidden;margin-bottom:12px;}
   .bulk-prog-bar-fill{height:100%;background:linear-gradient(90deg,#8e44ad,var(--accent));border-radius:8px;transition:width .3s;width:0%;}
 
+  /* ── MANDATORY SIGN-IN GATE ── */
+  /* Hides every other direct child of <body> while the gate is active,
+     so no data (members, amounts, history, etc.) is ever rendered or
+     visible before a user has signed in. */
+  body.auth-locked > *:not(#authGateOverlay) { display: none !important; }
+  body.auth-locked { overflow: hidden; }
+  #authGateOverlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 99999;
+    background: linear-gradient(150deg, var(--ink) 0%, var(--accent-dk) 100%);
+    align-items: center; justify-content: center;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  body.auth-locked #authGateOverlay { display: flex; }
+  .auth-gate-card {
+    background: var(--white); border-radius: 18px; padding: 40px 36px;
+    width: min(360px, 88vw); text-align: center;
+    box-shadow: 0 24px 60px rgba(0,0,0,.35);
+  }
+  .auth-gate-icon {
+    width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dk));
+    display: flex; align-items: center; justify-content: center; font-size: 26px;
+  }
+  .auth-gate-title { font-weight: 900; font-size: 19px; color: var(--ink); margin-bottom: 8px; }
+  .auth-gate-sub { font-size: 13px; color: var(--ink-light, #6b7c93); line-height: 1.6; margin-bottom: 24px; }
+  .auth-gate-btn {
+    width: 100%; padding: 12px 16px; border: none; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dk)); color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .auth-gate-btn:hover { filter: brightness(1.08); }
+  .auth-gate-note { font-size: 11px; color: #99a; margin-top: 16px; font-family: 'JetBrains Mono', monospace; }
+
 </style>
 </head>
-<body>
+<body class="auth-locked">
+
+<!-- MANDATORY SIGN-IN GATE — shown until a user is authenticated; all app
+     content is a sibling of this and gets hidden by body.auth-locked -->
+<div id="authGateOverlay">
+  <div class="auth-gate-card">
+    <div class="auth-gate-icon">🔒</div>
+    <div class="auth-gate-title">Sign in required</div>
+    <div class="auth-gate-sub">Lunch Contributions data is private to Kanyadet staff. Sign in with your Google account to continue.</div>
+    <button class="auth-gate-btn" onclick="handleAuth()">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4c-7.7 0-14.3 4.4-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.3 0 10.1-2 13.6-5.4l-6.3-5.3C29.3 34.9 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8.1l-6.5 5C9.6 39.5 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.3 5.3C39.9 36.9 44 31 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-gate-note" id="authGateStatus">Connecting…</div>
+  </div>
+</div>
 
 <!-- APP HEADER -->
 <header class="app-header">
@@ -2264,7 +2314,7 @@ function render() {
         <button class="icon-btn" title="Note" onclick="editNote(${m._origIdx})" style="font-size:11px;">📝</button>
         <button class="icon-btn" title="Receipt" onclick="showReceipt(${m._origIdx})" style="font-size:11px;">🧾</button>
         <button class="icon-btn" title="Payment Card" onclick="openPaymentCard(${m._origIdx})" style="font-size:11px;">🔗</button>
-        <button class="icon-btn del" title="Remove" onclick="removeMember(${m._origIdx})">✕</button>
+        ${isAdvancedAdmin() ? `<button class="icon-btn del" title="Remove" onclick="removeMember(${m._origIdx})">✕</button>` : ''}
       </td>`;
     tbody.appendChild(tr);
   });
@@ -2370,7 +2420,7 @@ function addMember() {
 
 // ── REMOVE with UNDO (Feature 5) ─────────────────────────────
 function removeMember(i) {
-  if (!guardEdit()) return;
+  if (!guardAdvancedAdmin()) return;
   const { db, ref, remove, set } = window._fb;
   const m = members[i];
   const path = `${membersPath()}/${m.id}`;
@@ -2889,7 +2939,7 @@ function renderPeriodCards(periods, memberHistory, names) {
         <span class="badge badge-nil">${nil} Nil</span>
       </div>
       ${paidMembers.length ? `<div style="display:flex;align-items:center;margin-left:6px;margin-bottom:8px;">${avatarCluster}${extraCount}</div>` : ''}
-      ${currentUser ? `<button class="hpc-delete-btn" onclick="openDeletePeriodModal('${p.key}', '${p.label}')">🗑 Delete</button>` : ''}
+      ${isAdvancedAdmin() ? `<button class="hpc-delete-btn" onclick="openDeletePeriodModal('${p.key}', '${p.label}')">🗑 Delete</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -4146,6 +4196,15 @@ function guardEdit() {
   return true;
 }
 
+// Call at the top of destructive actions (deleting a teacher/member, deleting
+// a whole period) that must be restricted to Advanced Admins only, even
+// though a regular admin/editor can do everything else.
+function guardAdvancedAdmin() {
+  if (!currentUser) { showToast('Sign in to make changes'); return false; }
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can do that'); return false; }
+  return true;
+}
+
 async function checkUserRole(user) {
   if (!user) { userRole = 'viewer'; applyRoleUI(); return; }
   try {
@@ -4217,6 +4276,13 @@ function applyRoleUI() {
   // Standard Amount input — visually disable for non-editors (write is guarded regardless)
   const stdInput = document.getElementById('stdInput');
   if (stdInput) stdInput.disabled = !isAdmin;
+
+  // Member rows and the history list conditionally show the delete button
+  // based on isAdvancedAdmin() at render time. Since role resolution is
+  // async and may finish after the first render, re-render now so those
+  // buttons reflect the now-confirmed role immediately.
+  if (typeof render === 'function' && members.length) render();
+  if (typeof loadHistory === 'function' && fbReady) loadHistory();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4885,36 +4951,51 @@ function subscribeToMembers() {
 window.addEventListener('fb-ready', async () => {
   fbReady = true;
   const { auth, onAuthStateChanged, db, ref, onValue, set } = window._fb;
+  const statusEl = document.getElementById('authGateStatus');
+  if (statusEl) statusEl.textContent = 'Checking sign-in status…';
 
-  // Pull the shared active period from Firebase — this is the source of
-  // truth across ALL devices/browsers, not just this one. Falls back to
-  // whatever the instant-paint script already put in the input (localStorage
-  // cache or today's month) if nothing has ever been saved to Firebase yet.
-  try {
-    const metaSnap = await new Promise(res =>
-      onValue(ref(db, 'lunch/_meta/activePeriod'), res, { onlyOnce: true })
-    );
-    const sharedPeriod = metaSnap.val();
-    if (sharedPeriod) {
-      document.getElementById('periodInput').value = sharedPeriod;
-      try { localStorage.setItem('lunchActivePeriod', sharedPeriod); } catch(e) {}
-    } else {
-      // Nothing saved in Firebase yet — seed it with whatever we're
-      // currently showing so other devices pick up the same period.
-      set(ref(db, 'lunch/_meta/activePeriod'), getPeriod()).catch(() => {});
-    }
-  } catch(e) {}
-
-  onAuthStateChanged(auth, user => {
+  onAuthStateChanged(auth, async user => {
     updateAuthUI(user);
+
+    if (!user) {
+      // Not signed in — lock the app. No member data, amounts, history,
+      // photos, or anything else is fetched or rendered until sign-in
+      // succeeds. Also tear down any listener left over from a prior
+      // session (e.g. after signing out) so nothing keeps streaming in.
+      if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
+      if (stdUnsubscribe) { stdUnsubscribe(); stdUnsubscribe = null; }
+      members = [];
+      document.body.classList.add('auth-locked');
+      if (statusEl) statusEl.textContent = 'Waiting for sign-in…';
+      return;
+    }
+
+    // Signed in — unlock and load everything.
+    document.body.classList.remove('auth-locked');
     checkUserRole(user);
-    if (!members.length) subscribeToMembers();
+
+    // Pull the shared active period from Firebase — source of truth across
+    // ALL devices/browsers. Falls back to the instant-paint placeholder
+    // (localStorage cache or today's month) if nothing saved yet.
+    try {
+      const metaSnap = await new Promise(res =>
+        onValue(ref(db, 'lunch/_meta/activePeriod'), res, { onlyOnce: true })
+      );
+      const sharedPeriod = metaSnap.val();
+      if (sharedPeriod) {
+        document.getElementById('periodInput').value = sharedPeriod;
+        try { localStorage.setItem('lunchActivePeriod', sharedPeriod); } catch(e) {}
+      } else {
+        set(ref(db, 'lunch/_meta/activePeriod'), getPeriod()).catch(() => {});
+      }
+    } catch(e) {}
+
+    subscribeToMembers();
+    subscribeToStd();
+    loadPhotos();
+    loadMiniDash();
+    applyReadOnlyMode();
   });
-  subscribeToMembers();
-  subscribeToStd();
-  loadPhotos();
-  loadMiniDash();
-  applyReadOnlyMode();
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -4925,7 +5006,7 @@ let deletedPeriodBuffer   = null;  // { key, data } for undo
 let periodUndoTimer       = null;
 
 function openDeletePeriodModal(periodKey, periodLabel) {
-  if (!guardEdit()) return;
+  if (!guardAdvancedAdmin()) return;
   // Guard: don't allow deleting the currently active period
   const activePeriodKey = getPeriod().replace(/\s+/g, '_');
   if (periodKey === activePeriodKey) {
@@ -4940,7 +5021,7 @@ function openDeletePeriodModal(periodKey, periodLabel) {
 }
 
 async function confirmDeletePeriod() {
-  if (!guardEdit()) return;
+  if (!guardAdvancedAdmin()) return;
   if (!periodToDelete) return;
   const { db, ref, remove, onValue } = window._fb;
   const { key, label } = periodToDelete;
