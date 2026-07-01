@@ -118,8 +118,10 @@ window.dispatchEvent(new Event('fb-ready'));
   }
   .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent-dk)); color: #fff; box-shadow: 0 3px 12px var(--accent-glow); }
   .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--accent-glow); }
-  .btn-ghost { background: rgba(255,255,255,.12); color: #eaf2fb; border: 1px solid rgba(255,255,255,.3); }
-  .btn-ghost:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,.2); }
+  .btn-ghost { background: var(--bg2); color: var(--ink-mid); border: 1.5px solid var(--rule); }
+  .btn-ghost:hover { background: var(--bg); color: var(--ink); border-color: var(--ink-mid); }
+  .app-header .btn-ghost { background: rgba(255,255,255,.12); color: #eaf2fb; border: 1px solid rgba(255,255,255,.3); }
+  .app-header .btn-ghost:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,.2); }
   .btn-danger { background: linear-gradient(135deg,#e74c3c,#c0392b); color: #fff; border: none; box-shadow: 0 3px 12px rgba(231,76,60,.3); }
   .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(231,76,60,.35); }
   .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
@@ -415,33 +417,47 @@ window.dispatchEvent(new Event('fb-ready'));
   }
 
   /* ── Per-period summary cards ── */
+  /* ── HISTORY PERIOD SCROLL STRIP ── */
   .hist-period-cards {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 12px; margin-bottom: 28px;
+    display: flex;
+    flex-direction: row;
+    gap: 14px;
+    overflow-x: auto;
+    padding: 4px 2px 14px;
+    margin-bottom: 28px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
   }
+  .hist-period-cards::-webkit-scrollbar { height: 4px; }
+  .hist-period-cards::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; }
   .hist-period-card {
-    background: var(--white); border-radius: 12px; border: 1px solid var(--rule);
-    box-shadow: var(--shadow); padding: 16px 18px; position: relative; overflow: hidden;
+    background: var(--white); border-radius: 16px; border: 1px solid var(--rule);
+    box-shadow: var(--shadow); padding: 18px 20px; position: relative; overflow: hidden;
+    flex: 0 0 220px; scroll-snap-align: start;
+    transition: box-shadow .2s, transform .2s;
   }
+  .hist-period-card:hover { box-shadow: 0 8px 32px rgba(41,128,185,.18); transform: translateY(-2px); }
   .hist-period-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: 16px 16px 0 0;
   }
-  .hist-period-card.rate-high::before  { background: var(--ok-fg); }
-  .hist-period-card.rate-mid::before   { background: var(--warn-fg); }
-  .hist-period-card.rate-low::before   { background: var(--nil-fg); }
+  .hist-period-card.rate-high::before  { background: linear-gradient(90deg,var(--ok-fg),#52d68a); }
+  .hist-period-card.rate-mid::before   { background: linear-gradient(90deg,var(--warn-fg),#f5c842); }
+  .hist-period-card.rate-low::before   { background: linear-gradient(90deg,var(--nil-fg),#f1948a); }
   .hpc-period {
-    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--ink-light); margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-light); margin-bottom: 10px;
   }
   .hpc-collected {
-    font-size: 18px; font-weight: 700; line-height: 1; margin-bottom: 10px;
+    font-size: 22px; font-weight: 800; line-height: 1; margin-bottom: 4px; color: var(--ink);
   }
   .hpc-std-line {
-    font-size: 11px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
-    margin-bottom: 10px;
+    font-size: 10px; color: var(--ink-light); font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 10px; line-height: 1.6;
   }
   .hpc-bar-wrap {
-    background: var(--bg2); border-radius: 20px; height: 6px; margin-bottom: 10px; overflow: hidden;
+    background: var(--bg2); border-radius: 20px; height: 5px; margin-bottom: 10px; overflow: hidden;
   }
   .hpc-bar { height: 100%; border-radius: 20px; transition: width .4s; }
   .hpc-bar.high { background: var(--ok-fg); }
@@ -668,23 +684,62 @@ window.dispatchEvent(new Event('fb-ready'));
   td { position: relative; }
 
   /* ── ANALYTICS PANEL ── */
+  /* ── ANALYTICS REDESIGN ── */
+  .analytics-kpi-bar {
+    display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .analytics-kpi {
+    flex: 1; min-width: 130px;
+    background: var(--white); border: 1px solid var(--rule); border-radius: 14px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .analytics-kpi-label {
+    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-light); font-family: 'JetBrains Mono', monospace; margin-bottom: 6px;
+  }
+  .analytics-kpi-value {
+    font-size: 22px; font-weight: 900; line-height: 1; color: var(--ink);
+  }
+  .analytics-kpi-sub {
+    font-size: 10px; color: var(--ink-light); margin-top: 3px; font-family: 'JetBrains Mono', monospace;
+  }
   .analytics-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px; margin-bottom: 28px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 14px; margin-bottom: 28px;
   }
   .analytics-card {
-    background: var(--white); border-radius: 12px; border: 1px solid var(--rule);
-    box-shadow: var(--shadow); padding: 16px 18px;
+    background: var(--white); border-radius: 14px; border: 1px solid var(--rule);
+    box-shadow: var(--shadow); overflow: hidden;
   }
+  .analytics-card .ac-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .analytics-card .ac-icon { font-size: 18px; }
   .analytics-card .ac-label {
-    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--ink-light); font-family: 'JetBrains Mono', monospace; margin-bottom: 8px;
+    font-size: 11px; font-weight: 700; color: var(--ink);
+    font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: 0;
   }
-  .analytics-card .ac-name {
-    font-weight: 600; font-size: 14px; margin-bottom: 2px;
+  .analytics-card .ac-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; border-bottom: 1px solid var(--rule);
+    transition: background .15s;
   }
+  .analytics-card .ac-row:last-child { border-bottom: none; }
+  .analytics-card .ac-row:hover { background: var(--bg2); }
+  .analytics-card .ac-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    background: var(--bg2); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--ink-mid);
+    overflow: hidden;
+  }
+  .analytics-card .ac-name { flex: 1; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .analytics-card .ac-val {
-    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-light);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .analytics-card .ac-rank {
+    width: 20px; text-align: center; font-size: 14px; flex-shrink: 0;
   }
   .streak-bar {
     display: flex; gap: 3px; margin-top: 8px; flex-wrap: wrap;
@@ -865,18 +920,57 @@ window.dispatchEvent(new Event('fb-ready'));
   /* no special CSS needed — uses modal-box */
 
   /* ── FEATURE 07: LEADERBOARD ── */
-  .lb-row {
-    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-    border-bottom: 1px solid var(--bg);
+  /* ── LEADERBOARD REDESIGN ── */
+  .lb-section {
+    background: var(--white); border-radius: 16px; border: 1px solid var(--rule);
+    box-shadow: var(--shadow); overflow: hidden; margin-bottom: 18px;
   }
-  .lb-row:last-child { border-bottom: none; }
-  .lb-rank { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
-    width: 28px; text-align: center; flex-shrink: 0; }
-  .lb-rank.gold   { color: #B8860B; }
-  .lb-rank.silver { color: #888; }
-  .lb-rank.bronze { color: #A0522D; }
-  .lb-name { flex: 1; font-weight: 500; font-size: 14px; }
-  .lb-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-mid); }
+  .lb-section-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--rule);
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, rgba(41,128,185,.04), transparent);
+  }
+  .lb-section-header .lb-title-icon { font-size: 20px; }
+  .lb-section-header .lb-title-text { font-size: 15px; font-weight: 800; color: var(--ink); }
+  /* Podium top-3 */
+  .lb-podium {
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 0; padding: 20px 16px 0; background: linear-gradient(180deg,rgba(41,128,185,.04),transparent);
+  }
+  .lb-podium-slot { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .lb-podium-slot .lb-pod-avatar {
+    width: 52px; height: 52px; border-radius: 50%; object-fit: cover;
+    border: 3px solid #ddd; margin-bottom: 6px; flex-shrink: 0;
+    background: var(--bg2); display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: var(--ink-mid); overflow: hidden;
+  }
+  .lb-podium-slot.rank-1 .lb-pod-avatar { width: 64px; height: 64px; border-color: #F0C040; border-width: 3px; }
+  .lb-podium-slot.rank-2 .lb-pod-avatar { border-color: #aaa; }
+  .lb-podium-slot.rank-3 .lb-pod-avatar { border-color: #A0522D; }
+  .lb-pod-name { font-size: 11px; font-weight: 700; text-align: center; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+  .lb-pod-val  { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--ink-light); margin-bottom: 6px; text-align: center; }
+  .lb-pod-block {
+    border-radius: 8px 8px 0 0; width: 100%; display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 8px; font-size: 22px;
+  }
+  .lb-podium-slot.rank-1 .lb-pod-block { background: linear-gradient(180deg,#FFF3CD,#FFECAA); height: 68px; }
+  .lb-podium-slot.rank-2 .lb-pod-block { background: linear-gradient(180deg,#F0F0F0,#E0E0E0); height: 52px; }
+  .lb-podium-slot.rank-3 .lb-pod-block { background: linear-gradient(180deg,#FAEBD7,#F5DEB3); height: 40px; }
+  /* Rows 4+ */
+  .lb-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    border-top: 1px solid var(--rule); transition: background .15s;
+  }
+  .lb-row:hover { background: var(--bg2); }
+  .lb-rank { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+    width: 24px; text-align: center; flex-shrink: 0; color: var(--ink-light); }
+  .lb-avatar {
+    width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    background: var(--bg2); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--ink-mid); overflow: hidden;
+  }
+  .lb-name { flex: 1; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--ink-mid); white-space: nowrap; }
   .lb-badge-wrap { display: flex; gap: 4px; }
 
   /* ── FEATURE 08: PWA ── */
@@ -934,6 +1028,7 @@ window.dispatchEvent(new Event('fb-ready'));
     .filter-tabs { justify-content: center; }
 
     .analytics-grid { grid-template-columns: 1fr; }
+    .analytics-kpi-bar { gap: 8px; }
 
     .donut-wrap { flex-direction: column; align-items: flex-start; gap: 16px; }
 
@@ -942,8 +1037,6 @@ window.dispatchEvent(new Event('fb-ready'));
     .undo-bar, .period-undo-bar { font-size: 12px; padding: 10px 14px; white-space: normal; flex-wrap: wrap; }
 
     .bulk-bar { flex-direction: column; align-items: flex-start; }
-
-    .hist-period-cards { grid-template-columns: 1fr; }
 
     .stats { grid-template-columns: repeat(2, 1fr); }
   }
@@ -1767,7 +1860,7 @@ firebase deploy --only functions</pre>
 <div class="history-page" id="leaderboardPage">
   <div class="main">
     <div class="hist-section-title">🏆 Leaderboard</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;" id="lbGrid">
+    <div id="lbGrid">
       <div class="hist-loading">Loading leaderboard…</div>
     </div>
   </div>
@@ -2383,9 +2476,11 @@ function saveEdit(i) {
   const amount = parseFloat(document.getElementById('eAmt').value) || 0;
   const phone  = (document.getElementById('ePhone')?.value || '').trim().replace(/\s+/g, '');
   if (!name) { showToast('Name cannot be empty'); return; }
-  const m = members[i];
+  const m      = members[i];
+  const effStd = getStd();
   const paidAt = (amount > 0 && amount !== m.amount) ? new Date().toISOString().slice(0,10) : (m.paidAt || '');
-  update(ref(db, `${membersPath()}/${m.id}`), { name, amount, phone, paidAt })
+  const fullPaid = (amount >= effStd) ? true : (m.fullPaid || false);
+  update(ref(db, `${membersPath()}/${m.id}`), { name, amount, phone, paidAt, fullPaid })
     .then(() => showToast('Updated'))
     .catch(e => showToast('Error: ' + e.message));
 }
@@ -2617,13 +2712,14 @@ async function loadHistory() {
       const membersData = data[pk].members || {};
       const mList = Object.values(membersData);
       const total  = mList.reduce((s, m) => s + (m.amount || 0), 0);
-      periodTotals.push({ key: pk, label: pk.replace(/_/g, ' '), total, count: mList.length });
+      const periodStd = data[pk].std || 0; // 0 means "use current global std at render time"
+      periodTotals.push({ key: pk, label: pk.replace(/_/g, ' '), total, count: mList.length, std: periodStd });
 
       mList.forEach(m => {
         if (!m.name) return;
         allMemberNames.add(m.name);
         if (!memberHistory[m.name]) memberHistory[m.name] = {};
-        memberHistory[m.name][pk] = m.amount || 0;
+        memberHistory[m.name][pk] = { amount: m.amount || 0, fullPaid: m.fullPaid === true };
       });
     });
 
@@ -2699,47 +2795,63 @@ function renderHistChart(periods) {
     `${periods.length} period${periods.length !== 1 ? 's' : ''} · Grand total: Ksh ${grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })} · Average: Ksh ${avg.toLocaleString('en-KE')}`;
 }
 
-// ── RENDER PER-PERIOD SUMMARY CARDS ──────────────────────────
+// ── RENDER PER-PERIOD SUMMARY CARDS (horizontal scroll strip) ──
 function renderPeriodCards(periods, memberHistory, names) {
-  const el  = document.getElementById('histPeriodCards');
-  const std = getStd();
+  const el         = document.getElementById('histPeriodCards');
+  const globalStd  = getStd(); // fallback for legacy periods without stored std
 
   if (!periods.length) { el.innerHTML = ''; return; }
 
   el.innerHTML = periods.map(p => {
-    // Count paid / partial / nil for this period
+    const std = p.std || globalStd; // use the std that was in effect that period
+    const membersThisPeriod = names.filter(name => memberHistory[name]?.[p.key] !== undefined);
     let paid = 0, partial = 0, nil = 0;
-    names.forEach(name => {
-      const amt = memberHistory[name]?.[p.key];
-      if (amt === undefined) return; // member not in this period
-      if (amt >= std)       paid++;
-      else if (amt > 0)     partial++;
-      else                  nil++;
+    membersThisPeriod.forEach(name => {
+      const rec = memberHistory[name][p.key];
+      const amt = rec.amount;
+      if (amt >= std) paid++;
+      else if (amt > 0) partial++;
+      else nil++;
     });
-    const total       = paid + partial + nil;
-    const expected    = total * std;
-    const rate        = expected > 0 ? Math.round((p.total / expected) * 100) : 0;
-    const shortfall   = Math.max(0, expected - p.total);
-    const rateClass   = rate >= 90 ? 'high' : rate >= 60 ? 'mid' : 'low';
-    const barClass    = rateClass;
+    const total     = paid + partial + nil;
+    const expected  = total * std;
+    const rate      = expected > 0 ? Math.round((p.total / expected) * 100) : 0;
+    const shortfall = Math.max(0, expected - p.total);
+    const rateClass = rate >= 90 ? 'high' : rate >= 60 ? 'mid' : 'low';
+    const rateColor = rate >= 90 ? 'var(--ok-fg)' : rate >= 60 ? 'var(--warn-fg)' : 'var(--nil-fg)';
+
+    // Avatar cluster: up to 5 paid members' photos
+    const paidMembers = membersThisPeriod.filter(n => memberHistory[n][p.key].amount >= std);
+    const avatarCluster = paidMembers.slice(0,5).map(name => {
+      // Find the member object from the global `members` array (which has .photoUrl)
+      // Fall back to the photoCache for Firestore-loaded photos.
+      const memberObj = members.find(m => m.name === name);
+      const url = (memberObj && memberObj.photoUrl) || photoFor(name);
+      if (url) {
+        return `<img src="${url}" style="width:24px;height:24px;border-radius:50%;border:2px solid var(--white);object-fit:cover;margin-left:-6px;flex-shrink:0;" onerror="this.style.display='none'" title="${name}">`;
+      }
+      const init = name.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      return `<div style="width:24px;height:24px;border-radius:50%;border:2px solid var(--white);background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;margin-left:-6px;flex-shrink:0;" title="${name}">${init}</div>`;
+    }).join('');
+    const extraCount = paidMembers.length > 5 ? `<div style="width:24px;height:24px;border-radius:50%;border:2px solid var(--white);background:var(--bg2);color:var(--ink-mid);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;margin-left:-6px;">+${paidMembers.length-5}</div>` : '';
 
     return `<div class="hist-period-card rate-${rateClass}">
       <div class="hpc-period">${p.label}</div>
       <div class="hpc-collected">Ksh ${p.total.toLocaleString('en-KE')}</div>
       <div class="hpc-std-line">
-        Std: Ksh ${fmt(std)} × ${total} = Ksh ${expected.toLocaleString('en-KE')}
-        &nbsp;·&nbsp; <strong>${rate}%</strong> collected
-        ${shortfall > 0 ? `&nbsp;·&nbsp; <span style="color:var(--nil-fg)">−Ksh ${shortfall.toLocaleString('en-KE')}</span>` : ''}
+        ${rate}% collected<br>
+        ${shortfall > 0 ? `<span style="color:var(--nil-fg)">−Ksh ${shortfall.toLocaleString('en-KE')}</span>` : `<span style="color:var(--ok-fg)">Full target</span>`}
       </div>
       <div class="hpc-bar-wrap">
-        <div class="hpc-bar ${barClass}" style="width:${Math.min(rate, 100)}%"></div>
+        <div class="hpc-bar ${rateClass}" style="width:${Math.min(rate,100)}%;background:${rateColor};height:100%;border-radius:20px;transition:width .6s;"></div>
       </div>
-      <div class="hpc-breakdown">
+      <div class="hpc-breakdown" style="margin-bottom:10px;">
         <span class="badge badge-ok">${paid} Paid</span>
         <span class="badge badge-warn">${partial} Partial</span>
         <span class="badge badge-nil">${nil} Nil</span>
       </div>
-      ${currentUser ? `<button class="hpc-delete-btn" onclick="openDeletePeriodModal('${p.key}', '${p.label}')">🗑 Delete this period</button>` : ''}
+      ${paidMembers.length ? `<div style="display:flex;align-items:center;margin-left:6px;margin-bottom:8px;">${avatarCluster}${extraCount}</div>` : ''}
+      ${currentUser ? `<button class="hpc-delete-btn" onclick="openDeletePeriodModal('${p.key}', '${p.label}')">🗑 Delete</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -2751,11 +2863,12 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
     return;
   }
 
-  const std = getStd();
+  const globalStd = getStd();
 
-  // Build a lookup: periodKey → total collected (for column sub-headers)
+  // Build per-period std and total lookups
+  const stdByPk   = {};
   const totalByPk = {};
-  periodTotals.forEach(p => { totalByPk[p.key] = p.total; });
+  periodTotals.forEach(p => { totalByPk[p.key] = p.total; stdByPk[p.key] = p.std || globalStd; });
 
   // Header — period column shows name + collected amount
   let html = `<table><thead class="hist-thead"><tr>
@@ -2773,22 +2886,26 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
   </tr></thead><tbody class="hist-tbody">`;
 
   names.forEach(name => {
-    const photo = photoFor(name);
+    const memberObj  = members.find(m => m.name === name);
+    const photo      = (memberObj && memberObj.photoUrl) || photoFor(name);
+    const init       = initials(name);
     const avatarHtml = photo
-      ? `<img class="avatar" src="${photo}" style="width:24px;height:24px" alt="">`
-      : `<span class="avatar-placeholder" style="width:24px;height:24px;font-size:10px">${initials(name)}</span>`;
+      ? `<img class="avatar" src="${photo}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;" alt="" onerror="this.style.display='none'">` 
+      : `<span class="avatar-placeholder" style="width:24px;height:24px;font-size:10px">${init}</span>`;
 
-    const memberTotal     = periodKeys.reduce((s, pk) => s + (memberHistory[name]?.[pk] ?? 0), 0);
-    const periodsPresent  = periodKeys.filter(pk => memberHistory[name]?.[pk] !== undefined).length;
-    const paidPeriods     = periodKeys.filter(pk => (memberHistory[name]?.[pk] ?? 0) >= std).length;
+    const memberTotal    = periodKeys.reduce((s, pk) => s + ((memberHistory[name]?.[pk]?.amount) ?? 0), 0);
+    const periodsPresent = periodKeys.filter(pk => memberHistory[name]?.[pk] !== undefined).length;
+    const paidPeriods    = periodKeys.filter(pk => (memberHistory[name]?.[pk]?.fullPaid)).length;
 
     const cells = periodKeys.map(pk => {
-      const amt = memberHistory[name]?.[pk];
-      if (amt === undefined) {
+      const rec = memberHistory[name]?.[pk];
+      if (rec === undefined) {
         return `<td class="period-cell"><span style="color:var(--rule);font-family:'JetBrains Mono',monospace;font-size:11px;">—</span></td>`;
       }
-      const cls = amt === 0 ? 'nil' : amt >= std ? 'ok' : 'warn';
-      const label = amt === 0 ? 'Nil' : amt >= std ? 'Paid' : 'Partial';
+      const pStd  = stdByPk[pk];
+      const amt   = rec.amount;
+      const cls   = amt === 0 ? 'nil' : amt >= pStd ? 'ok' : 'warn';
+      const label = rec.fullPaid ? 'Paid ✓' : amt === 0 ? 'Nil' : amt >= pStd ? 'Paid' : 'Partial';
       const badgeCls = cls === 'ok' ? 'badge-ok' : cls === 'warn' ? 'badge-warn' : 'badge-nil';
       return `<td class="period-cell">
         <div class="hist-cell-inner">
@@ -2814,17 +2931,18 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
 
   // Totals footer row
   const periodSums = periodKeys.map(pk =>
-    names.reduce((s, n) => s + (memberHistory[n]?.[pk] ?? 0), 0)
+    names.reduce((s, n) => s + ((memberHistory[n]?.[pk]?.amount) ?? 0), 0)
   );
   const grandTotal    = periodSums.reduce((s, v) => s + v, 0);
   const paidCount     = periodKeys.map(pk =>
-    names.filter(n => (memberHistory[n]?.[pk] ?? 0) >= std).length
+    names.filter(n => memberHistory[n]?.[pk]?.fullPaid).length
   );
-  const partialCount  = periodKeys.map(pk =>
-    names.filter(n => { const a = memberHistory[n]?.[pk]; return a !== undefined && a > 0 && a < std; }).length
-  );
+  const partialCount  = periodKeys.map(pk => {
+    const pStd = stdByPk[pk];
+    return names.filter(n => { const r = memberHistory[n]?.[pk]; return r && r.amount > 0 && r.amount < pStd; }).length;
+  });
   const nilCount      = periodKeys.map(pk =>
-    names.filter(n => memberHistory[n]?.[pk] === 0).length
+    names.filter(n => memberHistory[n]?.[pk]?.amount === 0).length
   );
 
   html += `</tbody><tfoot>
@@ -2832,7 +2950,8 @@ function renderHistTable(periodKeys, names, memberHistory, periodTotals) {
     <tr style="background:var(--bg);border-top:1px solid var(--rule);">
       <td style="padding:7px 14px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);font-family:'JetBrains Mono',monospace;">Collection rate</td>
       ${periodKeys.map((pk, i) => {
-        const exp  = names.filter(n => memberHistory[n]?.[pk] !== undefined).length * std;
+        const pStd = stdByPk[pk];
+        const exp  = names.filter(n => memberHistory[n]?.[pk] !== undefined).length * pStd;
         const rate = exp > 0 ? Math.round((periodSums[i] / exp) * 100) : 0;
         const col  = rate >= 90 ? 'var(--ok-fg)' : rate >= 60 ? 'var(--warn-fg)' : 'var(--nil-fg)';
         return `<td style="padding:7px 14px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${col};">${rate}%</td>`;
@@ -3199,9 +3318,12 @@ function applyBulkUpdate() {
   const { db, ref, update } = window._fb;
   const today = new Date().toISOString().slice(0,10);
   const writes = {};
+  const std = getStd();
   selectedIds.forEach(id => {
     writes[`${membersPath()}/${id}/amount`] = amt;
     if (amt > 0) writes[`${membersPath()}/${id}/paidAt`] = today;
+    // fullPaid: bulk sets to full standard → mark as fully paid in one go
+    if (amt >= std) writes[`${membersPath()}/${id}/fullPaid`] = true;
   });
   update(ref(db), writes)
     .then(() => {
@@ -3317,7 +3439,7 @@ async function confirmNewPeriod() {
       const writes = {};
       Object.values(srcData).forEach(m => {
         const k = Math.random().toString(36).slice(2);
-        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
+        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '', fullPaid: false };
       });
 
       if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
@@ -3393,7 +3515,7 @@ async function execCarryForward() {
   const writes = {};
   Object.values(sourceMembers).forEach(m => {
     const newKey = Math.random().toString(36).slice(2);
-    writes[newKey] = { name: m.name, amount: 0, phone: m.phone || '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
+    writes[newKey] = { name: m.name, amount: 0, phone: m.phone || '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '', fullPaid: false };
   });
 
   suppressSeed = true; // prevent seed from overwriting carried-forward members
@@ -3457,7 +3579,7 @@ async function loadAnalytics() {
   const std = getStd();
   const periodKeys = Object.keys(data).sort((a,b) => parsePeriod(a)-parsePeriod(b));
   const allNames   = new Set();
-  const memberHist = {}; // name → { pk → amount }
+  const memberHist = {}; // name → { pk → {amount, fullPaid} }
 
   periodKeys.forEach(pk => {
     const mems = data[pk].members || {};
@@ -3465,7 +3587,7 @@ async function loadAnalytics() {
       if (!m.name) return;
       allNames.add(m.name);
       if (!memberHist[m.name]) memberHist[m.name] = {};
-      memberHist[m.name][pk] = m.amount || 0;
+      memberHist[m.name][pk] = { amount: m.amount || 0, fullPaid: m.fullPaid === true };
     });
   });
 
@@ -3482,76 +3604,120 @@ async function loadAnalytics() {
   renderTrendChart(periodKeys, memberHist, names, periodTotals);
   const scored = names.map(name => {
     const periods = periodKeys.filter(pk => memberHist[name]?.[pk] !== undefined);
-    const total   = periods.reduce((s, pk) => s + memberHist[name][pk], 0);
-    const paidN   = periods.filter(pk => memberHist[name][pk] >= std).length;
+    const total   = periods.reduce((s, pk) => s + memberHist[name][pk].amount, 0);
+    // paidN: only count periods where member actually paid in full (fullPaid flag),
+    // not periods where they accumulated partial amounts that happened to sum to std.
+    const paidN   = periods.filter(pk => memberHist[name][pk].fullPaid).length;
     const streak  = (() => {
       let s = 0;
       for (let i = periodKeys.length - 1; i >= 0; i--) {
-        const a = memberHist[name]?.[periodKeys[i]];
-        if (a === undefined) break;
-        if (a >= std) s++; else break;
+        const rec = memberHist[name]?.[periodKeys[i]];
+        if (!rec) break;
+        if (rec.fullPaid) s++; else break;
       }
       return s;
     })();
     const consistency = periods.length ? Math.round((paidN / periods.length) * 100) : 0;
-    return { name, total, paidN, periods: periods.length, streak, consistency };
+    const lastTwo = periods.slice(-2);
+    const improved = lastTwo.length === 2 &&
+      memberHist[name][lastTwo[1]].amount > memberHist[name][lastTwo[0]].amount;
+    return { name, total, paidN, periods: periods.length, streak, consistency, improved };
   });
 
-  const topPayers   = [...scored].sort((a,b) => b.total - a.total).slice(0,3);
-  const topConsist  = [...scored].sort((a,b) => b.consistency - a.consistency).slice(0,3);
-  const longestStrk = [...scored].sort((a,b) => b.streak - a.streak).slice(0,3);
-  const bottomPay   = [...scored].sort((a,b) => a.total - b.total).slice(0,3);
+  function memberAvatar(name, size=30) {
+    const memberObj = members.find(m => m.name === name);
+    const url = (memberObj && memberObj.photoUrl) || photoFor(name);
+    const init = name.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    if (url) return `<img src="${url}" class="ac-avatar" style="width:${size}px;height:${size}px;" onerror="this.outerHTML='<div class=&quot;ac-avatar&quot; style=&quot;width:${size}px;height:${size}px;background:var(--accent);color:#fff;font-size:${Math.round(size*.38)}px;&quot;>${init}</div>'" title="${name}">`;
+    return `<div class="ac-avatar" style="width:${size}px;height:${size}px;background:var(--accent);color:#fff;font-size:${Math.round(size*.38)}px;" title="${name}">${init}</div>`;
+  }
 
-  function miniCard(label, list, valFn, color) {
+  const medals = ['🥇','🥈','🥉'];
+  function miniCard(icon, label, list, valFn, color) {
     return `<div class="analytics-card">
-      <div class="ac-label">${label}</div>
+      <div class="ac-header"><span class="ac-icon">${icon}</span><span class="ac-label">${label}</span></div>
       ${list.map((s,i) => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;${i>0?'border-top:1px solid var(--rule)':''}">
-          <div class="ac-name" style="font-size:13px;">${s.name}</div>
+        <div class="ac-row">
+          <div class="ac-rank">${medals[i]||'#'+(i+1)}</div>
+          ${memberAvatar(s.name)}
+          <div class="ac-name">${s.name}</div>
           <div class="ac-val" style="color:${color};">${valFn(s)}</div>
         </div>`).join('')}
     </div>`;
   }
 
-  // Per-member streak dots
+  // KPI summary bar
+  const grandTotal    = periodTotals.reduce((s,p)=>s+p.total,0);
+  const avgPerPeriod  = periodKeys.length ? Math.round(grandTotal/periodKeys.length) : 0;
+  const totalPaid     = scored.reduce((s,m)=>s+m.paidN,0);
+  const totalPossible = scored.reduce((s,m)=>s+m.periods,0);
+  const overallConsist = totalPossible ? Math.round(totalPaid/totalPossible*100) : 0;
+  const topStreak     = Math.max(...scored.map(s=>s.streak),0);
+
+  const kpiBar = `<div class="analytics-kpi-bar">
+    <div class="analytics-kpi">
+      <div class="analytics-kpi-label">Grand Total</div>
+      <div class="analytics-kpi-value">Ksh ${grandTotal.toLocaleString('en-KE')}</div>
+      <div class="analytics-kpi-sub">${periodKeys.length} periods</div>
+    </div>
+    <div class="analytics-kpi">
+      <div class="analytics-kpi-label">Avg / Period</div>
+      <div class="analytics-kpi-value">Ksh ${avgPerPeriod.toLocaleString('en-KE')}</div>
+      <div class="analytics-kpi-sub">per month</div>
+    </div>
+    <div class="analytics-kpi">
+      <div class="analytics-kpi-label">Overall Consistency</div>
+      <div class="analytics-kpi-value" style="color:${overallConsist>=80?'var(--ok-fg)':overallConsist>=50?'var(--warn-fg)':'var(--nil-fg)'};">${overallConsist}%</div>
+      <div class="analytics-kpi-sub">${totalPaid} / ${totalPossible} payments</div>
+    </div>
+    <div class="analytics-kpi">
+      <div class="analytics-kpi-label">Best Streak</div>
+      <div class="analytics-kpi-value" style="color:var(--warn-fg);">${topStreak} mos</div>
+      <div class="analytics-kpi-sub">${(scored.find(s=>s.streak===topStreak)||{}).name||'—'}</div>
+    </div>
+  </div>`;
+
+  // Per-member payment consistency table with photo avatars
+  const streakRows = names.map(name => {
+    const sc = scored.find(s => s.name === name);
+    const dots = periodKeys.map(pk => {
+      const rec = memberHist[name]?.[pk];
+      if (rec === undefined) return '<td style="text-align:center"><div class="streak-dot miss" style="margin:auto;" title="Not in period"></div></td>';
+      const cls = rec.fullPaid ? 'ok' : rec.amount > 0 ? 'warn' : 'nil';
+      const tip = rec.fullPaid ? 'Paid in full' : rec.amount > 0 ? 'Partial Ksh '+rec.amount : 'Nil';
+      return '<td style="text-align:center"><div class="streak-dot ' + cls + '" style="margin:auto;" title="' + tip + '"></div></td>';
+    }).join('');
+    const consistColor = sc.consistency >= 80 ? 'var(--ok-fg)' : sc.consistency >= 50 ? 'var(--warn-fg)' : 'var(--nil-fg)';
+    return '<tr>'
+      + '<td class="member-cell"><div style="display:flex;align-items:center;gap:8px;font-weight:500;">' + memberAvatar(name,26) + name + '</div></td>'
+      + '<td><div style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:' + consistColor + ';font-weight:700;">' + sc.consistency + '%</div></td>'
+      + dots
+      + '<td style="text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px;font-weight:700;color:' + (sc.streak>0?'var(--ok-fg)':'var(--ink-light)') + ';">' + sc.streak + ' mos</td>'
+      + '</tr>';
+  }).join('');
+  const streakPeriodHeaders = periodKeys.map(pk => '<th class="period-header" style="text-align:center;font-size:9px;">' + pk.replace(/_/g,' ') + '</th>').join('');
   const streakHtml = `<div class="hist-member-wrap" style="margin-top:24px;">
-    <div style="padding:16px 18px;border-bottom:1px solid var(--rule);">
-      <div class="hist-section-title" style="margin-bottom:0;font-size:16px;">Payment consistency per member</div>
+    <div style="padding:14px 18px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:8px;">
+      <span style="font-size:16px;">📅</span>
+      <div class="hist-section-title" style="margin-bottom:0;font-size:15px;">Payment consistency per member</div>
     </div>
     <div class="hist-table-scroll"><table>
       <thead class="hist-thead"><tr>
-        <th>Member</th>
-        <th>Consistency</th>
-        ${periodKeys.map(pk=>`<th class="period-header" style="text-align:center;font-size:9px;">${pk.replace(/_/g,' ')}</th>`).join('')}
-        <th style="text-align:right">Current streak</th>
+        <th>Member</th><th>Consistency</th>
+        ${streakPeriodHeaders}
+        <th style="text-align:right">Streak</th>
       </tr></thead>
-      <tbody class="hist-tbody">
-      ${names.map(name => {
-        const sc = scored.find(s => s.name === name);
-        const dots = periodKeys.map(pk => {
-          const a = memberHist[name]?.[pk];
-          if (a === undefined) return `<td style="text-align:center"><div class="streak-dot miss" style="margin:auto;" title="Not in period"></div></td>`;
-          const cls = a >= std ? 'ok' : a > 0 ? 'warn' : 'nil';
-          return `<td style="text-align:center"><div class="streak-dot ${cls}" style="margin:auto;" title="Ksh ${a}"></div></td>`;
-        }).join('');
-        const consistColor = sc.consistency >= 80 ? 'var(--ok-fg)' : sc.consistency >= 50 ? 'var(--warn-fg)' : 'var(--nil-fg)';
-        return `<tr>
-          <td class="member-cell"><div style="display:flex;align-items:center;gap:8px;font-weight:500;">${name}</div></td>
-          <td><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:${consistColor};font-weight:700;">${sc.consistency}%</div></td>
-          ${dots}
-          <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${sc.streak>0?'var(--ok-fg)':'var(--ink-light)'};">${sc.streak} mos</td>
-        </tr>`;
-      }).join('')}
-      </tbody>
+      <tbody class="hist-tbody">${streakRows}</tbody>
     </table></div>
   </div>`;
 
   area.innerHTML = `
+    ${kpiBar}
     <div class="analytics-grid">
-      ${miniCard('🏆 Top contributors (all time)', topPayers, s=>'Ksh '+s.total.toLocaleString('en-KE'), 'var(--ok-fg)')}
-      ${miniCard('🎯 Most consistent payers', topConsist, s=>s.consistency+'%', 'var(--ok-fg)')}
-      ${miniCard('🔥 Longest current streak', longestStrk, s=>s.streak+' months', 'var(--warn-fg)')}
-      ${miniCard('⚠️ Lowest contributors', bottomPay, s=>'Ksh '+s.total.toLocaleString('en-KE'), 'var(--nil-fg)')}
+      ${miniCard('💰','Top contributors (all time)', [...scored].sort((a,b)=>b.total-a.total).slice(0,3), s=>'Ksh '+s.total.toLocaleString('en-KE'), 'var(--ok-fg)')}
+      ${miniCard('🎯','Most consistent payers', [...scored].sort((a,b)=>b.consistency-a.consistency).slice(0,3), s=>s.consistency+'%', 'var(--ok-fg)')}
+      ${miniCard('🔥','Longest current streak', [...scored].sort((a,b)=>b.streak-a.streak).slice(0,3), s=>s.streak+' months', 'var(--warn-fg)')}
+      ${miniCard('⚠️','Lowest contributors', [...scored].sort((a,b)=>a.total-b.total).slice(0,3), s=>'Ksh '+s.total.toLocaleString('en-KE'), 'var(--nil-fg)')}
     </div>
     ${streakHtml}`;
 }
@@ -3646,12 +3812,13 @@ function renderTrendChart(periodKeys, memberHistory, names, periodTotals) {
   area.innerHTML = '<canvas id="trendCanvas"></canvas>';
   if (trendChart) { trendChart.destroy(); trendChart = null; }
 
-  const std = getStd();
+  const globalStd = getStd();
   const labels   = periodTotals.map(p => p.label);
   const actuals  = periodTotals.map(p => p.total);
   const expected = periodTotals.map(p => {
+    const pStd  = p.std || globalStd;
     const count = names.filter(n => memberHistory[n]?.[p.key] !== undefined).length;
-    return count * std;
+    return count * pStd;
   });
 
   // Running total
@@ -3882,7 +4049,7 @@ async function execAutoRollover() {
   const writes = {};
   Object.values(src).forEach(m => {
     const k = Math.random().toString(36).slice(2);
-    writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
+    writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '', fullPaid: false };
   });
 
   // Detach existing listener BEFORE writing and before switching period
@@ -3963,7 +4130,7 @@ async function loadMiniDash() {
   const data = snap.val();
   if (!data) return;
   const currentKey = getPeriod().replace(/\s+/g,'_');
-  const std = getStd();
+  const globalStd = getStd(); // fallback only for legacy periods without their own stored std
   const periods = Object.keys(data)
     .filter(k => k !== currentKey)
     .sort((a,b) => parsePeriod(b) - parsePeriod(a))
@@ -3975,7 +4142,8 @@ async function loadMiniDash() {
   el.innerHTML = periods.map(pk => {
     const mems  = Object.values(data[pk].members || {});
     const total = mems.reduce((s,m) => s + (m.amount||0), 0);
-    const exp   = mems.length * std;
+    const pStd  = data[pk].std || globalStd; // use the standard amount that was in effect that period
+    const exp   = mems.length * pStd;
     const rate  = exp > 0 ? Math.round(total/exp*100) : 0;
     const cls   = rate >= 90 ? 'mdc-high' : rate >= 60 ? 'mdc-mid' : 'mdc-low';
     const col   = rate >= 90 ? 'var(--ok-fg)' : rate >= 60 ? 'var(--warn-fg)' : 'var(--nil-fg)';
@@ -4019,7 +4187,7 @@ async function switchToPeriod(periodLabel) {
       const writes = {};
       Object.values(srcData).forEach(m => {
         const k = Math.random().toString(36).slice(2);
-        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '' };
+        writes[k] = { name: m.name, amount: 0, phone: m.phone || '', note: '', customStd: m.customStd || 0, photoUrl: m.photoUrl || '', fullPaid: false };
       });
       if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
       suppressSeed = true;
@@ -4324,46 +4492,90 @@ async function loadLeaderboard() {
       if (!m.name) return;
       allNames.add(m.name);
       if (!memberHist[m.name]) memberHist[m.name] = {};
-      memberHist[m.name][pk] = m.amount || 0;
+      memberHist[m.name][pk] = { amount: m.amount || 0, fullPaid: m.fullPaid === true };
     });
   });
 
   const names = Array.from(allNames);
   const scored = names.map(name => {
     const periods = periodKeys.filter(pk => memberHist[name]?.[pk] !== undefined);
-    const total   = periods.reduce((s,pk) => s + memberHist[name][pk], 0);
-    const paidN   = periods.filter(pk => memberHist[name][pk] >= std).length;
+    const total   = periods.reduce((s,pk) => s + memberHist[name][pk].amount, 0);
+    const paidN   = periods.filter(pk => memberHist[name][pk].fullPaid).length;
     let streak = 0;
     for (let i = periodKeys.length-1; i >= 0; i--) {
-      const a = memberHist[name]?.[periodKeys[i]];
-      if (a === undefined || a < std) break;
+      const rec = memberHist[name]?.[periodKeys[i]];
+      if (!rec || !rec.fullPaid) break;
       streak++;
     }
     const consistency = periods.length ? Math.round(paidN/periods.length*100) : 0;
-    const improved = periods.length >= 2 && memberHist[name][periodKeys[periodKeys.length-1]] > memberHist[name][periodKeys[periodKeys.length-2]];
+    const lastTwo = periods.slice(-2);
+    const improved = lastTwo.length === 2 &&
+      memberHist[name][lastTwo[1]].amount > memberHist[name][lastTwo[0]].amount;
     return { name, total, paidN, periods: periods.length, streak, consistency, improved };
   });
 
+  function memberAvatarLb(name, size=32) {
+    const memberObj = members.find(m => m.name === name);
+    const url = (memberObj && memberObj.photoUrl) || photoFor(name);
+    const init = name.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    if (url) return `<img src="${url}" class="lb-avatar" style="width:${size}px;height:${size}px;" onerror="this.outerHTML='<div class=&quot;lb-avatar&quot; style=&quot;width:${size}px;height:${size}px;background:var(--accent);color:#fff;font-size:${Math.round(size*.38)}px;&quot;>${init}</div>'" title="${name}">`;
+    return `<div class="lb-avatar" style="width:${size}px;height:${size}px;background:var(--accent);color:#fff;font-size:${Math.round(size*.38)}px;" title="${name}">${init}</div>`;
+  }
+
+  function podiumSlot(s, rank, valFn) {
+    if (!s) return `<div class="lb-podium-slot rank-${rank}"><div class="lb-pod-block">—</div></div>`;
+    const memberObj = members.find(m => m.name === s.name);
+    const url = (memberObj && memberObj.photoUrl) || photoFor(s.name);
+    const init = s.name.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const avatarHtml = url
+      ? `<img src="${url}" class="lb-pod-avatar" onerror="this.outerHTML='<div class=&quot;lb-pod-avatar&quot; style=&quot;background:var(--accent);color:#fff;font-size:18px;&quot;>${init}</div>'">`
+      : `<div class="lb-pod-avatar" style="background:var(--accent);color:#fff;font-size:18px;">${init}</div>`;
+    const medals = {1:'🥇',2:'🥈',3:'🥉'};
+    return `<div class="lb-podium-slot rank-${rank}">
+      ${avatarHtml}
+      <div class="lb-pod-name">${s.name.split(' ')[0]}</div>
+      <div class="lb-pod-val">${valFn(s)}</div>
+      <div class="lb-pod-block">${medals[rank]}</div>
+    </div>`;
+  }
+
   function lbSection(title, icon, list, valFn) {
-    const rankCls = ['gold','silver','bronze'];
-    const medals  = ['🥇','🥈','🥉'];
-    return `<div class="hist-member-wrap">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--rule);font-family:'Plus Jakarta Sans',sans-serif;font-weight:900;font-size:17px;">${icon} ${title}</div>
-      ${list.slice(0,5).map((s,i) => `
-        <div class="lb-row">
-          <div class="lb-rank ${rankCls[i]||''}">${medals[i]||i+1}</div>
-          <div class="lb-name">${s.name}</div>
-          <div class="lb-badge-wrap">${s.streak>=3?`<span class="badge badge-warn">🔥${s.streak}</span>`:''} ${s.improved?`<span class="badge badge-ok">↑</span>`:''}</div>
-          <div class="lb-val">${valFn(s)}</div>
-        </div>`).join('')}
+    const top3 = list.slice(0,3);
+    const rest  = list.slice(3);
+    const [gold, silver, bronze] = top3;
+    // Podium: silver left, gold centre, bronze right
+    const podium = `<div class="lb-podium">
+      ${podiumSlot(silver, 2, valFn)}
+      ${podiumSlot(gold,   1, valFn)}
+      ${podiumSlot(bronze, 3, valFn)}
+    </div>`;
+    const rows = rest.map((s, i) => `
+      <div class="lb-row">
+        <div class="lb-rank">#${i+4}</div>
+        ${memberAvatarLb(s.name)}
+        <div class="lb-name">${s.name}</div>
+        <div class="lb-badge-wrap">
+          ${s.streak>=3?`<span class="badge badge-warn">🔥${s.streak}</span>`:''}
+          ${s.improved?`<span class="badge badge-ok">↑</span>`:''}
+        </div>
+        <div class="lb-val">${valFn(s)}</div>
+      </div>`).join('');
+    return `<div class="lb-section">
+      <div class="lb-section-header">
+        <span class="lb-title-icon">${icon}</span>
+        <span class="lb-title-text">${title}</span>
+      </div>
+      ${list.length ? podium : ''}
+      ${rows}
+      ${!list.length ? '<div style="padding:20px;text-align:center;color:var(--ink-light);font-size:13px;">No data yet</div>' : ''}
     </div>`;
   }
 
   grid.innerHTML = [
     lbSection('Top Contributors', '💰', [...scored].sort((a,b)=>b.total-a.total), s=>`Ksh ${s.total.toLocaleString('en-KE')}`),
     lbSection('Most Consistent', '🎯', [...scored].sort((a,b)=>b.consistency-a.consistency), s=>`${s.consistency}% (${s.paidN}/${s.periods})`),
-    lbSection('Longest Streak', '🔥', [...scored].sort((a,b)=>b.streak-a.streak), s=>`${s.streak} month${s.streak!==1?'s':''}`),
-    lbSection('Most Improved', '📈', [...scored].filter(s=>s.improved).sort((a,b)=>b.total-a.total), s=>`Ksh ${s.total.toLocaleString('en-KE')}`),
+    lbSection('Longest Streak',  '🔥', [...scored].sort((a,b)=>b.streak-a.streak), s=>`${s.streak} month${s.streak!==1?'s':''}`),
+    lbSection('Most Improved',   '📈', [...scored].filter(s=>s.improved).sort((a,b)=>b.total-a.total), s=>`Ksh ${s.total.toLocaleString('en-KE')}`),
   ].join('');
 }
 
@@ -4458,9 +4670,13 @@ function saveEdit(i) {
   const customStd  = parseFloat(document.getElementById('eCustomStd')?.value) || 0;
   const photoUrl   = (document.getElementById('ePhotoUrl')?.value || '').trim();
   if (!name) { showToast('Name cannot be empty'); return; }
-  const m      = members[i];
-  const paidAt = (amount > 0 && amount !== m.amount) ? new Date().toISOString().slice(0,10) : (m.paidAt || '');
-  update(ref(db, `${membersPath()}/${m.id}`), { name, amount, phone, paidAt, customStd, photoUrl })
+  const m         = members[i];
+  const effStd    = customStd || getStd();
+  const paidAt    = (amount > 0 && amount !== m.amount) ? new Date().toISOString().slice(0,10) : (m.paidAt || '');
+  // fullPaid: true only when amount reaches the full standard IN THIS SINGLE SAVE.
+  // Once set to true it stays true even if amount is later reduced by an admin correction.
+  const fullPaid  = (amount >= effStd) ? true : (m.fullPaid || false);
+  update(ref(db, `${membersPath()}/${m.id}`), { name, amount, phone, paidAt, customStd, photoUrl, fullPaid })
     .then(() => showToast('Updated'))
     .catch(e => showToast('Error: ' + e.message));
 }
@@ -4488,7 +4704,7 @@ function subscribeToMembers() {
       set(ref(db, path), writes);
       return;
     }
-    members = Object.entries(data).map(([id, v]) => ({ id, name: v.name, amount: v.amount, phone: v.phone || '', note: v.note || '', paidAt: v.paidAt || '', customStd: v.customStd || 0, photoUrl: v.photoUrl || '' }));
+    members = Object.entries(data).map(([id, v]) => ({ id, name: v.name, amount: v.amount, phone: v.phone || '', note: v.note || '', paidAt: v.paidAt || '', customStd: v.customStd || 0, photoUrl: v.photoUrl || '', fullPaid: v.fullPaid || false }));
     render();
     checkOverdue();
     checkAutoRollover();
