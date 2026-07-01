@@ -1201,14 +1201,20 @@ window.dispatchEvent(new Event('fb-ready'));
                font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);
                color:var(--ink);outline:none;width:120px;" readonly>
       <script>
-        // On load, update the hardcoded default to the actual current month
+        // Instant-paint placeholder only — avoids a blank/flickering input
+        // before Firebase responds. The REAL source of truth is
+        // lunch/_meta/activePeriod in Firebase (fetched on fb-ready below),
+        // which is shared across every device/browser. This local guess
+        // (localStorage, or today's month as last resort) gets overwritten
+        // as soon as Firebase answers.
         (function() {
           const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
           const now = new Date();
           const inp = document.getElementById('periodInput');
-          if (inp && inp.value === 'May 2026') {
-            inp.value = months[now.getMonth()] + ' ' + now.getFullYear();
-          }
+          if (!inp) return;
+          let saved = null;
+          try { saved = localStorage.getItem('lunchActivePeriod'); } catch(e) {}
+          inp.value = saved || (months[now.getMonth()] + ' ' + now.getFullYear());
         })();
       </script>
       <button class="btn btn-ghost editor-only" style="font-size:12px;padding:7px 14px;" onclick="openNewPeriodModal()" title="Switch to a different month">
@@ -1991,6 +1997,18 @@ function getPeriod() {
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const now = new Date();
   return months[now.getMonth()] + ' ' + now.getFullYear();
+}
+// Sets the active period AND remembers it in Firebase (lunch/_meta/activePeriod)
+// so every device/browser that opens the app lands on the same period — not
+// just the one that made the change. localStorage is kept only as an instant
+// offline-friendly cache so the UI doesn't flash before Firebase responds.
+function setActivePeriod(period) {
+  document.getElementById('periodInput').value = period;
+  try { localStorage.setItem('lunchActivePeriod', period); } catch(e) {}
+  if (fbReady && window._fb) {
+    const { db, ref, set } = window._fb;
+    set(ref(db, 'lunch/_meta/activePeriod'), period).catch(() => {});
+  }
 }
 function fmt(v) { return v.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
@@ -3442,7 +3460,7 @@ async function confirmNewPeriod() {
 
   if (existingData) {
     // Period already has data — just switch the view, preserve everything
-    document.getElementById('periodInput').value = newPeriod;
+    setActivePeriod(newPeriod);
     subscribeToMembers();
     subscribeToStd();
     recalc();
@@ -3465,7 +3483,7 @@ async function confirmNewPeriod() {
       if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
       suppressSeed = true;
       await window._fb.set(window._fb.ref(window._fb.db, `lunch/${newPeriodKey}/members`), writes);
-      document.getElementById('periodInput').value = newPeriod;
+      setActivePeriod(newPeriod);
       subscribeToMembers();
       subscribeToStd();
       suppressSeed = false;
@@ -3474,7 +3492,7 @@ async function confirmNewPeriod() {
       showToast(`Switched to ${newPeriod} — ${Object.keys(writes).length} members carried forward`);
     } else {
       // No source data at all — just switch (empty period)
-      document.getElementById('periodInput').value = newPeriod;
+      setActivePeriod(newPeriod);
       subscribeToMembers();
       subscribeToStd();
       recalc();
@@ -3991,7 +4009,7 @@ function applyReadOnlyMode() {
   // Set period from URL
   const period = params.get('period');
   if (period) {
-    document.getElementById('periodInput').value = period.replace(/_/g,' ');
+    setActivePeriod(period.replace(/_/g,' '));
   }
 
   // Hide all write UI
@@ -4083,7 +4101,7 @@ async function execAutoRollover() {
   await window._fb.set(window._fb.ref(window._fb.db, `lunch/${newPeriodKey}/members`), writes);
 
   // Switch period and re-subscribe
-  document.getElementById('periodInput').value = newPeriod;
+  setActivePeriod(newPeriod);
   banner.classList.remove('show');
   subscribeToMembers();
   subscribeToStd();
@@ -4302,7 +4320,7 @@ async function switchToPeriod(periodLabel) {
 
   if (existingData) {
     // Period exists — just switch view
-    document.getElementById('periodInput').value = periodLabel;
+    setActivePeriod(periodLabel);
     subscribeToMembers();
     subscribeToStd();
     recalc();
@@ -4323,7 +4341,7 @@ async function switchToPeriod(periodLabel) {
       if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
       suppressSeed = true;
       await window._fb.set(window._fb.ref(window._fb.db, `lunch/${newPeriodKey}/members`), writes);
-      document.getElementById('periodInput').value = periodLabel;
+      setActivePeriod(periodLabel);
       subscribeToMembers();
       subscribeToStd();
       suppressSeed = false;
@@ -4331,7 +4349,7 @@ async function switchToPeriod(periodLabel) {
       loadMiniDash();
       showToast(`Switched to ${periodLabel} — ${Object.keys(writes).length} members carried forward`);
     } else {
-      document.getElementById('periodInput').value = periodLabel;
+      setActivePeriod(periodLabel);
       subscribeToMembers();
       subscribeToStd();
       recalc();
@@ -4823,11 +4841,30 @@ function subscribeToMembers() {
   }
 
   const path = membersPath();
-  membersUnsubscribe = onValue(ref(db, path), snapshot => {
+  membersUnsubscribe = onValue(ref(db, path), async snapshot => {
     const data = snapshot.val();
     if (!data) {
-      // Only seed on the very first run — never during rollover or carry-forward
+      // Never auto-seed here — never during rollover/carry-forward, and never
+      // just because the current period happens to have no data yet (e.g. a
+      // deleted period, or the app landing on a fresh month). Seeding must
+      // only ever happen on a genuinely brand-new install with NO periods
+      // at all anywhere in the database.
       if (suppressSeed) { render(); return; }
+      const rootSnap = await new Promise(res =>
+        onValue(ref(db, 'lunch'), res, { onlyOnce: true })
+      );
+      const rootVal = rootSnap.val();
+      // Ignore the _meta node (just stores the shared active-period pointer)
+      // when deciding whether any real period data already exists.
+      const hasRealPeriods = rootVal && Object.keys(rootVal).some(k => k !== '_meta');
+      if (hasRealPeriods) {
+        // Other periods already exist — this one is simply empty (deleted
+        // or not yet created). Show it empty; do NOT recreate it.
+        members = [];
+        render();
+        return;
+      }
+      // True first-ever run: nothing exists in the whole database yet.
       const writes = {};
       SEED.forEach(m => {
         const key = Math.random().toString(36).slice(2);
@@ -4845,9 +4882,29 @@ function subscribeToMembers() {
 
 // Period is changed only via openNewPeriodModal / confirmNewPeriod (input is readonly)
 
-window.addEventListener('fb-ready', () => {
+window.addEventListener('fb-ready', async () => {
   fbReady = true;
-  const { auth, onAuthStateChanged } = window._fb;
+  const { auth, onAuthStateChanged, db, ref, onValue, set } = window._fb;
+
+  // Pull the shared active period from Firebase — this is the source of
+  // truth across ALL devices/browsers, not just this one. Falls back to
+  // whatever the instant-paint script already put in the input (localStorage
+  // cache or today's month) if nothing has ever been saved to Firebase yet.
+  try {
+    const metaSnap = await new Promise(res =>
+      onValue(ref(db, 'lunch/_meta/activePeriod'), res, { onlyOnce: true })
+    );
+    const sharedPeriod = metaSnap.val();
+    if (sharedPeriod) {
+      document.getElementById('periodInput').value = sharedPeriod;
+      try { localStorage.setItem('lunchActivePeriod', sharedPeriod); } catch(e) {}
+    } else {
+      // Nothing saved in Firebase yet — seed it with whatever we're
+      // currently showing so other devices pick up the same period.
+      set(ref(db, 'lunch/_meta/activePeriod'), getPeriod()).catch(() => {});
+    }
+  } catch(e) {}
+
   onAuthStateChanged(auth, user => {
     updateAuthUI(user);
     checkUserRole(user);
