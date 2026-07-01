@@ -21,7 +21,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, set, update, remove, onValue, push }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getFirestore, collection, getDocs }
+import { getFirestore, collection, getDocs, doc, getDoc }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const FB_CONFIG = {
@@ -41,7 +41,7 @@ const fst  = getFirestore(app);
 
 // Expose to classic scripts via window
 window._fb = { auth, db, fst, ref, set, update, remove, onValue, push,
-               collection, getDocs,
+               collection, getDocs, doc, getDoc,
                GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged };
 window.dispatchEvent(new Event('fb-ready'));
 </script>
@@ -1140,7 +1140,7 @@ window.dispatchEvent(new Event('fb-ready'));
       <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
       <button id="authBtn" class="btn btn-ghost" onclick="handleAuth()" style="font-size:12px;padding:7px 14px;">Sign in</button>
     </div>
-    <button class="btn btn-ghost" onclick="toggleForm()">
+    <button class="btn btn-ghost editor-only" onclick="toggleForm()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Member
     </button>
@@ -1150,6 +1150,9 @@ window.dispatchEvent(new Event('fb-ready'));
     </button>
     <button class="btn btn-ghost" onclick="openBulkCardModal()" title="Generate a payment card for every member">
       📦 Bulk Cards
+    </button>
+    <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Assign which email addresses are allowed to make edits">
+      🛡 Manage Editors
     </button>
   </div>
 </header>
@@ -1208,23 +1211,23 @@ window.dispatchEvent(new Event('fb-ready'));
           }
         })();
       </script>
-      <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;" onclick="openNewPeriodModal()" title="Switch to a different month">
+      <button class="btn btn-ghost editor-only" style="font-size:12px;padding:7px 14px;" onclick="openNewPeriodModal()" title="Switch to a different month">
         📅 Change Period
       </button>
     </div>
-    <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;" onclick="openCarryForward()" title="Copy member roster from a previous period">
+    <button class="btn btn-ghost editor-only" style="font-size:12px;padding:7px 14px;" onclick="openCarryForward()" title="Copy member roster from a previous period">
       ↩ Carry Forward
     </button>
     <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;" onclick="exportCSV()" title="Export current period as CSV">
       ⬇ Export CSV
     </button>
-    <button class="btn btn-ghost no-edit" style="font-size:12px;padding:7px 14px;" onclick="openImportModal()" title="Import members from CSV or Excel">
+    <button class="btn btn-ghost no-edit editor-only" style="font-size:12px;padding:7px 14px;" onclick="openImportModal()" title="Import members from CSV or Excel">
       ⬆ Import
     </button>
     <button class="btn btn-ghost no-edit" style="font-size:12px;padding:7px 14px;" onclick="openShareModal()" title="Share read-only view">
       🔗 Share
     </button>
-    <button class="btn btn-ghost no-edit" style="font-size:12px;padding:7px 14px;" onclick="setDeadline()" title="Set payment deadline for overdue alerts">
+    <button class="btn btn-ghost no-edit editor-only" style="font-size:12px;padding:7px 14px;" onclick="setDeadline()" title="Set payment deadline for overdue alerts">
       ⏰ Set Deadline
     </button>
     <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;" onclick="openEmailSummary()" title="Email period summary">
@@ -1924,6 +1927,22 @@ firebase deploy --only functions</pre>
   </div>
 </div>
 
+<!-- MANAGE EDITORS MODAL (advancedAdmin only) -->
+<div class="modal-backdrop" id="manageEditorsModal">
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-title">🛡 Manage Editors</div>
+    <div class="modal-body">Add the email addresses that are allowed to make edits. Anyone signing in without an explicit role stays read-only.</div>
+    <div class="field" style="margin-bottom:12px;display:flex;gap:8px;">
+      <input type="email" id="newEditorEmail" placeholder="name@school.ac.ke" style="flex:1;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+      <button class="btn btn-primary" style="background:var(--ink);color:var(--white);white-space:nowrap;" onclick="addAllowedEditor()">+ Add</button>
+    </div>
+    <div id="allowedEditorsList" style="max-height:240px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('manageEditorsModal')">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -2010,6 +2029,7 @@ function subscribeToStd() {
 // Persist the Standard Amount for the *currently selected* period only —
 // other months keep whatever standard amount was saved for them.
 function saveStd() {
+  if (!guardEdit()) return;
   const val = parseFloat(document.getElementById('stdInput').value) || 420;
   if (fbReady) {
     const { db, ref, set } = window._fb;
@@ -2301,14 +2321,14 @@ function recalc() {
 
 // ── ADD ───────────────────────────────────────────────────────
 function toggleForm() {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const f = document.getElementById('addForm');
   f.classList.toggle('open');
   if (f.classList.contains('open')) document.getElementById('newName').focus();
 }
 
 function addMember() {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const { db, ref, push } = window._fb;
   const title  = document.getElementById('newTitle').value;
   const name   = document.getElementById('newName').value.trim();
@@ -2332,7 +2352,7 @@ function addMember() {
 
 // ── REMOVE with UNDO (Feature 5) ─────────────────────────────
 function removeMember(i) {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const { db, ref, remove, set } = window._fb;
   const m = members[i];
   const path = `${membersPath()}/${m.id}`;
@@ -2444,7 +2464,7 @@ function handlePhotoFileSelect(fileInput) {
 window.handlePhotoFileSelect = handlePhotoFileSelect;
 
 function startEdit(i) {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const tbody = document.getElementById('tbody');
   const row   = tbody.rows[i];
   const m     = members[i];
@@ -2470,7 +2490,7 @@ function startEdit(i) {
 }
 
 function saveEdit(i) {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const { db, ref, update } = window._fb;
   const name   = document.getElementById('eName').value.trim();
   const amount = parseFloat(document.getElementById('eAmt').value) || 0;
@@ -3311,7 +3331,7 @@ function selectAllVisible() {
 }
 
 function applyBulkUpdate() {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   if (!selectedIds.size) { showToast('No members selected'); return; }
   const amt = parseFloat(document.getElementById('bulkAmtInput').value);
   if (isNaN(amt) || amt < 0) { showToast('Enter a valid amount'); return; }
@@ -3466,7 +3486,7 @@ async function confirmNewPeriod() {
 
 // ── CARRY FORWARD ─────────────────────────────────────────────
 async function openCarryForward() {
-  if (!currentUser) { showToast('Sign in to use this feature'); return; }
+  if (!guardEdit()) return;
   if (!fbReady) { showToast('Firebase loading…'); return; }
 
   document.getElementById('carryFwdTarget').textContent = getPeriod();
@@ -3492,7 +3512,7 @@ function closeCarryForward() {
 }
 
 async function execCarryForward() {
-  if (!currentUser) return;
+  if (!guardEdit()) return;
   const sourceKey = document.getElementById('carryFwdSource').value;
   if (!sourceKey) return;
 
@@ -3535,7 +3555,7 @@ async function execCarryForward() {
 // FEATURE 8: MEMBER NOTES / MEMOS
 // ══════════════════════════════════════════════════════════════
 function editNote(i) {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const m = members[i];
   const note = prompt(`Note for ${m.name}:`, m.note || '');
   if (note === null) return; // cancelled
@@ -3751,6 +3771,7 @@ function deadlinePath() {
 }
 
 function saveDeadlineToDb(value) {
+  if (!guardEdit()) return;
   if (!fbReady) { showToast('Firebase loading…'); return; }
   const { db, ref, set } = window._fb;
   set(ref(db, deadlinePath()), value || null)
@@ -3792,7 +3813,7 @@ async function checkOverdue() {
 }
 
 function setDeadline() {
-  if (!currentUser) { showToast('Sign in to set a deadline'); return; }
+  if (!guardEdit()) return;
   const current = document.getElementById('waDeadline')?.value || '';
   const dl = prompt('Set payment deadline for this period (YYYY-MM-DD):', current || new Date().toISOString().slice(0,10));
   if (dl === null) return;
@@ -4031,7 +4052,7 @@ function checkAutoRollover() {
 }
 
 async function execAutoRollover() {
-  if (!currentUser) { showToast('Sign in to use this feature'); return; }
+  if (!guardEdit()) return;
   const banner    = document.getElementById('rolloverBanner');
   const newPeriod = banner.dataset.newPeriod;
   if (!newPeriod) return;
@@ -4073,37 +4094,83 @@ async function execAutoRollover() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// FEATURE 10: ROLE-BASED ACCESS (admin vs viewer)
+// FEATURE 10: ROLE-BASED ACCESS (advancedAdmin > admin > viewer)
 // ══════════════════════════════════════════════════════════════
-// Roles stored in Firestore at roles/{uid} = { role: 'admin' | 'viewer' }
-let userRole = 'viewer'; // default until checked
+// Same gating logic as the Admin Portal (Admin-Individual-student-portal):
+// Only a Firestore users/{uid} doc with Advancedadmin === true is trusted
+// as the Advanced Admin — nothing else grants that role automatically.
+// The Advanced Admin is the only one who can assign edit access to other
+// people, via the allowedEditors/{emailKey} list in Realtime DB
+// ({ email, addedBy, addedAt }) — see FEATURE 10b below.
+// SECURITY: unassigned/unknown users MUST default to 'viewer' (read-only).
+// There is NO bootstrap/first-user auto-promotion — a user only becomes
+// Advanced Admin by having Advancedadmin === true set on their Firestore
+// profile (the same profile used by the Admin Portal).
+let userRole = 'viewer'; // safe default until checked
+
+function emailKey(email) {
+  return (email || '').toLowerCase().trim().replace(/[.#$/\[\]]/g, ',');
+}
+
+function isEditor() {
+  return !!currentUser && (userRole === 'admin' || userRole === 'advancedAdmin');
+}
+
+function isAdvancedAdmin() {
+  return !!currentUser && userRole === 'advancedAdmin';
+}
+
+// Call at the top of every function that writes to Firebase. Returns false
+// (and shows a toast) if the current user is not permitted to edit.
+function guardEdit() {
+  if (!currentUser) { showToast('Sign in to make changes'); return false; }
+  if (!isEditor())  { showToast('Read-only access — ask an admin to grant you edit access'); return false; }
+  return true;
+}
 
 async function checkUserRole(user) {
   if (!user) { userRole = 'viewer'; applyRoleUI(); return; }
   try {
-    const { fst, collection, getDocs } = window._fb;
-    // Try to read roles collection
-    const snap = await new Promise((res, rej) => {
-      window._fb.onValue(
-        window._fb.ref(window._fb.db, `roles/${user.uid}`),
-        s => res(s), { onlyOnce: true }
-      );
-    });
-    const data = snap.val();
-    userRole = data?.role || 'admin'; // first user is admin if no roles set
+    // ── Advanced Admin gate — identical check to the Admin Portal ─────────
+    // Only a Firestore users/{uid} doc with Advancedadmin === true is trusted.
+    const { fst, doc, getDoc } = window._fb;
+    const snap = await getDoc(doc(fst, 'users', user.uid));
+    const isAdv = snap.exists() && snap.data().Advancedadmin === true;
+
+    if (isAdv) {
+      userRole = 'advancedAdmin';
+      // Keep the RTDB roles record in sync for any rules/tools that read it.
+      window._fb.set(window._fb.ref(window._fb.db, `roles/${user.uid}`), { role: 'advancedAdmin', email: user.email || '' });
+    } else {
+      // Not the Advanced Admin — the only remaining way to get edit access
+      // is being on the editor allowlist, which only the Advanced Admin can
+      // manage (see FEATURE 10b).
+      const email = (user.email || '').toLowerCase().trim();
+      const allowSnap = await new Promise((res) => {
+        window._fb.onValue(
+          window._fb.ref(window._fb.db, `allowedEditors/${emailKey(email)}`),
+          s => res(s), { onlyOnce: true }
+        );
+      });
+      userRole = allowSnap.val() ? 'admin' : 'viewer'; // safe default — no auto-admin for unassigned users
+    }
   } catch(e) {
-    userRole = 'admin'; // fallback: grant admin if roles unreadable
+    console.error('[AdvancedAdmin] Profile check failed:', e);
+    userRole = 'viewer'; // safe default — never fail open into edit access
   }
   applyRoleUI();
 }
 
 function applyRoleUI() {
-  const isAdmin  = userRole === 'admin';
+  const isAdmin  = isEditor();
+  const isAdv    = isAdvancedAdmin();
   const isViewer = !isAdmin;
   const badge    = document.getElementById('roleBadge');
 
   if (currentUser) {
-    badge.innerHTML = `<span class="role-badge ${isAdmin ? 'role-admin' : 'role-viewer'}">${isAdmin ? 'Admin' : 'Viewer'}</span>`;
+    const label = isAdv ? 'Advanced Admin' : isAdmin ? 'Admin' : 'Viewer';
+    const cls   = isAdv ? 'role-admin' : isAdmin ? 'role-admin' : 'role-viewer';
+    badge.innerHTML = `<span class="role-badge ${cls}">${label}</span>`;
     badge.style.display = 'inline-block';
   } else {
     badge.style.display = 'none';
@@ -4117,6 +4184,70 @@ function applyRoleUI() {
     if (!isAdmin) { b.disabled = true; b.style.opacity = '.3'; }
     else          { b.disabled = false; b.style.opacity = '1'; }
   });
+
+  // Disable ghost/primary action buttons in the settings bar & header for viewers
+  // (keep read-only actions like Change Period view, Export CSV/PDF, Share available)
+  document.querySelectorAll('.editor-only').forEach(b => {
+    if (!isAdmin) { b.disabled = true; b.style.opacity = '.35'; b.style.cursor = 'not-allowed'; b.title = 'Read-only access'; }
+    else          { b.disabled = false; b.style.opacity = '1'; b.style.cursor = 'pointer'; }
+  });
+
+  // Manage Editors button only visible to advancedAdmin
+  const manageBtn = document.getElementById('manageEditorsBtn');
+  if (manageBtn) manageBtn.style.display = isAdv ? 'inline-flex' : 'none';
+
+  // Standard Amount input — visually disable for non-editors (write is guarded regardless)
+  const stdInput = document.getElementById('stdInput');
+  if (stdInput) stdInput.disabled = !isAdmin;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FEATURE 10b: ADVANCED ADMIN — MANAGE ALLOWED EDITOR EMAILS
+// ══════════════════════════════════════════════════════════════
+async function openManageEditors() {
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage editors'); return; }
+  document.getElementById('manageEditorsModal').classList.add('show');
+  await renderAllowedEditors();
+}
+
+async function renderAllowedEditors() {
+  const listEl = document.getElementById('allowedEditorsList');
+  listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-light);padding:8px 0;">Loading…</div>';
+  const snap = await new Promise(res =>
+    window._fb.onValue(window._fb.ref(window._fb.db, 'allowedEditors'), res, { onlyOnce: true })
+  );
+  const data = snap.val() || {};
+  const entries = Object.entries(data);
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-light);padding:8px 0;">No editor emails added yet.</div>';
+    return;
+  }
+  listEl.innerHTML = entries.map(([key, v]) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13px;">
+      <span style="font-family:'JetBrains Mono',monospace;">${v.email || key}</span>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="removeAllowedEditor('${key}')">Remove</button>
+    </div>
+  `).join('');
+}
+
+async function addAllowedEditor() {
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage editors'); return; }
+  const input = document.getElementById('newEditorEmail');
+  const email = (input.value || '').toLowerCase().trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email address'); return; }
+  await window._fb.set(window._fb.ref(window._fb.db, `allowedEditors/${emailKey(email)}`), {
+    email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
+  });
+  input.value = '';
+  showToast(`${email} can now edit`);
+  await renderAllowedEditors();
+}
+
+async function removeAllowedEditor(key) {
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage editors'); return; }
+  await window._fb.remove(window._fb.ref(window._fb.db, `allowedEditors/${key}`));
+  showToast('Editor access removed');
+  await renderAllowedEditors();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4400,7 +4531,7 @@ function handleImportFile(file) {
 }
 
 async function confirmImport() {
-  if (!currentUser) { showToast('Sign in to import'); return; }
+  if (!guardEdit()) return;
   if (!importRows.length) return;
   const { db, ref, push } = window._fb;
   const today = new Date().toISOString().slice(0,10);
@@ -4645,7 +4776,8 @@ function debounceSaveNotes() {
 }
 
 function savePeriodNotes() {
-  if (!currentUser || !fbReady) return;
+  if (!fbReady) return;
+  if (!guardEdit()) return;
   const text = document.getElementById('periodNotesText').value;
   window._fb.set(window._fb.ref(window._fb.db, periodNotesPath()), text || null)
     .then(() => {
@@ -4662,7 +4794,7 @@ function savePeriodNotes() {
 const _baseSaveEdit = saveEdit;
 // Override saveEdit to also save customStd
 function saveEdit(i) {
-  if (!currentUser) { showToast('Sign in to make changes'); return; }
+  if (!guardEdit()) return;
   const { db, ref, update } = window._fb;
   const name       = document.getElementById('eName').value.trim();
   const amount     = parseFloat(document.getElementById('eAmt').value) || 0;
@@ -4736,7 +4868,7 @@ let deletedPeriodBuffer   = null;  // { key, data } for undo
 let periodUndoTimer       = null;
 
 function openDeletePeriodModal(periodKey, periodLabel) {
-  if (!currentUser) { showToast('Sign in to delete periods'); return; }
+  if (!guardEdit()) return;
   // Guard: don't allow deleting the currently active period
   const activePeriodKey = getPeriod().replace(/\s+/g, '_');
   if (periodKey === activePeriodKey) {
@@ -4751,7 +4883,8 @@ function openDeletePeriodModal(periodKey, periodLabel) {
 }
 
 async function confirmDeletePeriod() {
-  if (!currentUser || !periodToDelete) return;
+  if (!guardEdit()) return;
+  if (!periodToDelete) return;
   const { db, ref, remove, onValue } = window._fb;
   const { key, label } = periodToDelete;
   closeModal('deletePeriodModal');
