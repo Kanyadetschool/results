@@ -4332,9 +4332,16 @@ async function openManageEditors() {
 async function renderAllowedEditors() {
   const listEl = document.getElementById('allowedEditorsList');
   listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-light);padding:8px 0;">Loading…</div>';
-  const snap = await new Promise(res =>
-    window._fb.onValue(window._fb.ref(window._fb.db, 'allowedEditors'), res, { onlyOnce: true })
-  );
+  let snap;
+  try {
+    snap = await new Promise((res, rej) =>
+      window._fb.onValue(window._fb.ref(window._fb.db, 'allowedEditors'), res, rej, { onlyOnce: true })
+    );
+  } catch(e) {
+    console.error('[Manage Access] Failed to read allowedEditors:', e);
+    listEl.innerHTML = `<div style="font-size:12px;color:#e74c3c;padding:8px 0;">Couldn't load: ${e.message || e.code || e}<br>This is usually a Firebase security-rules permission issue.</div>`;
+    return;
+  }
   const data = snap.val() || {};
   const entries = Object.entries(data);
   if (!entries.length) {
@@ -4354,9 +4361,15 @@ async function addAllowedEditor() {
   const input = document.getElementById('newEditorEmail');
   const email = (input.value || '').toLowerCase().trim();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email address'); return; }
-  await window._fb.set(window._fb.ref(window._fb.db, `allowedEditors/${emailKey(email)}`), {
-    email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
-  });
+  try {
+    await window._fb.set(window._fb.ref(window._fb.db, `allowedEditors/${emailKey(email)}`), {
+      email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
+    });
+  } catch(e) {
+    console.error('[Manage Access] Failed to add editor:', e);
+    showToast(`Couldn't add: ${e.message || e.code || e}`);
+    return;
+  }
   input.value = '';
   showToast(`${email} can now sign in and edit`);
   await renderAllowedEditors();
@@ -4364,7 +4377,13 @@ async function addAllowedEditor() {
 
 async function removeAllowedEditor(key) {
   if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
-  await window._fb.remove(window._fb.ref(window._fb.db, `allowedEditors/${key}`));
+  try {
+    await window._fb.remove(window._fb.ref(window._fb.db, `allowedEditors/${key}`));
+  } catch(e) {
+    console.error('[Manage Access] Failed to remove editor:', e);
+    showToast(`Couldn't remove: ${e.message || e.code || e}`);
+    return;
+  }
   showToast('Editor access removed');
   await renderAllowedEditors();
 }
@@ -4372,9 +4391,16 @@ async function removeAllowedEditor(key) {
 async function renderAllowedViewers() {
   const listEl = document.getElementById('allowedViewersList');
   listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-light);padding:8px 0;">Loading…</div>';
-  const snap = await new Promise(res =>
-    window._fb.onValue(window._fb.ref(window._fb.db, 'allowedViewers'), res, { onlyOnce: true })
-  );
+  let snap;
+  try {
+    snap = await new Promise((res, rej) =>
+      window._fb.onValue(window._fb.ref(window._fb.db, 'allowedViewers'), res, rej, { onlyOnce: true })
+    );
+  } catch(e) {
+    console.error('[Manage Access] Failed to read allowedViewers:', e);
+    listEl.innerHTML = `<div style="font-size:12px;color:#e74c3c;padding:8px 0;">Couldn't load: ${e.message || e.code || e}<br>This is usually a Firebase security-rules permission issue.</div>`;
+    return;
+  }
   const data = snap.val() || {};
   const entries = Object.entries(data);
   if (!entries.length) {
@@ -4394,9 +4420,15 @@ async function addAllowedViewer() {
   const input = document.getElementById('newViewerEmail');
   const email = (input.value || '').toLowerCase().trim();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email address'); return; }
-  await window._fb.set(window._fb.ref(window._fb.db, `allowedViewers/${emailKey(email)}`), {
-    email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
-  });
+  try {
+    await window._fb.set(window._fb.ref(window._fb.db, `allowedViewers/${emailKey(email)}`), {
+      email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
+    });
+  } catch(e) {
+    console.error('[Manage Access] Failed to add viewer:', e);
+    showToast(`Couldn't add: ${e.message || e.code || e}`);
+    return;
+  }
   input.value = '';
   showToast(`${email} can now sign in (read-only)`);
   await renderAllowedViewers();
@@ -4404,7 +4436,13 @@ async function addAllowedViewer() {
 
 async function removeAllowedViewer(key) {
   if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
-  await window._fb.remove(window._fb.ref(window._fb.db, `allowedViewers/${key}`));
+  try {
+    await window._fb.remove(window._fb.ref(window._fb.db, `allowedViewers/${key}`));
+  } catch(e) {
+    console.error('[Manage Access] Failed to remove viewer:', e);
+    showToast(`Couldn't remove: ${e.message || e.code || e}`);
+    return;
+  }
   showToast('Viewer access removed');
   await renderAllowedViewers();
 }
