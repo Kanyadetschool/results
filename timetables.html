@@ -330,9 +330,9 @@
 <script>
 /* ==========================================================================
    CONFIG
-   If auto-discovery (directory listing / manifest.json) fails for a folder,
-   this hardcoded list is used instead. Edit freely — just keep it an array
-   of filenames that live inside that folder.
+   Discovery order: GitHub Contents API -> directory listing -> manifest.json
+   -> hardcoded fallback below. On GitHub Pages, the API is what actually
+   works — edit GITHUB.owner/repo below if this isn't the right repo.
    ========================================================================== */
 // These match the real FET export naming convention:
 // "<Institution> TM2_<category>_<days|time>_<horizontal|vertical>.html"
@@ -356,6 +356,16 @@ const FALLBACK_FILES = {
   js:   fetExportSet("JS")   // confirm the real institution name FET used for the JS export — edit above if different
 };
 
+// GitHub repo this page is served from — used to list real folder contents
+// via the GitHub Contents API (works on GitHub Pages, unlike a plain fetch
+// of the folder, since GH Pages serves no directory listings).
+// Set to null/"" to skip this method entirely.
+const GITHUB = {
+  owner: "kanyadetschool",
+  repo: "kanyadetschool.github.io",
+  branches: ["main", "master"]   // tried in order
+};
+
 const FOLDERS = {
   pri: { path: "./timetable/pri/", gridId: "grid-pri", countId: "count-pri", label: "Primary" },
   js:  { path: "./timetable/js/",  gridId: "grid-js",  countId: "count-js",  label: "Junior Secondary" }
@@ -365,6 +375,34 @@ let ALL_FILES = { pri: [], js: [] };
 let MODE = { pri: null, js: null }; // 'listing' | 'manifest' | 'fallback'
 
 /* ---------- Discovery ---------- */
+
+// 0) Ask GitHub itself what's in the folder, via the Contents API.
+// Public repos need no auth; CORS is enabled on api.github.com.
+// Docs: https://docs.github.com/en/rest/repos/contents
+async function tryGithubApi(folderPath){
+  if(!GITHUB.owner || !GITHUB.repo) throw new Error("github api not configured");
+  const cleanPath = folderPath.replace(/^\.?\/+/, "").replace(/\/+$/, ""); // "./timetable/pri/" -> "timetable/pri"
+  let lastErr = null;
+  for(const branch of GITHUB.branches){
+    try{
+      const url = `https://api.github.com/repos/${GITHUB.owner}/${GITHUB.repo}/contents/${cleanPath}?ref=${branch}`;
+      const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" } });
+      if(!res.ok){
+        // 404 = wrong branch or wrong path, try next branch. 403 = rate-limited.
+        lastErr = new Error(`github api ${res.status}`);
+        continue;
+      }
+      const data = await res.json();
+      if(!Array.isArray(data)) throw new Error("not a folder");
+      const files = data
+        .filter(item => item.type === "file" && item.name.toLowerCase().endsWith(".html"))
+        .map(item => item.name);
+      if(files.length === 0) throw new Error("no html files in folder");
+      return files;
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error("github api failed");
+}
 
 // 1) Try parsing the folder URL itself as a directory listing (Apache / python -m http.server style)
 async function tryDirectoryListing(folderPath){
@@ -392,6 +430,11 @@ async function tryManifest(folderPath){
 
 async function discover(key){
   const folder = FOLDERS[key];
+  try{
+    const files = await tryGithubApi(folder.path);
+    MODE[key] = "github";
+    return files;
+  }catch(e){}
   try{
     const files = await tryDirectoryListing(folder.path);
     MODE[key] = "listing";
