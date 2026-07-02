@@ -1201,8 +1201,8 @@ window.dispatchEvent(new Event('fb-ready'));
     <button class="btn btn-ghost" onclick="openBulkCardModal()" title="Generate a payment card for every member">
       📦 Bulk Cards
     </button>
-    <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Assign which email addresses are allowed to make edits">
-      🛡 Manage Editors
+    <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Control which email addresses can sign in, and who can edit">
+      🛡 Manage Access
     </button>
   </div>
 </header>
@@ -1983,16 +1983,26 @@ firebase deploy --only functions</pre>
   </div>
 </div>
 
-<!-- MANAGE EDITORS MODAL (advancedAdmin only) -->
+<!-- MANAGE ACCESS MODAL (advancedAdmin only) -->
 <div class="modal-backdrop" id="manageEditorsModal">
   <div class="modal-box" style="max-width:460px;">
-    <div class="modal-title">🛡 Manage Editors</div>
-    <div class="modal-body">Add the email addresses that are allowed to make edits. Anyone signing in without an explicit role stays read-only.</div>
-    <div class="field" style="margin-bottom:12px;display:flex;gap:8px;">
+    <div class="modal-title">🛡 Manage Access</div>
+    <div class="modal-body">Only email addresses listed below (plus the Advanced Admin) can sign in at all — everyone else is signed back out automatically.</div>
+
+    <div style="font-size:12px;font-weight:800;color:var(--ink);margin:14px 0 6px;">Editors — can sign in and edit</div>
+    <div class="field" style="margin-bottom:10px;display:flex;gap:8px;">
       <input type="email" id="newEditorEmail" placeholder="name@school.ac.ke" style="flex:1;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
       <button class="btn btn-primary" style="background:var(--ink);color:var(--white);white-space:nowrap;" onclick="addAllowedEditor()">+ Add</button>
     </div>
-    <div id="allowedEditorsList" style="max-height:240px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div id="allowedEditorsList" style="max-height:160px;overflow-y:auto;margin-bottom:16px;"></div>
+
+    <div style="font-size:12px;font-weight:800;color:var(--ink);margin:14px 0 6px;">Viewers — can sign in, read-only</div>
+    <div class="field" style="margin-bottom:10px;display:flex;gap:8px;">
+      <input type="email" id="newViewerEmail" placeholder="name@school.ac.ke" style="flex:1;padding:10px 14px;border:1.5px solid var(--rule);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+      <button class="btn btn-primary" style="background:var(--ink);color:var(--white);white-space:nowrap;" onclick="addAllowedViewer()">+ Add</button>
+    </div>
+    <div id="allowedViewersList" style="max-height:160px;overflow-y:auto;margin-bottom:16px;"></div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('manageEditorsModal')">Done</button>
     </div>
@@ -4176,6 +4186,12 @@ async function execAutoRollover() {
 // profile (the same profile used by the Admin Portal).
 let userRole = 'viewer'; // safe default until checked
 
+// Whether the currently signed-in email is permitted to access the app AT
+// ALL — not just whether they can edit. Only the Advanced Admin, emails on
+// the allowedEditors list, and emails on the allowedViewers list may sign in.
+// Everyone else gets signed back out immediately with no data ever loaded.
+let accessAllowed = false;
+
 function emailKey(email) {
   return (email || '').toLowerCase().trim().replace(/[.#$/\[\]]/g, ',');
 }
@@ -4205,8 +4221,12 @@ function guardAdvancedAdmin() {
   return true;
 }
 
+// Determines BOTH whether this email may access the app at all
+// (sets/returns `accessAllowed`) and, if so, what their role is
+// (admin / advancedAdmin / viewer). Fails closed on any error — access is
+// only ever granted on an explicit match, never by default.
 async function checkUserRole(user) {
-  if (!user) { userRole = 'viewer'; applyRoleUI(); return; }
+  if (!user) { userRole = 'viewer'; accessAllowed = false; applyRoleUI(); return false; }
   try {
     // ── Advanced Admin gate — identical check to the Admin Portal ─────────
     // Only a Firestore users/{uid} doc with Advancedadmin === true is trusted.
@@ -4216,26 +4236,41 @@ async function checkUserRole(user) {
 
     if (isAdv) {
       userRole = 'advancedAdmin';
+      accessAllowed = true;
       // Keep the RTDB roles record in sync for any rules/tools that read it.
       window._fb.set(window._fb.ref(window._fb.db, `roles/${user.uid}`), { role: 'advancedAdmin', email: user.email || '' });
     } else {
-      // Not the Advanced Admin — the only remaining way to get edit access
-      // is being on the editor allowlist, which only the Advanced Admin can
-      // manage (see FEATURE 10b).
+      // Not the Advanced Admin — check the two allowlists the Advanced
+      // Admin manages: allowedEditors (edit + view access) and
+      // allowedViewers (view-only access). Anyone on neither list is not
+      // permitted into the app at all.
       const email = (user.email || '').toLowerCase().trim();
-      const allowSnap = await new Promise((res) => {
-        window._fb.onValue(
-          window._fb.ref(window._fb.db, `allowedEditors/${emailKey(email)}`),
-          s => res(s), { onlyOnce: true }
-        );
-      });
-      userRole = allowSnap.val() ? 'admin' : 'viewer'; // safe default — no auto-admin for unassigned users
+      const [editorSnap, viewerSnap] = await Promise.all([
+        new Promise((res) => {
+          window._fb.onValue(
+            window._fb.ref(window._fb.db, `allowedEditors/${emailKey(email)}`),
+            s => res(s), { onlyOnce: true }
+          );
+        }),
+        new Promise((res) => {
+          window._fb.onValue(
+            window._fb.ref(window._fb.db, `allowedViewers/${emailKey(email)}`),
+            s => res(s), { onlyOnce: true }
+          );
+        })
+      ]);
+      const isAllowedEditor = !!editorSnap.val();
+      const isAllowedViewer = !!viewerSnap.val();
+      accessAllowed = isAllowedEditor || isAllowedViewer;
+      userRole = isAllowedEditor ? 'admin' : 'viewer';
     }
   } catch(e) {
     console.error('[AdvancedAdmin] Profile check failed:', e);
-    userRole = 'viewer'; // safe default — never fail open into edit access
+    userRole = 'viewer';
+    accessAllowed = false; // fail closed — never grant access on error
   }
   applyRoleUI();
+  return accessAllowed;
 }
 
 function applyRoleUI() {
@@ -4289,9 +4324,9 @@ function applyRoleUI() {
 // FEATURE 10b: ADVANCED ADMIN — MANAGE ALLOWED EDITOR EMAILS
 // ══════════════════════════════════════════════════════════════
 async function openManageEditors() {
-  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage editors'); return; }
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
   document.getElementById('manageEditorsModal').classList.add('show');
-  await renderAllowedEditors();
+  await Promise.all([renderAllowedEditors(), renderAllowedViewers()]);
 }
 
 async function renderAllowedEditors() {
@@ -4315,7 +4350,7 @@ async function renderAllowedEditors() {
 }
 
 async function addAllowedEditor() {
-  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage editors'); return; }
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
   const input = document.getElementById('newEditorEmail');
   const email = (input.value || '').toLowerCase().trim();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email address'); return; }
@@ -4323,15 +4358,55 @@ async function addAllowedEditor() {
     email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
   });
   input.value = '';
-  showToast(`${email} can now edit`);
+  showToast(`${email} can now sign in and edit`);
   await renderAllowedEditors();
 }
 
 async function removeAllowedEditor(key) {
-  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage editors'); return; }
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
   await window._fb.remove(window._fb.ref(window._fb.db, `allowedEditors/${key}`));
   showToast('Editor access removed');
   await renderAllowedEditors();
+}
+
+async function renderAllowedViewers() {
+  const listEl = document.getElementById('allowedViewersList');
+  listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-light);padding:8px 0;">Loading…</div>';
+  const snap = await new Promise(res =>
+    window._fb.onValue(window._fb.ref(window._fb.db, 'allowedViewers'), res, { onlyOnce: true })
+  );
+  const data = snap.val() || {};
+  const entries = Object.entries(data);
+  if (!entries.length) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--ink-light);padding:8px 0;">No view-only emails added yet.</div>';
+    return;
+  }
+  listEl.innerHTML = entries.map(([key, v]) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13px;">
+      <span style="font-family:'JetBrains Mono',monospace;">${v.email || key}</span>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="removeAllowedViewer('${key}')">Remove</button>
+    </div>
+  `).join('');
+}
+
+async function addAllowedViewer() {
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
+  const input = document.getElementById('newViewerEmail');
+  const email = (input.value || '').toLowerCase().trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email address'); return; }
+  await window._fb.set(window._fb.ref(window._fb.db, `allowedViewers/${emailKey(email)}`), {
+    email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
+  });
+  input.value = '';
+  showToast(`${email} can now sign in (read-only)`);
+  await renderAllowedViewers();
+}
+
+async function removeAllowedViewer(key) {
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
+  await window._fb.remove(window._fb.ref(window._fb.db, `allowedViewers/${key}`));
+  showToast('Viewer access removed');
+  await renderAllowedViewers();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4970,9 +5045,28 @@ window.addEventListener('fb-ready', async () => {
       return;
     }
 
-    // Signed in — unlock and load everything.
+    // Signed in with a valid Google account — but that alone isn't enough.
+    // Check whether this specific email is actually permitted to access
+    // the app at all before unlocking or loading anything.
+    if (statusEl) statusEl.textContent = 'Verifying access…';
+    const allowed = await checkUserRole(user);
+
+    if (!allowed) {
+      // Not on any allowlist — kick back out immediately. No member data,
+      // amounts, history, or anything else was or will be loaded.
+      if (membersUnsubscribe) { membersUnsubscribe(); membersUnsubscribe = null; }
+      if (stdUnsubscribe) { stdUnsubscribe(); stdUnsubscribe = null; }
+      members = [];
+      document.body.classList.add('auth-locked');
+      if (statusEl) {
+        statusEl.innerHTML = `${user.email || 'This account'} is not authorized to access this app.<br>Ask an Advanced Admin to grant access, then sign in again.`;
+      }
+      try { await auth.signOut(); } catch(e) {}
+      return;
+    }
+
+    // Allowed — unlock and load everything.
     document.body.classList.remove('auth-locked');
-    checkUserRole(user);
 
     // Pull the shared active period from Firebase — source of truth across
     // ALL devices/browsers. Falls back to the instant-paint placeholder
