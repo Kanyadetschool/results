@@ -188,6 +188,12 @@
     gap:10px;
     margin-bottom:16px;
   }
+  .badge-row{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
   .badge{
     font-size:10px;
     font-weight:700;
@@ -198,6 +204,12 @@
     background:rgba(201,162,75,0.14);
     color:var(--gold-soft);
     border:1px solid rgba(201,162,75,0.25);
+    white-space:nowrap;
+  }
+  .badge-alt{
+    background:rgba(255,255,255,0.05);
+    color:var(--muted);
+    border-color:var(--line);
   }
   .file-icon{
     width:34px;height:34px;
@@ -322,9 +334,26 @@
    this hardcoded list is used instead. Edit freely — just keep it an array
    of filenames that live inside that folder.
    ========================================================================== */
+// These match the real FET export naming convention:
+// "<Institution> TM2_<category>_<days|time>_<horizontal|vertical>.html"
+function fetExportSet(institution){
+  const categories = ["activities","activity_tags","buildings","classes","rooms","students","subgroups","teachers"];
+  const axes = ["days","time"];
+  const orientations = ["horizontal","vertical"];
+  const files = [];
+  categories.forEach(cat => {
+    axes.forEach(axis => {
+      orientations.forEach(orient => {
+        files.push(`${institution} TM2_${cat}_${axis}_${orient}.html`);
+      });
+    });
+  });
+  return files;
+}
+
 const FALLBACK_FILES = {
-  pri:  ["grade1.html","grade2.html","grade3.html","grade4.html","grade5.html","grade6.html"],
-  js:   ["grade7.html","grade8.html","grade9.html"]
+  pri:  fetExportSet("Primary"),
+  js:   fetExportSet("JS")   // confirm the real institution name FET used for the JS export — edit above if different
 };
 
 const FOLDERS = {
@@ -379,7 +408,37 @@ async function discover(key){
 
 /* ---------- Rendering ---------- */
 
+const CATEGORY_LABELS = {
+  activities:    "Activities",
+  activity_tags: "Activity Tags",
+  buildings:     "Buildings",
+  classes:       "Classes",
+  rooms:         "Rooms",
+  students:      "Students",
+  subgroups:     "Subgroups",
+  teachers:      "Teachers"
+};
+const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);
+
+// Parses FET's export naming convention:
+// "<Institution ...>_<category>_<days|time>_<horizontal|vertical>.html"
+// Falls back gracefully for files that don't match (e.g. custom names).
+function parseFetName(name){
+  const base = name.replace(/\.html?$/i, "");
+  const catPattern = CATEGORY_ORDER.slice().sort((a,b)=>b.length-a.length).join("|");
+  const re = new RegExp(`_(${catPattern})_(days|time)_(horizontal|vertical)$`, "i");
+  const m = base.match(re);
+  if(!m) return null;
+  return {
+    category: m[1].toLowerCase(),
+    axis: m[2].toLowerCase(),
+    orientation: m[3].toLowerCase()
+  };
+}
+
 function titleFromFilename(name){
+  const parsed = parseFetName(name);
+  if(parsed) return CATEGORY_LABELS[parsed.category] || parsed.category;
   const base = name.replace(/\.html?$/i, "");
   const spaced = base.replace(/[_-]+/g, " ").trim();
   return spaced.replace(/\b\w/g, c => c.toUpperCase());
@@ -413,12 +472,17 @@ function renderGrid(key){
   }
 
   grid.innerHTML = files.map(name => {
-    const href = folder.path + name;
+    const href = folder.path + name.split("/").map(encodeURIComponent).join("/");
+    const parsed = parseFetName(name);
+    const badges = parsed
+      ? `<span class="badge">${parsed.axis === "days" ? "By Day" : "By Time"}</span>
+         <span class="badge badge-alt">${parsed.orientation === "horizontal" ? "Horiz." : "Vert."}</span>`
+      : `<span class="badge">${folder.label}</span>`;
     return `
     <a class="card" href="${href}" target="_blank" rel="noopener">
       <div class="card-top">
         <div class="file-icon">${fileIcon()}</div>
-        <span class="badge">${folder.label}</span>
+        <div class="badge-row">${badges}</div>
       </div>
       <p class="card-name">${titleFromFilename(name)}</p>
       <div class="card-file">${name}</div>
