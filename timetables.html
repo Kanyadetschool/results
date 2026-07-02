@@ -287,7 +287,7 @@
 <header>
   <div class="eyebrow">Kanyadet Primary &amp; Junior School</div>
   <h1>Timetable <em>Directory</em></h1>
-  <p class="sub">A live index of every timetable on file — Primary and Junior Secondary — pulled straight from <code>timetable/pri/</code> and <code>timetable/js/</code>.</p>
+  <p class="sub">A live index of every timetable on file — Primary and Junior Secondary — pulled straight from <code>timetables/pri/</code> and <code>timetables/js/</code>.</p>
 
   <div class="toolbar">
     <div class="search-wrap">
@@ -335,8 +335,17 @@
    works — edit GITHUB.owner/repo below if this isn't the right repo.
    ========================================================================== */
 // These match the real FET export naming convention:
-// "<Institution> TM2_<category>_<days|time>_<horizontal|vertical>.html"
-function fetExportSet(institution){
+// "<Institution prefix>_<category>_<days|time>_<horizontal|vertical>.html"
+//
+// EDIT THIS if FET renames the export (e.g. after regenerating the timetable
+// with a different institution name in FET's settings). This is the only
+// thing that usually needs changing here.
+const FET_PREFIX = {
+  pri: "Primary TM2",
+  js:  "Junior TM2NEW"
+};
+
+function fetExportSet(prefix){
   const categories = ["activities","activity_tags","buildings","classes","rooms","students","subgroups","teachers"];
   const axes = ["days","time"];
   const orientations = ["horizontal","vertical"];
@@ -344,7 +353,7 @@ function fetExportSet(institution){
   categories.forEach(cat => {
     axes.forEach(axis => {
       orientations.forEach(orient => {
-        files.push(`${institution} TM2_${cat}_${axis}_${orient}.html`);
+        files.push(`${prefix}_${cat}_${axis}_${orient}.html`);
       });
     });
   });
@@ -352,8 +361,8 @@ function fetExportSet(institution){
 }
 
 const FALLBACK_FILES = {
-  pri:  fetExportSet("Primary"),
-  js:   fetExportSet("JS")   // confirm the real institution name FET used for the JS export — edit above if different
+  pri:  fetExportSet(FET_PREFIX.pri),
+  js:   fetExportSet(FET_PREFIX.js)
 };
 
 // GitHub repo this page is served from — used to list real folder contents
@@ -381,7 +390,7 @@ let MODE = { pri: null, js: null }; // 'listing' | 'manifest' | 'fallback'
 // Docs: https://docs.github.com/en/rest/repos/contents
 async function tryGithubApi(folderPath){
   if(!GITHUB.owner || !GITHUB.repo) throw new Error("github api not configured");
-  const cleanPath = folderPath.replace(/^\.?\/+/, "").replace(/\/+$/, ""); // "./timetables/pri/" -> "timetable/pri"
+  const cleanPath = folderPath.replace(/^\.?\/+/, "").replace(/\/+$/, ""); // "./timetables/pri/" -> "timetables/pri"
   let lastErr = null;
   for(const branch of GITHUB.branches){
     try{
