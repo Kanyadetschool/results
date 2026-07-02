@@ -334,9 +334,6 @@
    -> hardcoded fallback below. On GitHub Pages, the API is what actually
    works — edit GITHUB.owner/repo below if this isn't the right repo.
    ========================================================================== */
-// These match the real FET export naming convention:
-// "<Institution prefix>_<category>_<days|time>_<horizontal|vertical>.html"
-//
 // EDIT THIS if FET renames the export (e.g. after regenerating the timetable
 // with a different institution name in FET's settings). This is the only
 // thing that usually needs changing here.
@@ -345,12 +342,17 @@ const FET_PREFIX = {
   js:  "Junior TM2NEW"
 };
 
-function fetExportSet(prefix){
-  const categories = ["activities","activity_tags","statistics","buildings","classes","rooms","students","groups","subgroups","teachers"];
+// Categories confirmed from real exports so far. "buildings" is kept even
+// though this school has none recorded — FET still generates the (empty) page.
+// classes/rooms/students were guesses in an earlier pass and have been
+// removed since no sample confirms them — add back in if your export has them.
+const GRID_CATEGORIES = ["activities","activity_tags","subgroups","subjects","teachers","years","buildings"];
+
+function fetGridFiles(prefix){
   const axes = ["days","time"];
   const orientations = ["horizontal","vertical"];
   const files = [];
-  categories.forEach(cat => {
+  GRID_CATEGORIES.forEach(cat => {
     axes.forEach(axis => {
       orientations.forEach(orient => {
         files.push(`${prefix}_${cat}_${axis}_${orient}.html`);
@@ -358,6 +360,21 @@ function fetExportSet(prefix){
     });
   });
   return files;
+}
+
+// Files that don't follow the category_axis_orientation grid at all:
+// - teachers_free_periods only has a "days" axis (no "time" variant)
+// - teachers_statistics is a single summary page, no axis/orientation
+function fetExceptionFiles(prefix){
+  return [
+    `${prefix}_teachers_free_periods_days_horizontal.html`,
+    `${prefix}_teachers_free_periods_days_vertical.html`,
+    `${prefix}_teachers_statistics.html`
+  ];
+}
+
+function fetExportSet(prefix){
+  return fetGridFiles(prefix).concat(fetExceptionFiles(prefix));
 }
 
 const FALLBACK_FILES = {
@@ -461,22 +478,38 @@ async function discover(key){
 /* ---------- Rendering ---------- */
 
 const CATEGORY_LABELS = {
-  activities:    "Activities",
-  activity_tags: "Activity Tags",
-  buildings:     "Buildings",
-  classes:       "Classes",
-  rooms:         "Rooms",
-  students:      "Students",
-  subgroups:     "Subgroups",
-  teachers:      "Teachers"
+  activities:            "Activities",
+  activity_tags:         "Activity Tags",
+  buildings:             "Buildings",
+  subgroups:             "Subgroups",
+  subjects:              "Subjects",
+  teachers:              "Teachers",
+  years:                 "Years",
+  teachers_free_periods: "Teachers — Free Periods",
+  teachers_statistics:   "Teachers — Statistics",
+  students_free_periods: "Students — Free Periods",
+  students_statistics:   "Students — Statistics"
 };
-const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);
+const CATEGORY_ORDER = GRID_CATEGORIES; // the symmetric grid categories only
 
-// Parses FET's export naming convention:
-// "<Institution ...>_<category>_<days|time>_<horizontal|vertical>.html"
-// Falls back gracefully for files that don't match (e.g. custom names).
+// Parses FET's export naming convention. Handles three shapes:
+//  1. "<prefix>_<category>_<days|time>_<horizontal|vertical>.html"  (the standard grid)
+//  2. "<prefix>_<teachers|students>_free_periods_days_<horizontal|vertical>.html" (days axis only)
+//  3. "<prefix>_<teachers|students>_statistics.html" (no axis/orientation at all)
+// Returns null for anything that doesn't match (custom/renamed files fall back gracefully).
 function parseFetName(name){
   const base = name.replace(/\.html?$/i, "");
+
+  const statsMatch = base.match(/_(teachers|students)_statistics$/i);
+  if(statsMatch){
+    return { category: `${statsMatch[1].toLowerCase()}_statistics`, axis: null, orientation: null };
+  }
+
+  const fpMatch = base.match(/_(teachers|students)_free_periods_days_(horizontal|vertical)$/i);
+  if(fpMatch){
+    return { category: `${fpMatch[1].toLowerCase()}_free_periods`, axis: "days", orientation: fpMatch[2].toLowerCase() };
+  }
+
   const catPattern = CATEGORY_ORDER.slice().sort((a,b)=>b.length-a.length).join("|");
   const re = new RegExp(`_(${catPattern})_(days|time)_(horizontal|vertical)$`, "i");
   const m = base.match(re);
@@ -527,8 +560,10 @@ function renderGrid(key){
     const href = folder.path + name.split("/").map(encodeURIComponent).join("/");
     const parsed = parseFetName(name);
     const badges = parsed
-      ? `<span class="badge">${parsed.axis === "days" ? "By Day" : "By Time"}</span>
-         <span class="badge badge-alt">${parsed.orientation === "horizontal" ? "Horiz." : "Vert."}</span>`
+      ? (parsed.axis
+          ? `<span class="badge">${parsed.axis === "days" ? "By Day" : "By Time"}</span>
+             <span class="badge badge-alt">${parsed.orientation === "horizontal" ? "Horiz." : "Vert."}</span>`
+          : `<span class="badge">Summary</span>`)
       : `<span class="badge">${folder.label}</span>`;
     return `
     <a class="card" href="${href}" target="_blank" rel="noopener">
