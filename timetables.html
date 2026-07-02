@@ -303,7 +303,7 @@
     <div class="section-head">
       <div class="section-title">
         <span class="tag">Primary</span>
-        <span class="path">./timetable/pri/</span>
+        <span class="path">./timetables/pri/</span>
       </div>
       <span class="count" id="count-pri"></span>
     </div>
@@ -314,7 +314,7 @@
     <div class="section-head">
       <div class="section-title">
         <span class="tag">Junior Secondary</span>
-        <span class="path">./timetable/js/</span>
+        <span class="path">./timetables/js/</span>
       </div>
       <span class="count" id="count-js"></span>
     </div>
@@ -367,8 +367,8 @@ const GITHUB = {
 };
 
 const FOLDERS = {
-  pri: { path: "./timetable/pri/", gridId: "grid-pri", countId: "count-pri", label: "Primary" },
-  js:  { path: "./timetable/js/",  gridId: "grid-js",  countId: "count-js",  label: "Junior Secondary" }
+  pri: { path: "./timetables/pri/", gridId: "grid-pri", countId: "count-pri", label: "Primary" },
+  js:  { path: "./timetables/js/",  gridId: "grid-js",  countId: "count-js",  label: "Junior Secondary" }
 };
 
 let ALL_FILES = { pri: [], js: [] };
@@ -381,7 +381,7 @@ let MODE = { pri: null, js: null }; // 'listing' | 'manifest' | 'fallback'
 // Docs: https://docs.github.com/en/rest/repos/contents
 async function tryGithubApi(folderPath){
   if(!GITHUB.owner || !GITHUB.repo) throw new Error("github api not configured");
-  const cleanPath = folderPath.replace(/^\.?\/+/, "").replace(/\/+$/, ""); // "./timetable/pri/" -> "timetable/pri"
+  const cleanPath = folderPath.replace(/^\.?\/+/, "").replace(/\/+$/, ""); // "./timetables/pri/" -> "timetable/pri"
   let lastErr = null;
   for(const branch of GITHUB.branches){
     try{
