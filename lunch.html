@@ -78,7 +78,10 @@ window.dispatchEvent(new Event('fb-ready'));
     background: radial-gradient(ellipse 60% 50% at 8% 10%, rgba(200,137,90,.10) 0%, transparent 65%),
       radial-gradient(ellipse 50% 45% at 92% 90%, rgba(138,90,52,.08) 0%, transparent 60%);
   }
-  .app-header, .nav-tabs, .main, .toast, .modal, .pdf-overlay { position: relative; z-index: 1; }
+  .toast, .modal, .pdf-overlay { position: relative; z-index: 1; }
+  .main { position: relative; z-index: 1; }
+  .nav-tabs { position: relative; z-index: 5; }
+  .app-header { position: relative; z-index: 10; }
 
   /* ── HEADER ── */
   /* Same identity as the sign-in gate: deep coffee-brown + caramel radial
@@ -633,6 +636,13 @@ window.dispatchEvent(new Event('fb-ready'));
     }
     .header-more-menu.open { display: flex; }
     .header-more-menu .btn { width: 100%; justify-content: flex-start; }
+    .header-more-menu #authArea {
+      flex-wrap: wrap; width: 100%;
+      padding-bottom: 10px; margin-bottom: 4px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .header-more-menu #authArea #authUser { word-break: break-all; flex-basis: 100%; }
+    .header-more-menu #authArea #authBtn { width: 100%; justify-content: center; }
   }
 
   /* ── SEARCH / FILTER BAR ── */
@@ -1298,15 +1308,15 @@ window.dispatchEvent(new Event('fb-ready'));
         <span class="theme-toggle-thumb"></span>
       </span>
     </button>
-    <div id="authArea" style="display:flex;align-items:center;gap:10px;">
-      <span id="roleBadge" style="display:none"></span>
-      <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
-      <button id="authBtn" class="btn btn-ghost" onclick="handleAuth()" style="font-size:12px;padding:7px 14px;">Sign in</button>
-    </div>
     <button class="header-menu-toggle" id="headerMenuToggle" onclick="toggleHeaderMenu()" title="More actions" aria-label="More actions" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     </button>
     <div class="header-more-menu" id="headerMoreMenu">
+      <div id="authArea" style="display:flex;align-items:center;gap:10px;">
+        <span id="roleBadge" style="display:none"></span>
+        <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
+        <button id="authBtn" class="btn btn-ghost" onclick="handleAuth()" style="font-size:12px;padding:7px 14px;">Sign in</button>
+      </div>
       <button class="btn btn-ghost editor-only" onclick="toggleForm()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Member
