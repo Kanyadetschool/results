@@ -850,18 +850,45 @@ window.dispatchEvent(new Event('fb-ready'));
 
   /* carry-forward modal */
   .modal-backdrop {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: none; position: fixed; inset: 0; background: rgba(28,17,10,.55);
     z-index: 500; align-items: center; justify-content: center;
   }
   .modal-backdrop.show { display: flex; }
   .modal-box {
-    background: var(--white); border-radius: var(--radius-lg); padding: 28px 32px;
-    max-width: 420px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,.3);
-    border: 1px solid var(--rule);
+    background: linear-gradient(160deg, #fdf8f3, #f7ece0);
+    border-radius: var(--radius-lg); padding: 28px 32px;
+    max-width: 420px; width: 90%; box-shadow: 0 20px 56px rgba(43,26,16,.4);
+    border: 1px solid rgba(217,164,65,.35);
   }
-  .modal-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 20px; margin-bottom: 12px; }
-  .modal-body  { font-size: 13px; color: var(--ink-mid); line-height: 1.6; margin-bottom: 18px; }
+  .modal-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 20px; margin-bottom: 12px; color: #3a2417; }
+  .modal-body  { font-size: 13px; color: #6b5340; line-height: 1.6; margin-bottom: 18px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  /* Coffee-themed buttons and inputs inside modals, matching the hamburger dropdown */
+  .modal-box .btn-ghost {
+    background: rgba(217,164,65,.1); color: #6b5340;
+    border: 1.5px solid rgba(217,164,65,.3);
+  }
+  .modal-box .btn-ghost:hover { background: rgba(217,164,65,.2); color: #3a2417; border-color: rgba(217,164,65,.55); }
+  .modal-box .btn-primary {
+    background: linear-gradient(135deg,#e3b384,#8a5a34); color: #fff;
+    box-shadow: 0 3px 12px rgba(200,137,90,.35);
+  }
+  .modal-box .btn-primary:hover { box-shadow: 0 6px 20px rgba(200,137,90,.45); }
+  .modal-box .field input, .modal-box .field select, .modal-box input[type="text"],
+  .modal-box input[type="email"], .modal-box input[type="number"], .modal-box input[type="date"] {
+    background: #fff; border: 1.5px solid rgba(217,164,65,.35); color: #3a2417;
+  }
+  .modal-box .field input:focus, .modal-box input:focus { border-color: rgba(217,164,65,.7); }
+  #bulk-card-modal .bulk-card-box {
+    background: linear-gradient(160deg, #fdf8f3, #f7ece0);
+    border: 1px solid rgba(217,164,65,.35);
+    box-shadow: 0 24px 80px rgba(43,26,16,.45);
+  }
+  #bulk-card-modal .bulk-card-box h2 { color: #3a2417; }
+  #bulk-card-modal .bulk-card-box p { color: #6b5340; }
+  #bulk-card-modal .bulk-fmt-opt {
+    color: #3a2417; background: rgba(217,164,65,.1); border: 1.5px solid rgba(217,164,65,.3);
+  }
 
   /* ── OVERDUE ALERT BANNER (01) ── */
   .overdue-banner {
@@ -2143,6 +2170,19 @@ firebase deploy --only functions</pre>
   <div class="modal-box" style="max-width:460px;">
     <div class="modal-title">🛡 Manage Access</div>
     <div class="modal-body">Only email addresses listed below (plus the Advanced Admin) can sign in at all — everyone else is signed back out automatically.</div>
+
+    <div style="background:rgba(217,164,65,.1); border:1px solid rgba(217,164,65,.3); border-radius:10px; padding:12px; margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:800;color:#3a2417;margin-bottom:2px;">📋 Add teacher emails in bulk</div>
+      <div style="font-size:11px;color:#6b5340;margin-bottom:8px;">Paste as many teacher email addresses as you like — one per line, or separated by commas.</div>
+      <textarea id="bulkEmailInput" rows="3" placeholder="jane.doe@school.ac.ke, john.mwangi@school.ac.ke&#10;mary.wanjiru@school.ac.ke" style="width:100%;padding:10px 12px;border:1.5px solid rgba(217,164,65,.35);border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:12px;background:#fff;color:#3a2417;outline:none;resize:vertical;margin-bottom:8px;box-sizing:border-box;"></textarea>
+      <div style="display:flex;gap:8px;">
+        <select id="bulkEmailRole" style="flex:1;padding:9px 10px;border:1.5px solid rgba(217,164,65,.35);border-radius:7px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:#fff;color:#3a2417;">
+          <option value="editor">As Editors — can sign in and edit</option>
+          <option value="viewer">As Viewers — can sign in, read-only</option>
+        </select>
+        <button class="btn btn-primary" style="white-space:nowrap;" onclick="bulkAddAllowedEmails()">Add All</button>
+      </div>
+    </div>
 
     <div style="font-size:12px;font-weight:800;color:var(--ink);margin:14px 0 6px;">Editors — can sign in and edit</div>
     <div class="field" style="margin-bottom:10px;display:flex;gap:8px;">
@@ -4272,6 +4312,23 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
+// Click-outside-to-close for every .modal-backdrop modal. Listens on the
+// backdrop element itself (not bubbled from the modal box), so clicking
+// inside the dialog never closes it. A couple of modals need a bit of
+// extra cleanup beyond just hiding (clearing a PIN entry, discarding a
+// pending import) — those get their normal Cancel-button behavior here too.
+const MODAL_OUTSIDE_CLICK_OVERRIDES = {
+  pinModal: () => { closeModal('pinModal'); pinClear(); },
+  importModal: () => { closeModal('importModal'); importRows = []; },
+};
+document.addEventListener('click', (e) => {
+  if (!(e.target instanceof Element)) return;
+  if (!e.target.classList.contains('modal-backdrop')) return;
+  if (!e.target.classList.contains('show')) return;
+  const id = e.target.id;
+  (MODAL_OUTSIDE_CLICK_OVERRIDES[id] || (() => closeModal(id)))();
+});
+
 // ══════════════════════════════════════════════════════════════
 // FEATURE 08: AUTO-PERIOD ROLLOVER
 // ══════════════════════════════════════════════════════════════
@@ -4544,6 +4601,39 @@ async function renderAllowedEditors() {
       <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="removeAllowedEditor('${key}')">Remove</button>
     </div>
   `).join('');
+}
+
+async function bulkAddAllowedEmails() {
+  if (!isAdvancedAdmin()) { showToast('Only an Advanced Admin can manage access'); return; }
+  const textarea = document.getElementById('bulkEmailInput');
+  const roleSel  = document.getElementById('bulkEmailRole');
+  const raw = textarea.value || '';
+  // Split on commas, newlines, or semicolons — however people happen to paste a staff list.
+  const candidates = raw.split(/[,;\n]+/).map(s => s.toLowerCase().trim()).filter(Boolean);
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const valid   = [...new Set(candidates.filter(e => emailRe.test(e)))];
+  const invalid = candidates.filter(e => !emailRe.test(e));
+
+  if (!valid.length) { showToast(invalid.length ? 'No valid email addresses found' : 'Paste at least one email address'); return; }
+
+  const path = roleSel.value === 'editor' ? 'allowedEditors' : 'allowedViewers';
+  const roleLabel = roleSel.value === 'editor' ? 'Editors' : 'Viewers';
+
+  try {
+    await Promise.all(valid.map(email =>
+      window._fb.set(window._fb.ref(window._fb.db, `${path}/${emailKey(email)}`), {
+        email, addedBy: currentUser?.email || 'unknown', addedAt: Date.now()
+      })
+    ));
+  } catch(e) {
+    console.error('[Manage Access] Bulk add failed:', e);
+    showToast(`Couldn't add emails: ${e.message || e.code || e}`);
+    return;
+  }
+
+  textarea.value = '';
+  showToast(`Added ${valid.length} email${valid.length === 1 ? '' : 's'} as ${roleLabel}${invalid.length ? ` (${invalid.length} skipped — invalid format)` : ''}`, 4000);
+  await Promise.all([renderAllowedEditors(), renderAllowedViewers()]);
 }
 
 async function addAllowedEditor() {
