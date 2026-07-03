@@ -2952,7 +2952,7 @@ async function loadHistory() {
     }
 
     // Build periods array sorted chronologically
-    const periodKeys = Object.keys(data).sort((a, b) => {
+    const periodKeys = Object.keys(data).filter(k => k !== '_meta').sort((a, b) => {
       return parsePeriod(a) - parsePeriod(b);
     });
 
@@ -3730,7 +3730,7 @@ async function openCarryForward() {
   });
   const data = snap.val() || {};
   const currentKey = getPeriod().replace(/\s+/g,'_');
-  const periods = Object.keys(data).filter(k => k !== currentKey).sort((a,b) => parsePeriod(b)-parsePeriod(a));
+  const periods = Object.keys(data).filter(k => k !== currentKey && k !== '_meta').sort((a,b) => parsePeriod(b)-parsePeriod(a));
 
   const sel = document.getElementById('carryFwdSource');
   sel.innerHTML = periods.length
@@ -3830,7 +3830,7 @@ async function loadAnalytics() {
   }
 
   const std = getStd();
-  const periodKeys = Object.keys(data).sort((a,b) => parsePeriod(a)-parsePeriod(b));
+  const periodKeys = Object.keys(data).filter(k => k !== '_meta').sort((a,b) => parsePeriod(a)-parsePeriod(b));
   const allNames   = new Set();
   const memberHist = {}; // name → { pk → {amount, fullPaid} }
 
@@ -4650,7 +4650,7 @@ async function loadMiniDash() {
   const currentKey = getPeriod().replace(/\s+/g,'_');
   const globalStd = getStd(); // fallback only for legacy periods without their own stored std
   const periods = Object.keys(data)
-    .filter(k => k !== currentKey)
+    .filter(k => k !== currentKey && k !== '_meta')
     .sort((a,b) => parsePeriod(b) - parsePeriod(a))
     .slice(0, 3);
   if (!periods.length) return;
@@ -5028,7 +5028,7 @@ async function loadLeaderboard() {
   if (!data) { grid.innerHTML = '<div class="hist-empty">No data yet.</div>'; return; }
 
   const std = getStd();
-  const periodKeys = Object.keys(data).sort((a,b) => parsePeriod(a)-parsePeriod(b));
+  const periodKeys = Object.keys(data).filter(k => k !== '_meta').sort((a,b) => parsePeriod(a)-parsePeriod(b));
   const allNames = new Set();
   const memberHist = {};
 
@@ -5443,7 +5443,7 @@ async function _memberCardHistory(memberName, currentPeriodKey, currentAmount, c
     const data = snap.val();
     if (!data) return pts;
     const periodKeys = Object.keys(data)
-      .filter(k => k !== currentPeriodKey)
+      .filter(k => k !== currentPeriodKey && k !== '_meta')
       .sort((a,b) => parsePeriod(a) - parsePeriod(b));
     const history = [];
     periodKeys.forEach(pk => {
