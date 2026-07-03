@@ -622,7 +622,7 @@ window.dispatchEvent(new Event('fb-ready'));
      children unwrap straight into header-actions' normal flex flow. */
   .header-menu-wrap { display: contents; }
   .header-more-menu { display: contents; }
-  @media (max-width: 1000px) {
+  @media (max-width: 900px) {
     /* Pin the toggle to the header's top-right corner explicitly (rather
        than wherever flex flow happens to place it), and anchor the dropdown
        to THAT fixed point. Both width and height are clamped to the
@@ -632,12 +632,17 @@ window.dispatchEvent(new Event('fb-ready'));
       display: block; position: absolute; top: 14px; right: 16px; z-index: 70;
     }
     .header-menu-toggle { display: inline-flex; }
+    /* Reserve clearance on the right of the remaining in-flow header items
+       (logo, theme toggle) so the absolutely-positioned hamburger never
+       sits on top of them. */
+    .header-actions { padding-right: 54px; }
     .header-more-menu {
       display: none;
       position: absolute; top: calc(100% + 8px); right: 0;
       flex-direction: column; gap: 6px;
-      background: var(--white); border: 1px solid var(--rule);
-      border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0,0,0,.3);
+      background: linear-gradient(160deg, #fdf8f3, #f7ece0);
+      border: 1px solid rgba(217,164,65,.35);
+      border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(43,26,16,.35);
       padding: 10px; width: max-content;
       min-width: 220px; max-width: calc(100vw - 32px);
       max-height: calc(100vh - 90px); overflow-y: auto;
@@ -645,12 +650,23 @@ window.dispatchEvent(new Event('fb-ready'));
     }
     .header-more-menu.open { display: flex; }
     .header-more-menu .btn { width: 100%; justify-content: flex-start; }
+    /* Coffee-themed buttons, scoped to just this dropdown */
+    .header-more-menu .btn-ghost {
+      background: rgba(217,164,65,.1); color: #6b5340;
+      border: 1.5px solid rgba(217,164,65,.3);
+    }
+    .header-more-menu .btn-ghost:hover { background: rgba(217,164,65,.2); color: #3a2417; border-color: rgba(217,164,65,.55); }
+    .header-more-menu .btn-primary {
+      background: linear-gradient(135deg,#e3b384,#8a5a34); color: #fff;
+      box-shadow: 0 3px 12px rgba(200,137,90,.35);
+    }
+    .header-more-menu .btn-primary:hover { box-shadow: 0 6px 20px rgba(200,137,90,.45); }
     .header-more-menu #authArea {
       flex-wrap: wrap; width: 100%;
       padding-bottom: 10px; margin-bottom: 4px;
-      border-bottom: 1px solid var(--rule);
+      border-bottom: 1px solid rgba(217,164,65,.25);
     }
-    .header-more-menu #authArea #authUser { word-break: break-all; flex-basis: 100%; }
+    .header-more-menu #authArea #authUser { word-break: break-all; flex-basis: 100%; color: #8a6a52; }
     .header-more-menu #authArea #authBtn { width: 100%; justify-content: center; }
   }
 
