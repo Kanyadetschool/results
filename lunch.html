@@ -85,7 +85,7 @@ window.dispatchEvent(new Event('fb-ready'));
      glows and a faint dot-grid texture, echoing the warm café aesthetic,
      so the app chrome and the sign-in screen read as one cohesive brand. */
   .app-header {
-    position: relative; overflow: hidden;
+    position: relative;
     background:
       radial-gradient(ellipse 600px 300px at 25% 0%, rgba(224,163,116,.18), transparent 65%),
       radial-gradient(ellipse 500px 350px at 95% 100%, rgba(180,90,40,.22), transparent 55%),
@@ -603,6 +603,36 @@ window.dispatchEvent(new Event('fb-ready'));
     transform: translateX(23px);
     background: radial-gradient(circle at 35% 30%, #3b2117, #1c110a);
     box-shadow: 0 2px 6px rgba(0,0,0,.5), inset 0 0 0 1px rgba(217,164,65,.4);
+  }
+
+  /* ── HEADER MENU TOGGLE (mobile/tablet) ── */
+  /* On narrow screens the header's action buttons (Add Member, Print/Save
+     PDF, Bulk Cards, Manage Access) collapse behind a hamburger button
+     instead of wrapping into a cluttered multi-row mess. */
+  .header-menu-toggle {
+    display: none; flex-shrink: 0;
+    width: 36px; height: 36px; border-radius: 10px;
+    background: rgba(255,255,255,.1); border: 1px solid rgba(217,164,65,.35);
+    align-items: center; justify-content: center; cursor: pointer;
+    transition: background .2s ease, border-color .2s ease;
+  }
+  .header-menu-toggle:hover { background: rgba(255,255,255,.16); border-color: rgba(217,164,65,.6); }
+  .header-menu-toggle svg { width: 18px; height: 18px; stroke: #fbf1e6; }
+  .header-more-menu {
+    display: contents; /* on desktop, buttons sit inline as normal header-actions children */
+  }
+  @media (max-width: 900px) {
+    .header-menu-toggle { display: inline-flex; }
+    .header-more-menu {
+      display: none;
+      position: absolute; top: calc(100% + 8px); right: 12px;
+      flex-direction: column; gap: 6px;
+      background: var(--white); border: 1px solid var(--rule);
+      border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0,0,0,.3);
+      padding: 10px; min-width: 220px; z-index: 60;
+    }
+    .header-more-menu.open { display: flex; }
+    .header-more-menu .btn { width: 100%; justify-content: flex-start; }
   }
 
   /* ── SEARCH / FILTER BAR ── */
@@ -1273,20 +1303,25 @@ window.dispatchEvent(new Event('fb-ready'));
       <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
       <button id="authBtn" class="btn btn-ghost" onclick="handleAuth()" style="font-size:12px;padding:7px 14px;">Sign in</button>
     </div>
-    <button class="btn btn-ghost editor-only" onclick="toggleForm()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add Member
+    <button class="header-menu-toggle" id="headerMenuToggle" onclick="toggleHeaderMenu()" title="More actions" aria-label="More actions" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     </button>
-    <button class="btn btn-primary" id="exportBtn" onclick="handleExport()">
-      <svg id="exportIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      <span id="exportLabel">Print / Save PDF</span>
-    </button>
-    <button class="btn btn-ghost" onclick="openBulkCardModal()" title="Generate a payment card for every member">
-      📦 Bulk Cards
-    </button>
-    <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Control which email addresses can sign in, and who can edit">
-      🛡 Manage Access
-    </button>
+    <div class="header-more-menu" id="headerMoreMenu">
+      <button class="btn btn-ghost editor-only" onclick="toggleForm()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Member
+      </button>
+      <button class="btn btn-primary" id="exportBtn" onclick="handleExport()">
+        <svg id="exportIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        <span id="exportLabel">Print / Save PDF</span>
+      </button>
+      <button class="btn btn-ghost" onclick="openBulkCardModal()" title="Generate a payment card for every member">
+        📦 Bulk Cards
+      </button>
+      <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Control which email addresses can sign in, and who can edit">
+        🛡 Manage Access
+      </button>
+    </div>
   </div>
 </header>
 
@@ -3919,6 +3954,36 @@ function toggleDark() {
     }
   } catch(e) {}
 })();
+
+// ══════════════════════════════════════════════════════════════
+// HEADER MENU (mobile/tablet hamburger — nests Add Member, Print/Save
+// PDF, Bulk Cards, Manage Access instead of letting them wrap into a
+// cluttered multi-row header on narrow screens)
+// ══════════════════════════════════════════════════════════════
+function toggleHeaderMenu(forceOpen) {
+  const menu = document.getElementById('headerMoreMenu');
+  const btn  = document.getElementById('headerMenuToggle');
+  if (!menu || !btn) return;
+  const open = typeof forceOpen === 'boolean' ? forceOpen : !menu.classList.contains('open');
+  menu.classList.toggle('open', open);
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('headerMoreMenu');
+  const btn  = document.getElementById('headerMenuToggle');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (menu.contains(e.target) || btn.contains(e.target)) return;
+  toggleHeaderMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') toggleHeaderMenu(false);
+});
+// Close the menu automatically once the viewport is wide enough that the
+// buttons are shown inline again (otherwise it can be left "open" in state
+// even though CSS is displaying the desktop layout).
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 900) toggleHeaderMenu(false);
+});
 
 // ══════════════════════════════════════════════════════════════
 // FEATURE 01: OVERDUE PAYMENT ALERTS
