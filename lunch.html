@@ -90,9 +90,9 @@ window.dispatchEvent(new Event('fb-ready'));
   .app-header {
     position: relative;
     background:
-      radial-gradient(ellipse 600px 300px at 25% 0%, rgba(201,162,39,.16), transparent 65%),
-      radial-gradient(ellipse 500px 350px at 95% 100%, rgba(41,128,185,.2), transparent 55%),
-      linear-gradient(160deg, #071324 0%, #0c1e33 55%, #0a1a2e 100%);
+      radial-gradient(ellipse 600px 300px at 25% 0%, rgba(224,163,116,.18), transparent 65%),
+      radial-gradient(ellipse 500px 350px at 95% 100%, rgba(180,90,40,.22), transparent 55%),
+      linear-gradient(160deg, #2a180f 0%, #3b2117 55%, #1c110a 100%);
     color: var(--white);
     padding: 20px 20px 16px;
     display: flex;
@@ -100,11 +100,11 @@ window.dispatchEvent(new Event('fb-ready'));
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    border-bottom: 2px solid rgba(201,162,39,.35);
+    border-bottom: 2px solid rgba(217,164,65,.4);
   }
   .app-header::before {
     content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-    background-image: radial-gradient(rgba(201,162,39,.14) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(217,164,65,.16) 1px, transparent 1px);
     background-size: 20px 20px;
   }
   .app-header > * { position: relative; z-index: 1; }
@@ -112,7 +112,7 @@ window.dispatchEvent(new Event('fb-ready'));
     font-size: 10px;
     letter-spacing: .14em;
     text-transform: uppercase;
-    color: #c9a227;
+    color: #d9a441;
     margin-bottom: 4px;
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
@@ -396,8 +396,8 @@ window.dispatchEvent(new Event('fb-ready'));
   /* ── NAV TABS ── */
   .nav-tabs {
     display: flex; gap: 4px; align-items: center;
-    border-bottom: 1px solid rgba(201,162,39,.2);
-    background: linear-gradient(160deg, #0a1a2e 0%, #071324 100%);
+    border-bottom: 1px solid rgba(217,164,65,.25);
+    background: linear-gradient(160deg, #1c110a 0%, #2a180f 100%);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -411,7 +411,7 @@ window.dispatchEvent(new Event('fb-ready'));
     white-space: nowrap; flex-shrink: 0;
   }
   .nav-tab:hover { color: #fff; }
-  .nav-tab.active { color: #fff; border-bottom-color: #c9a227; }
+  .nav-tab.active { color: #fff; border-bottom-color: #d9a441; }
 
   /* ── HISTORY PAGE ── */
   .history-page { display: none; }
@@ -612,21 +612,25 @@ window.dispatchEvent(new Event('fb-ready'));
   .header-menu-toggle {
     display: none; flex-shrink: 0;
     width: 36px; height: 36px; border-radius: 10px;
-    background: rgba(255,255,255,.1); border: 1px solid rgba(201,162,39,.35);
+    background: rgba(255,255,255,.1); border: 1px solid rgba(217,164,65,.35);
     align-items: center; justify-content: center; cursor: pointer;
     transition: background .2s ease, border-color .2s ease;
   }
-  .header-menu-toggle:hover { background: rgba(255,255,255,.16); border-color: rgba(201,162,39,.6); }
-  .header-menu-toggle svg { width: 18px; height: 18px; stroke: #f2f6fb; }
-  .header-more-menu {
-    display: contents; /* on desktop, buttons sit inline as normal header-actions children */
-  }
+  .header-menu-toggle:hover { background: rgba(255,255,255,.16); border-color: rgba(217,164,65,.6); }
+  .header-menu-toggle svg { width: 18px; height: 18px; stroke: #fbf1e6; }
+  /* Desktop: transparent wrapper — toggle stays hidden, and the menu's
+     children unwrap straight into header-actions' normal flex flow. */
+  .header-menu-wrap { display: contents; }
+  .header-more-menu { display: contents; }
   @media (max-width: 900px) {
-    /* Anchor the dropdown to header-actions (which is flush with the
-       header's right edge via space-between) rather than the whole
-       header, and clamp both width and height to the viewport so it can
-       never render off-screen regardless of device size or content length. */
-    .header-actions { position: relative; }
+    /* Pin the toggle to the header's top-right corner explicitly (rather
+       than wherever flex flow happens to place it), and anchor the dropdown
+       to THAT fixed point. Both width and height are clamped to the
+       viewport so the panel can never render off-screen, regardless of
+       device size, header height, or how many items are inside it. */
+    .header-menu-wrap {
+      display: block; position: absolute; top: 14px; right: 16px; z-index: 70;
+    }
     .header-menu-toggle { display: inline-flex; }
     .header-more-menu {
       display: none;
@@ -635,9 +639,9 @@ window.dispatchEvent(new Event('fb-ready'));
       background: var(--white); border: 1px solid var(--rule);
       border-radius: var(--radius-md); box-shadow: 0 16px 40px rgba(0,0,0,.3);
       padding: 10px; width: max-content;
-      min-width: 220px; max-width: calc(100vw - 24px);
+      min-width: 220px; max-width: calc(100vw - 32px);
       max-height: calc(100vh - 90px); overflow-y: auto;
-      z-index: 60;
+      z-index: 70;
     }
     .header-more-menu.open { display: flex; }
     .header-more-menu .btn { width: 100%; justify-content: flex-start; }
@@ -1209,15 +1213,15 @@ window.dispatchEvent(new Event('fb-ready'));
     align-items: center; justify-content: center;
     font-family: 'Plus Jakarta Sans', sans-serif;
     background:
-      radial-gradient(ellipse 900px 600px at 50% 8%, rgba(201,162,39,.14), transparent 60%),
-      radial-gradient(ellipse 700px 700px at 90% 95%, rgba(41,128,185,.18), transparent 55%),
-      linear-gradient(160deg, #071324 0%, #0c1e33 45%, #0a1a2e 100%);
+      radial-gradient(ellipse 900px 600px at 50% 8%, rgba(224,163,116,.16), transparent 60%),
+      radial-gradient(ellipse 700px 700px at 90% 95%, rgba(180,90,40,.22), transparent 55%),
+      linear-gradient(160deg, #2a180f 0%, #3b2117 45%, #1c110a 100%);
     padding: 24px;
   }
-  /* Faint dot-grid "security paper" texture, like a ledger/cheque background */
+  /* Faint dot-grid texture, echoing roasted coffee beans scattered across the backdrop */
   #authGateOverlay::before {
     content: ''; position: absolute; inset: 0; pointer-events: none;
-    background-image: radial-gradient(rgba(201,162,39,.16) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(217,164,65,.18) 1px, transparent 1px);
     background-size: 22px 22px;
     mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 40%, transparent 90%);
   }
@@ -1225,52 +1229,52 @@ window.dispatchEvent(new Event('fb-ready'));
 
   .auth-gate-card {
     position: relative;
-    background: rgba(17, 29, 46, .62);
+    background: rgba(42, 29, 20, .62);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(201,162,39,.28);
-    border-radius: 20px;
+    border: 1px solid rgba(217,164,65,.3);
+    border-radius: 24px;
     padding: 38px 34px 30px;
     width: min(380px, 100%);
     text-align: center;
     box-shadow: 0 30px 70px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
   }
   .auth-gate-card::before {
-    /* Gold ledger-rule accent strip along the top edge */
+    /* Caramel accent strip along the top edge */
     content: ''; position: absolute; top: 0; left: 18px; right: 18px; height: 2px;
-    background: linear-gradient(90deg, transparent, #c9a227, transparent);
+    background: linear-gradient(90deg, transparent, #d9a441, transparent);
   }
   .auth-gate-seal {
     width: 68px; height: 68px; margin: 0 auto 18px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #16283f, #0a1826);
-    border: 1.5px solid rgba(201,162,39,.5);
-    box-shadow: 0 0 0 5px rgba(201,162,39,.08), 0 8px 24px rgba(0,0,0,.4);
+    background: radial-gradient(circle at 35% 30%, #3b2117, #1c110a);
+    border: 1.5px solid rgba(217,164,65,.5);
+    box-shadow: 0 0 0 5px rgba(217,164,65,.1), 0 8px 24px rgba(0,0,0,.4);
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
   .auth-gate-seal img { width: 100%; height: 100%; object-fit: cover; }
   .auth-gate-eyebrow {
     font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: .16em;
-    text-transform: uppercase; color: #c9a227; margin-bottom: 8px; font-weight: 600;
+    text-transform: uppercase; color: #d9a441; margin-bottom: 8px; font-weight: 600;
   }
-  .auth-gate-title { font-weight: 900; font-size: 21px; color: #f2f6fb; margin-bottom: 10px; letter-spacing: -.01em; }
-  .auth-gate-sub { font-size: 13px; color: #9db4cc; line-height: 1.65; margin-bottom: 26px; }
+  .auth-gate-title { font-weight: 900; font-size: 21px; color: #fbf1e6; margin-bottom: 10px; letter-spacing: -.01em; }
+  .auth-gate-sub { font-size: 13px; color: #cbab8c; line-height: 1.65; margin-bottom: 26px; }
   .auth-gate-btn {
-    width: 100%; padding: 13px 16px; border: none; border-radius: 10px;
-    background: #f2f6fb; color: #0c1e33;
+    width: 100%; padding: 13px 16px; border: none; border-radius: 999px;
+    background: #fdf8f3; color: #3a2417;
     font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px;
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
     box-shadow: 0 2px 0 rgba(0,0,0,.08), 0 10px 24px rgba(0,0,0,.25);
     transition: transform .15s ease, box-shadow .15s ease;
   }
-  .auth-gate-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 0 rgba(0,0,0,.08), 0 14px 30px rgba(201,162,39,.2); }
+  .auth-gate-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 0 rgba(0,0,0,.08), 0 14px 30px rgba(217,164,65,.25); }
   .auth-gate-btn:active { transform: translateY(0); }
   .auth-gate-note {
-    font-size: 10.5px; color: #5c7794; margin-top: 18px;
+    font-size: 10.5px; color: #8a6a52; margin-top: 18px;
     font-family: 'JetBrains Mono', monospace; letter-spacing: .02em;
   }
   .auth-gate-foot {
-    margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(201,162,39,.15);
+    margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(217,164,65,.18);
     font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
-    font-family: 'JetBrains Mono', monospace; color: #4a6684;
+    font-family: 'JetBrains Mono', monospace; color: #6b5340;
   }
 
 </style>
@@ -1313,13 +1317,14 @@ window.dispatchEvent(new Event('fb-ready'));
         <span class="theme-toggle-thumb"></span>
       </span>
     </button>
-    <button class="header-menu-toggle" id="headerMenuToggle" onclick="toggleHeaderMenu()" title="More actions" aria-label="More actions" aria-expanded="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-    </button>
-    <div class="header-more-menu" id="headerMoreMenu">
-      <div id="authArea" style="display:flex;align-items:center;gap:10px;">
-        <span id="roleBadge" style="display:none"></span>
-        <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
+    <div class="header-menu-wrap">
+      <button class="header-menu-toggle" id="headerMenuToggle" onclick="toggleHeaderMenu()" title="More actions" aria-label="More actions" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+      <div class="header-more-menu" id="headerMoreMenu">
+        <div id="authArea" style="display:flex;align-items:center;gap:10px;">
+          <span id="roleBadge" style="display:none"></span>
+          <span id="authUser" style="font-size:12px;color:#888;font-family:'JetBrains Mono',monospace;"></span>
         <button id="authBtn" class="btn btn-ghost" onclick="handleAuth()" style="font-size:12px;padding:7px 14px;">Sign in</button>
       </div>
       <button class="btn btn-ghost editor-only" onclick="toggleForm()">
@@ -1336,6 +1341,7 @@ window.dispatchEvent(new Event('fb-ready'));
       <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Control which email addresses can sign in, and who can edit">
         🛡 Manage Access
       </button>
+      </div>
     </div>
   </div>
 </header>
