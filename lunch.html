@@ -859,6 +859,7 @@ window.dispatchEvent(new Event('fb-ready'));
     border-radius: var(--radius-lg); padding: 28px 32px;
     max-width: 420px; width: 90%; box-shadow: 0 20px 56px rgba(43,26,16,.4);
     border: 1px solid rgba(217,164,65,.35);
+    max-height: calc(100vh - 48px); overflow-y: auto;
   }
   .modal-title { font-family:'Plus Jakarta Sans',sans-serif;font-weight:900; font-size: 20px; margin-bottom: 12px; color: #3a2417; }
   .modal-body  { font-size: 13px; color: #6b5340; line-height: 1.6; margin-bottom: 18px; }
@@ -874,6 +875,19 @@ window.dispatchEvent(new Event('fb-ready'));
     box-shadow: 0 3px 12px rgba(200,137,90,.35);
   }
   .modal-box .btn-primary:hover { box-shadow: 0 6px 20px rgba(200,137,90,.45); }
+  .shortcut-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 0; border-bottom: 1px solid rgba(217,164,65,.15); font-size: 13px;
+  }
+  .shortcut-row:last-child { border-bottom: none; }
+  .shortcut-row span:first-child { color: #6b5340; }
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 22px; padding: 0 6px; margin-left: 4px;
+    background: rgba(217,164,65,.14); border: 1px solid rgba(217,164,65,.4);
+    border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; color: #3a2417;
+  }
   .modal-box .field input, .modal-box .field select, .modal-box input[type="text"],
   .modal-box input[type="email"], .modal-box input[type="number"], .modal-box input[type="date"] {
     background: #fff; border: 1.5px solid rgba(217,164,65,.35); color: #3a2417;
@@ -1383,6 +1397,9 @@ window.dispatchEvent(new Event('fb-ready'));
       </button>
       <button class="btn btn-ghost" id="manageEditorsBtn" style="display:none" onclick="openManageEditors()" title="Control which email addresses can sign in, and who can edit">
         🛡 Manage Access
+      </button>
+      <button class="btn btn-ghost" onclick="renderShortcutsList(); document.getElementById('shortcutsModal').classList.add('show');" title="View keyboard shortcuts">
+        ⌨️ Shortcuts
       </button>
       </div>
     </div>
@@ -2200,6 +2217,18 @@ firebase deploy --only functions</pre>
 
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('manageEditorsModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEYBOARD SHORTCUTS HELP MODAL -->
+<div class="modal-backdrop" id="shortcutsModal">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-title">⌨️ Keyboard Shortcuts</div>
+    <div class="modal-body" style="margin-bottom:6px;">Work faster without reaching for the mouse.</div>
+    <div id="shortcutsList" style="display:flex;flex-direction:column;gap:2px;margin-bottom:18px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('shortcutsModal')">Close</button>
     </div>
   </div>
 </div>
@@ -3544,11 +3573,101 @@ async function loadReminderLog() {
 }
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────
+// Single-letter/number shortcuts only fire when the person isn't typing in
+// a text field and no modal is currently open (so they can't accidentally
+// trigger "n" while typing a note, for example). Escape and the Cmd/Ctrl+
+// Enter submit shortcut are exempt from that guard since they're either
+// harmless or only relevant while a field/form is actually focused.
+const SHORTCUTS_LIST = [
+  { key: '/', desc: 'Focus the member search box' },
+  { key: 'N', desc: 'Add a new member' },
+  { key: '⌘/Ctrl + Enter', desc: 'Save the open Add Member form' },
+  { key: '1', desc: 'Go to Contributions' },
+  { key: '2', desc: 'Go to Monthly History' },
+  { key: '3', desc: 'Go to Analytics' },
+  { key: '4', desc: 'Go to Leaderboard' },
+  { key: '5', desc: 'Go to WhatsApp Reminders' },
+  { key: 'E', desc: 'Export CSV' },
+  { key: 'P', desc: 'Print / Save PDF' },
+  { key: 'D', desc: 'Toggle dark mode' },
+  { key: 'Esc', desc: 'Close whatever is open' },
+  { key: '?', desc: 'Show this shortcuts list' },
+];
+
+function renderShortcutsList() {
+  document.getElementById('shortcutsList').innerHTML = SHORTCUTS_LIST.map(s =>
+    `<div class="shortcut-row"><span>${s.desc}</span><span class="kbd">${s.key}</span></div>`
+  ).join('');
+}
+
+function isTypingInField() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+function anyModalOpen() {
+  if (document.querySelector('.modal-backdrop.show')) return true;
+  if (document.getElementById('bulk-card-modal')?.classList.contains('on')) return true;
+  if (document.getElementById('share-modal')?.classList.contains('on')) return true;
+  return false;
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('addForm').classList.remove('open');
+  // Escape always works, regardless of focus — closes the add form and
+  // any open modal dialog (reusing the same per-modal cleanup used for
+  // click-outside-to-close).
+  if (e.key === 'Escape') {
+    document.getElementById('addForm').classList.remove('open');
+    const openModal = document.querySelector('.modal-backdrop.show');
+    if (openModal) {
+      (MODAL_OUTSIDE_CLICK_OVERRIDES[openModal.id] || (() => closeModal(openModal.id)))();
+    }
+  }
+
+  // Cmd/Ctrl+Enter submits the Add Member form while it's open, even
+  // while a field inside it is focused.
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     const f = document.getElementById('addForm');
     if (f.classList.contains('open')) addMember();
+    return;
+  }
+
+  // Everything below is a bare-letter/number shortcut — skip these while
+  // typing anywhere, or while any modal dialog is open.
+  if (isTypingInField() || anyModalOpen()) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return; // don't hijack browser/OS combos
+
+  switch (e.key) {
+    case '/':
+      e.preventDefault();
+      document.getElementById('searchInput')?.focus();
+      break;
+    case 'n': case 'N':
+      if (isEditor()) { e.preventDefault(); toggleForm(); }
+      break;
+    case '1': switchTab('home'); break;
+    case '2': switchTab('history'); break;
+    case '3': switchTab('analytics'); break;
+    case '4': switchTab('leaderboard'); break;
+    case '5': switchTab('whatsapp'); break;
+    case 'e': case 'E':
+      e.preventDefault();
+      exportCSV();
+      break;
+    case 'p': case 'P':
+      e.preventDefault();
+      handleExport();
+      break;
+    case 'd': case 'D':
+      toggleDark();
+      break;
+    case '?':
+      e.preventDefault();
+      renderShortcutsList();
+      document.getElementById('shortcutsModal').classList.add('show');
+      break;
   }
 });
 
