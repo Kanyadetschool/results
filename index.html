@@ -1241,7 +1241,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 .qlinks-toggle .qt-arrow{font-size:10px;transition:transform .3s;}
 .qlinks-toggle.open .qt-arrow{transform:rotate(90deg);}
 .qlinks-panel{overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
-.qlinks-panel.open{max-height:1000px;opacity:1;}
+.qlinks-panel.open{max-height:400px;opacity:1;}
 .auth-qlink{
   display:flex;align-items:center;gap:9px;
   padding:8px 10px;border-radius:var(--radius-md);
@@ -1560,6 +1560,14 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <span class="nav-icon">🚨</span> At-Risk
         <span class="nav-badge" id="nav-atrisk-count" style="background:var(--red)">—</span>
       </div>
+      <div class="nav-item" onclick="navTo('dataquality',this)" data-label="Data Quality">
+        <span class="nav-icon">🔍</span> Data Quality
+        <span class="nav-badge" id="nav-dq-count" style="background:var(--orange);display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="navTo('duplicates',this)" data-label="Duplicates">
+        <span class="nav-icon">👥</span> Duplicates
+        <span class="nav-badge" id="nav-dup-count" style="background:var(--red);display:none">0</span>
+      </div>
       <div class="nav-item" onclick="openGradingInfoModal()" data-label="Grading System">
         <span class="nav-icon">🏅</span> Grading System
       </div>
@@ -1602,10 +1610,6 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
     <a href="./docs/CBC-Grading-System-Guide.docx" download="CBC-Grading-System-Guide.docx" class="auth-qlink auth-qlink-3">
           <div class="auth-qlink-dot"></div>🏅 Grading System Guide (.docx)<span class="auth-qlink-arrow">⬇</span>
         </a>
-        <a href="./timetables.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Ter II 2026 Timetables<span class="auth-qlink-arrow">→</span>
-        </a>
-      
 
     <a href="./Report-Cards/Active-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
           <div class="auth-qlink-dot"></div>📄 Active students<span class="auth-qlink-arrow">→</span>
@@ -1930,6 +1934,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <option value="">All Grades</option>
             </select>
             <button class="btn btn-blue btn-sm" onclick="exportResultsCSV()">📥 Export CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="openCompareResultsModal()" title="Side-by-side two terms for a student">↔️ Compare Terms</button>
+            <button class="btn btn-outline btn-sm" onclick="recalcPositions()" title="Recompute and write positions to Firebase for current grade+term">🔢 Recalc Positions</button>
           </div>
         </div>
 
@@ -2032,6 +2038,38 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           </div>
         </div>
       </div>
+
+        <!-- ══ NEW ANALYTICS CARDS ══ -->
+        <!-- Subject Difficulty Ranking -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-hdr">
+            <div class="card-title">📉 Subject Difficulty Ranking</div>
+            <select class="sel" id="subj-diff-term-sel" onchange="renderSubjectDifficulty()"><option value="all">All Terms</option></select>
+          </div>
+          <div id="subj-difficulty-container" style="overflow-x:auto"></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:18px">
+          <!-- Gender gap per subject -->
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">⚤ Gender Gap by Subject</div>
+              <select class="sel" id="gender-subj-grade-sel" onchange="renderGenderSubjectGap()"><option value="all">All Grades</option></select>
+            </div>
+            <div class="chart-box"><canvas id="gender-subj-chart"></canvas></div>
+          </div>
+
+          <!-- Class size vs performance -->
+          <div class="card">
+            <div class="card-hdr">
+              <div class="card-title">📐 Class Size vs Performance</div>
+              <select class="sel" id="classsize-term-sel" onchange="renderClassSizeVsPerf()"><option value="all">All Terms</option></select>
+            </div>
+            <div class="chart-box"><canvas id="classsize-chart"></canvas></div>
+          </div>
+        </div>
+
+      <!-- ══ END NEW ANALYTICS ══ -->
 
       <!-- ══════ REPORTS VIEW ══════ -->
       <div class="view" id="view-reports">
@@ -2422,6 +2460,130 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <tbody id="atrisk-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- ══════ DATA QUALITY VIEW ══════ -->
+      <div class="view" id="view-dataquality">
+        <div class="sec-hdr">
+          <h2>🔍 Data Quality</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select class="sel" id="dq-grade-sel" onchange="renderDataQuality()"><option value="all">All Grades</option></select>
+            <select class="sel" id="dq-term-sel" onchange="renderDataQuality()"><option value="all">All Terms</option></select>
+            <button class="btn btn-outline btn-sm" onclick="renderDataQuality()">🔄 Refresh</button>
+            <button class="btn btn-outline btn-sm" onclick="exportDQReport()">📥 Export CSV</button>
+          </div>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="kpi-grid" style="margin-bottom:18px" id="dq-kpi-grid">
+          <div class="kpi-card" style="--accent-glow:rgba(230,126,34,.1)">
+            <div class="kpi-icon">❌</div>
+            <div class="kpi-val" id="dq-kpi-missing" style="color:var(--orange)">—</div>
+            <div class="kpi-label">Missing Marks</div>
+          </div>
+          <div class="kpi-card" style="--accent-glow:rgba(231,76,60,.1)">
+            <div class="kpi-icon">⚡</div>
+            <div class="kpi-val" id="dq-kpi-outlier" style="color:var(--red)">—</div>
+            <div class="kpi-label">Score Outliers</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">👥</div>
+            <div class="kpi-val" id="dq-kpi-affected" style="color:var(--text)">—</div>
+            <div class="kpi-label">Students Affected</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">✅</div>
+            <div class="kpi-val" id="dq-kpi-clean" style="color:var(--green)">—</div>
+            <div class="kpi-label">Clean Records</div>
+          </div>
+        </div>
+
+        <!-- Tab switcher -->
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button class="btn btn-sm dq-tab-btn active" id="dq-tab-missing" onclick="switchDQTab('missing')">❌ Missing Marks</button>
+          <button class="btn btn-sm dq-tab-btn btn-outline" id="dq-tab-outlier" onclick="switchDQTab('outlier')">⚡ Outliers</button>
+        </div>
+
+        <!-- Missing marks panel -->
+        <div id="dq-panel-missing">
+          <div class="card" style="margin-bottom:0">
+            <p style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;padding:10px 14px;background:rgba(230,126,34,.06);border-radius:var(--radius-md);border:1px solid rgba(230,126,34,.2)">
+              ⚠️ Students below have at least one subject with no score entered. An incomplete record skews the class average and position calculation. Hover a row to see which subjects are missing.
+            </p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>#</th><th>Student</th><th>Adm No</th><th>Grade / Term</th>
+                  <th>Missing Subjects</th><th>Entered</th><th>Actions</th>
+                </tr></thead>
+                <tbody id="dq-missing-tbody"><tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Outlier panel -->
+        <div id="dq-panel-outlier" style="display:none">
+          <div class="card" style="margin-bottom:0">
+            <p style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;padding:10px 14px;background:rgba(231,76,60,.06);border-radius:var(--radius-md);border:1px solid rgba(231,76,60,.2)">
+              ⚡ Outlier detection flags two things: (1) a score that is <strong>≥ 30 points higher or lower</strong> than the class average for that subject — a potential data-entry error; (2) a learner whose average jumped or dropped <strong>≥ 25 points</strong> between consecutive terms — a possible anomaly. All records should be reviewed and confirmed before publishing reports.
+            </p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>#</th><th>Student</th><th>Adm No</th><th>Grade / Term</th>
+                  <th>Outlier Detail</th><th>Score</th><th>vs Average</th><th>Actions</th>
+                </tr></thead>
+                <tbody id="dq-outlier-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ DUPLICATES VIEW ══════ -->
+      <div class="view" id="view-duplicates">
+        <div class="sec-hdr">
+          <h2>👥 Duplicate Student Detector</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-outline btn-sm" onclick="renderDuplicates()">🔄 Refresh</button>
+            <button class="btn btn-outline btn-sm" onclick="exportDuplicatesCSV()">📥 Export CSV</button>
+          </div>
+        </div>
+        <div class="kpi-grid" style="margin-bottom:18px">
+          <div class="kpi-card" style="--accent-glow:rgba(231,76,60,.1)">
+            <div class="kpi-icon">🔴</div>
+            <div class="kpi-val" id="dup-kpi-groups" style="color:var(--red)">—</div>
+            <div class="kpi-label">Duplicate Groups</div>
+          </div>
+          <div class="kpi-card" style="--accent-glow:rgba(230,126,34,.1)">
+            <div class="kpi-icon">📋</div>
+            <div class="kpi-val" id="dup-kpi-records" style="color:var(--orange)">—</div>
+            <div class="kpi-label">Affected Records</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">🔑</div>
+            <div class="kpi-val" id="dup-kpi-byupi" style="color:var(--text)">—</div>
+            <div class="kpi-label">Same UPI</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon">✏️</div>
+            <div class="kpi-val" id="dup-kpi-byname" style="color:var(--text)">—</div>
+            <div class="kpi-label">Same Name</div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px;padding:12px 16px;font-size:12px;color:var(--text2);line-height:1.7;background:rgba(231,76,60,.05);border:1px solid rgba(231,76,60,.18)">
+          🔍 Detects records sharing the same <strong>UPI number</strong> or the same <strong>student name</strong> across different grades or terms. Review each group carefully — some may be legitimate (same student re-enrolled) while others may be true data entry errors.
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr>
+              <th>Group</th><th>Match Type</th><th>Student Name</th><th>UPI / Adm No</th>
+              <th>Grade</th><th>Term</th><th>Avg</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="dup-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
+          </table>
         </div>
       </div>
 
@@ -2824,6 +2986,31 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-outline btn-sm" onclick="closeShortcuts()">Close</button></div>
+  </div>
+</div>
+
+<!-- COMPARE TERMS MODAL -->
+<div class="modal-overlay" id="compare-results-modal" onclick="if(event.target===this)closeCompareResultsModal()">
+  <div class="modal-box modal-wide" style="width:min(780px,100%)">
+    <div class="modal-hdr"><h3>↔️ Compare Terms</h3><button class="modal-close" onclick="closeCompareResultsModal()">✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+        <div style="flex:1;min-width:160px">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Student</label>
+          <select class="sel" id="cr-student-sel" style="width:100%" onchange="runCompareResults()"><option value="">— pick student —</option></select>
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Term A</label>
+          <select class="sel" id="cr-term-a" onchange="runCompareResults()"><option value="">—</option></select>
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Term B</label>
+          <select class="sel" id="cr-term-b" onchange="runCompareResults()"><option value="">—</option></select>
+        </div>
+      </div>
+      <div id="cr-result-area" style="font-size:12px;color:var(--text3);text-align:center;padding:30px">Select a student and two terms to compare.</div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline btn-sm" onclick="closeCompareResultsModal()">Close</button></div>
   </div>
 </div>
 
@@ -5666,7 +5853,11 @@ function renderAll(){
   renderSubjectRanking();
   renderHeatmap();
   renderAtRisk();
-  populatePrintSelectors();
+  renderDataQuality();
+  renderDuplicates();
+  renderSubjectDifficulty();
+  renderGenderSubjectGap();
+  renderClassSizeVsPerf();
   // Nav count: show scoped count for teachers, total for advanced admins
   const visibleCount = (currentAssignedGrade === '__NONE__' && !currentAssignedGrades.length)
     ? 0
@@ -5725,12 +5916,12 @@ function _bridgeReportCardSystem(){
 function populateAtRiskFilters(){
   const grades=getUniqueGrades();
   const terms=getUniqueTerms();
-  ['atrisk-grade-sel'].forEach(id=>{
+  ['atrisk-grade-sel','dq-grade-sel'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const first=el.options[0];el.innerHTML='';el.appendChild(first);
     grades.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;el.appendChild(o);});
   });
-  ['atrisk-term-sel'].forEach(id=>{
+  ['atrisk-term-sel','dq-term-sel'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const first=el.options[0];el.innerHTML='';el.appendChild(first);
     terms.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;el.appendChild(o);});
@@ -5746,7 +5937,7 @@ function populateAtRiskFilters(){
 function populateFilters(){
   const grades=getUniqueGrades();
   const terms=getUniqueTerms();
-  const selIds=['filter-grade','dist-grade-sel','top-grade-sel','trend-grade-sel','results-grade-sel','subj-grade-sel','subj-rank-grade'];
+  const selIds=['filter-grade','dist-grade-sel','top-grade-sel','trend-grade-sel','results-grade-sel','subj-grade-sel','subj-rank-grade','gender-subj-grade-sel'];
   // Also populate filter-term for student directory
   const termSelStudents=document.getElementById('filter-term');
   if(termSelStudents){const cv=termSelStudents.value;termSelStudents.innerHTML='<option value="">All Terms</option>';getUniqueTerms().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;termSelStudents.appendChild(o);});termSelStudents.value=cv;}
@@ -5761,7 +5952,7 @@ function populateFilters(){
     if(currentAssignedGrades.length) el.value=currentAssignedGrades[0];
     else if(currentAssignedGrade && currentAssignedGrade!=='__NONE__') el.value=currentAssignedGrade;
   });
-  ['results-term-sel','print-term','top-term-sel'].forEach(id=>{
+  ['results-term-sel','print-term','top-term-sel','subj-diff-term-sel','classsize-term-sel'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
     const first=el.options[0];
@@ -7336,6 +7527,366 @@ function renderSubjectRanking(){
 window.renderSubjectRanking=renderSubjectRanking;
 
 /* ══════════════════════════════════════════
+   FEATURE: SUBJECT DIFFICULTY RANKING
+   Shows every subject sorted hardest→easiest
+   by class average across all grades/terms
+══════════════════════════════════════════ */
+function renderSubjectDifficulty(){
+  const term = document.getElementById('subj-diff-term-sel')?.value||'all';
+  const data = term==='all' ? allData : allData.filter(r=>getRecordTerm(r)===term);
+  const subjAvgs={};
+  data.forEach(r=>getSubjects(r).forEach(s=>{
+    const v=parseFloat(r[s]); if(isNaN(v)) return;
+    if(!subjAvgs[s]) subjAvgs[s]=[];
+    subjAvgs[s].push(v);
+  }));
+  const results=Object.entries(subjAvgs)
+    .map(([s,vals])=>({s, avg:(vals.reduce((a,b)=>a+b,0)/vals.length), n:vals.length}))
+    .sort((a,b)=>a.avg-b.avg); // ascending = hardest first
+  const container=document.getElementById('subj-difficulty-container');
+  if(!results.length){container.innerHTML='<p style="font-size:12px;color:var(--text3);padding:20px">No data.</p>';return;}
+  const maxAvg=Math.max(...results.map(r=>r.avg));
+  container.innerHTML=`<div style="display:grid;gap:8px;padding:4px 0">${
+    results.map((r,i)=>{
+      const pct=(r.avg/100)*100;
+      const color=barColor(r.avg.toFixed(1));
+      const rank=i===0?'🔴 Hardest':i===results.length-1?'🟢 Easiest':i<Math.ceil(results.length/3)?'🟠':'🟡';
+      return `<div style="display:grid;grid-template-columns:24px 160px 1fr 60px 80px;align-items:center;gap:10px">
+        <span style="font-size:10px;color:var(--text3);font-weight:700;text-align:right">${i+1}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r.s}">${r.s}</span>
+        <div style="height:10px;background:var(--surface2);border-radius:6px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;transition:width .4s"></div>
+        </div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:800;color:${color};text-align:right">${r.avg.toFixed(1)}%</span>
+        <span style="font-size:9px;color:var(--text3)">${rank} (${r.n})</span>
+      </div>`;
+    }).join('')
+  }</div>`;
+}
+window.renderSubjectDifficulty=renderSubjectDifficulty;
+
+/* ══════════════════════════════════════════
+   FEATURE: GENDER GAP BY SUBJECT (BAR CHART)
+══════════════════════════════════════════ */
+let _genderSubjChart=null;
+function renderGenderSubjectGap(){
+  const grade=document.getElementById('gender-subj-grade-sel')?.value||'all';
+  const data=grade==='all'?allData:allData.filter(r=>gShort(r['Grade'])===grade);
+  const subjects=[...new Set(data.flatMap(r=>getSubjects(r)))].sort();
+  const maleAvgs=[], femaleAvgs=[];
+  subjects.forEach(s=>{
+    const mv=data.filter(r=>r['Gender']==='Male').map(r=>parseFloat(r[s])).filter(x=>!isNaN(x));
+    const fv=data.filter(r=>r['Gender']==='Female').map(r=>parseFloat(r[s])).filter(x=>!isNaN(x));
+    maleAvgs.push(mv.length?(mv.reduce((a,b)=>a+b,0)/mv.length).toFixed(1):null);
+    femaleAvgs.push(fv.length?(fv.reduce((a,b)=>a+b,0)/fv.length).toFixed(1):null);
+  });
+  const ctx=document.getElementById('gender-subj-chart').getContext('2d');
+  if(_genderSubjChart) _genderSubjChart.destroy();
+  _genderSubjChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:subjects,
+      datasets:[
+        {label:'Male',data:maleAvgs,backgroundColor:'rgba(41,128,185,.7)',borderRadius:4,borderWidth:0},
+        {label:'Female',data:femaleAvgs,backgroundColor:'rgba(230,126,34,.7)',borderRadius:4,borderWidth:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#7aaec9',font:{size:11}}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7aaec9',font:{size:10},maxRotation:40}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7aaec9',font:{size:11}},min:0,max:100}
+      }
+    }
+  });
+}
+window.renderGenderSubjectGap=renderGenderSubjectGap;
+
+/* ══════════════════════════════════════════
+   FEATURE: CLASS SIZE vs PERFORMANCE SCATTER
+══════════════════════════════════════════ */
+let _classSizeChart=null;
+function renderClassSizeVsPerf(){
+  const term=document.getElementById('classsize-term-sel')?.value||'all';
+  const data=term==='all'?allData:allData.filter(r=>getRecordTerm(r)===term);
+  const grades=getUniqueGrades();
+  const points=grades.map(g=>{
+    const recs=data.filter(r=>gShort(r['Grade'])===g);
+    const vals=recs.map(r=>parseFloat(calcStats(r).avg)).filter(x=>!isNaN(x));
+    if(!vals.length) return null;
+    return {x:recs.length, y:parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1)), label:g};
+  }).filter(Boolean);
+  const ctx=document.getElementById('classsize-chart').getContext('2d');
+  if(_classSizeChart) _classSizeChart.destroy();
+  _classSizeChart=new Chart(ctx,{
+    type:'bubble',
+    data:{datasets:[{
+      label:'Grade',
+      data:points.map(p=>({x:p.x,y:p.y,r:8,label:p.label})),
+      backgroundColor:points.map(p=>p.y>=75?'rgba(39,174,96,.7)':p.y>=58?'rgba(243,156,18,.7)':p.y>=41?'rgba(230,126,34,.7)':'rgba(231,76,60,.7)'),
+      borderWidth:0
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${c.raw.label}: ${c.raw.x} students, avg ${c.raw.y}%`}}
+      },
+      scales:{
+        x:{title:{display:true,text:'Number of Students',color:'#7aaec9',font:{size:11}},grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7aaec9'}},
+        y:{title:{display:true,text:'Average Score (%)',color:'#7aaec9',font:{size:11}},grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7aaec9'},min:0,max:100}
+      }
+    }
+  });
+}
+window.renderClassSizeVsPerf=renderClassSizeVsPerf;
+
+/* ══════════════════════════════════════════
+   FEATURE: COMPARE TERMS MODAL
+══════════════════════════════════════════ */
+function openCompareResultsModal(){
+  // Populate student selector (unique names)
+  const sel=document.getElementById('cr-student-sel');
+  const terms=getUniqueTerms();
+  const first=sel.options[0]; sel.innerHTML=''; sel.appendChild(first);
+  const names=[...new Set(allData.map(r=>r['Official Student Name']).filter(Boolean))].sort();
+  names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+  ['cr-term-a','cr-term-b'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const f=el.options[0]; el.innerHTML=''; el.appendChild(f);
+    terms.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;el.appendChild(o);});
+  });
+  document.getElementById('compare-results-modal').classList.add('on');
+}
+window.openCompareResultsModal=openCompareResultsModal;
+
+function closeCompareResultsModal(){
+  document.getElementById('compare-results-modal').classList.remove('on');
+}
+window.closeCompareResultsModal=closeCompareResultsModal;
+
+function runCompareResults(){
+  const name  = document.getElementById('cr-student-sel').value;
+  const termA = document.getElementById('cr-term-a').value;
+  const termB = document.getElementById('cr-term-b').value;
+  const area  = document.getElementById('cr-result-area');
+  if(!name||!termA||!termB){ area.innerHTML='<span style="color:var(--text3)">Select a student and two terms.</span>'; return; }
+  if(termA===termB){ area.innerHTML='<span style="color:var(--orange)">Pick two different terms.</span>'; return; }
+  const recA=allData.find(r=>r['Official Student Name']===name && getRecordTerm(r)===termA);
+  const recB=allData.find(r=>r['Official Student Name']===name && getRecordTerm(r)===termB);
+  if(!recA&&!recB){ area.innerHTML='<span style="color:var(--red)">No records found for either term.</span>'; return; }
+  const allSubjects=[...new Set([...(recA?getSubjects(recA):[]),...(recB?getSubjects(recB):[])])].sort();
+  const stA=recA?calcStats(recA):null;
+  const stB=recB?calcStats(recB):null;
+  const diffRow=(a,b)=>{
+    if(a==null&&b==null) return '<span style="color:var(--text3)">—</span>';
+    if(a==null) return `<span style="color:var(--orange)">N/A → ${b}</span>`;
+    if(b==null) return `<span style="color:var(--orange)">${a} → N/A</span>`;
+    const d=parseFloat(b)-parseFloat(a);
+    const col=d>0?'var(--green)':d<0?'var(--red)':'var(--text3)';
+    const arrow=d>0?'▲':d<0?'▼':'=';
+    return `<span style="color:${col};font-weight:700">${arrow} ${Math.abs(d).toFixed(1)}</span>`;
+  };
+  const scoreCell=(rec,subj)=>{
+    if(!rec) return '<td style="color:var(--text3);text-align:center">—</td>';
+    const v=rec[subj]; const n=parseFloat(v);
+    if(isNaN(n)) return '<td style="color:var(--text3);text-align:center">—</td>';
+    const g=gradeInfo(n);
+    return `<td style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;color:${barColor(n)}">${n} <span style="font-size:9px;color:var(--text3)">${g.level}</span></td>`;
+  };
+  area.innerHTML=`
+    <div style="overflow-x:auto">
+    <table class="data-table" style="font-size:12px">
+      <thead><tr>
+        <th>Subject</th>
+        <th style="text-align:center">${termA}</th>
+        <th style="text-align:center">${termB}</th>
+        <th style="text-align:center">Change</th>
+      </tr></thead>
+      <tbody>
+        ${allSubjects.map(s=>`<tr>
+          <td style="font-weight:600">${s}</td>
+          ${scoreCell(recA,s)}
+          ${scoreCell(recB,s)}
+          <td style="text-align:center">${(()=>{
+            const a=recA?parseFloat(recA[s]):null;
+            const b=recB?parseFloat(recB[s]):null;
+            return diffRow(isNaN(a)?null:a.toFixed(1), isNaN(b)?null:b.toFixed(1));
+          })()}</td>
+        </tr>`).join('')}
+        <tr style="border-top:2px solid var(--border-strong);font-weight:800">
+          <td>OVERALL AVG</td>
+          <td style="text-align:center;font-family:'JetBrains Mono',monospace;color:${stA?barColor(stA.avg):'var(--text3)'}">${stA?stA.avg+'%':' —'}</td>
+          <td style="text-align:center;font-family:'JetBrains Mono',monospace;color:${stB?barColor(stB.avg):'var(--text3)'}">${stB?stB.avg+'%':'—'}</td>
+          <td style="text-align:center">${stA&&stB?diffRow(stA.avg,stB.avg):'—'}</td>
+        </tr>
+        <tr>
+          <td>LEVEL</td>
+          <td style="text-align:center">${stA?`<span style="font-weight:800;color:var(--text)">${stA.level}</span>`:'—'}</td>
+          <td style="text-align:center">${stB?`<span style="font-weight:800;color:var(--text)">${stB.level}</span>`:'—'}</td>
+          <td style="text-align:center;color:var(--text3);font-size:10px">${stA&&stB&&stA.level!==stB.level?'Changed':'—'}</td>
+        </tr>
+        <tr>
+          <td>POSITION</td>
+          <td style="text-align:center">${recA?getComputedPosition(recA):'—'}</td>
+          <td style="text-align:center">${recB?getComputedPosition(recB):'—'}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>`;
+}
+window.runCompareResults=runCompareResults;
+
+/* ══════════════════════════════════════════
+   FEATURE: DUPLICATE STUDENT DETECTOR
+══════════════════════════════════════════ */
+function renderDuplicates(){
+  const byUPI={}, byName={};
+  allData.forEach(r=>{
+    const upi=(r['UPI']||'').trim().toLowerCase();
+    const name=(r['Official Student Name']||'').trim().toLowerCase().replace(/\s+/g,' ');
+    if(upi){ if(!byUPI[upi]) byUPI[upi]=[]; byUPI[upi].push(r); }
+    if(name){ if(!byName[name]) byName[name]=[]; byName[name].push(r); }
+  });
+  const upiGroups=Object.values(byUPI).filter(g=>g.length>1);
+  const nameGroups=Object.values(byName).filter(g=>g.length>1);
+  // Merge — avoid showing a group in both if same records
+  const seen=new Set();
+  const groups=[];
+  upiGroups.forEach(g=>{ const k=g.map(r=>r.id).sort().join(','); if(!seen.has(k)){seen.add(k);groups.push({type:'UPI',recs:g});} });
+  nameGroups.forEach(g=>{ const k=g.map(r=>r.id).sort().join(','); if(!seen.has(k)){seen.add(k);groups.push({type:'Name',recs:g});} });
+
+  const affectedRecs=new Set(groups.flatMap(g=>g.recs.map(r=>r.id)));
+  document.getElementById('dup-kpi-groups').textContent=groups.length;
+  document.getElementById('dup-kpi-records').textContent=affectedRecs.size;
+  document.getElementById('dup-kpi-byupi').textContent=upiGroups.length;
+  document.getElementById('dup-kpi-byname').textContent=nameGroups.length;
+
+  const badge=document.getElementById('nav-dup-count');
+  if(badge){ badge.textContent=groups.length; badge.style.display=groups.length?'':'none'; }
+
+  const tbody=document.getElementById('dup-tbody');
+  if(!groups.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">✅ No duplicates found.</td></tr>';
+    return;
+  }
+  let rowNum=0;
+  tbody.innerHTML=groups.map((g,gi)=>{
+    const bgRow=gi%2?'background:rgba(255,255,255,.02)':'';
+    const typeColor=g.type==='UPI'?'var(--red)':'var(--orange)';
+    return g.recs.map((r,ri)=>{
+      rowNum++;
+      const st=calcStats(r);
+      const ini=(r['Official Student Name']||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2);
+      const avId=`dup-av-${gi}-${ri}`;
+      return `<tr style="${bgRow}">
+        ${ri===0?`<td rowspan="${g.recs.length}" style="font-weight:800;color:${typeColor};text-align:center;border-right:2px solid var(--border)">${gi+1}</td>`:''}
+        ${ri===0?`<td rowspan="${g.recs.length}" style="text-align:center"><span style="background:${typeColor};color:#fff;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700">${g.type}</span></td>`:''}
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
+          <div>
+            <div style="font-size:12px;font-weight:700">${r['Official Student Name']||'—'}</div>
+            <div style="font-size:10px;color:var(--text3)">UPI: ${r['UPI']||'N/A'}</div>
+          </div>
+        </div></td>
+        <td style="font-size:11px">${r['Assessment No']||'—'}</td>
+        <td style="font-size:10px;max-width:150px;word-break:break-word">${r['Grade']||'—'}</td>
+        <td style="font-size:11px">${getRecordTerm(r)}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${barColor(st.avg)}">${st.avg}%</td>
+        <td><button class="btn btn-blue btn-xs" onclick="openRecordsModal('${r.id}')">📋</button></td>
+      </tr>`;
+    }).join('');
+  }).join('');
+  groups.forEach((g,gi)=>g.recs.forEach((r,ri)=>injectPhoto(`dup-av-${gi}-${ri}`,r['Official Student Name']||'',r['Grade']||'',r.id||'')));
+}
+window.renderDuplicates=renderDuplicates;
+
+function exportDuplicatesCSV(){
+  const tbody=document.getElementById('dup-tbody');
+  if(!tbody||tbody.querySelector('[colspan]')){notify('No duplicates to export.','warn');return;}
+  // Re-build data from allData
+  const byUPI={},byName={};
+  allData.forEach(r=>{
+    const upi=(r['UPI']||'').trim().toLowerCase();
+    const name=(r['Official Student Name']||'').trim().toLowerCase().replace(/\s+/g,' ');
+    if(upi){if(!byUPI[upi])byUPI[upi]=[];byUPI[upi].push(r);}
+    if(name){if(!byName[name])byName[name]=[];byName[name].push(r);}
+  });
+  const seen=new Set(); const groups=[];
+  Object.values(byUPI).filter(g=>g.length>1).forEach(g=>{const k=g.map(r=>r.id).sort().join(',');if(!seen.has(k)){seen.add(k);groups.push({type:'UPI',recs:g});}});
+  Object.values(byName).filter(g=>g.length>1).forEach(g=>{const k=g.map(r=>r.id).sort().join(',');if(!seen.has(k)){seen.add(k);groups.push({type:'Name',recs:g});}});
+  let csv='Group,Match Type,Student Name,UPI,Adm No,Grade,Term,Average\n';
+  groups.forEach((g,gi)=>g.recs.forEach(r=>{
+    const st=calcStats(r);
+    csv+=`${gi+1},${g.type},"${r['Official Student Name']||''}",${r['UPI']||''},${r['Assessment No']||''},"${r['Grade']||''}",${getRecordTerm(r)},${st.avg}\n`;
+  }));
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='duplicates-report.csv'; a.click();
+  URL.revokeObjectURL(url);
+  notify('📥 Duplicates CSV exported.','success');
+}
+window.exportDuplicatesCSV=exportDuplicatesCSV;
+
+/* ══════════════════════════════════════════
+   FEATURE: AUTO POSITION RECALCULATOR
+   Groups by Grade field (grade+term+exam),
+   ranks by average, writes back to Firebase
+══════════════════════════════════════════ */
+async function recalcPositions(){
+  if(!isAdvancedAdmin){ notify('⛔ Advanced Admin only.','error'); return; }
+  const grade=document.getElementById('results-grade-sel')?.value||'';
+  const term=document.getElementById('results-term-sel')?.value||'';
+  let scope=allData;
+  if(grade) scope=scope.filter(r=>gShort(r['Grade'])===grade);
+  if(term)  scope=scope.filter(r=>getRecordTerm(r)===term);
+  if(!scope.length){ notify('No records in current filter.','warn'); return; }
+
+  const confirmed=await new Promise(res=>{
+    if(typeof showConfirm==='function'){
+      showConfirm(`Recalculate and write positions for ${scope.length} records (${grade||'all grades'} / ${term||'all terms'})?`, res);
+    } else {
+      res(window.confirm(`Recalculate and write positions for ${scope.length} records?`));
+    }
+  });
+  if(!confirmed) return;
+
+  notify('⏳ Recalculating positions…','info',60000);
+
+  // Group by Grade field value (unique grade+term+exam key)
+  const groups={};
+  scope.forEach(r=>{ const k=r['Grade']||''; if(!groups[k]) groups[k]=[]; groups[k].push(r); });
+
+  let writeCount=0, errorCount=0;
+  const updates={};
+  Object.values(groups).forEach(grp=>{
+    const ranked=[...grp]
+      .map(r=>({r, avg:parseFloat(calcStats(r).avg)}))
+      .filter(x=>!isNaN(x.avg))
+      .sort((a,b)=>b.avg-a.avg);
+    let pos=1;
+    ranked.forEach((item,i)=>{
+      if(i>0 && item.avg<ranked[i-1].avg) pos=i+1;
+      updates[`${DB_PATH}/${item.r.id}/Position`]=`${pos}/${ranked.length}`;
+      // Also update in-memory
+      item.r['Position']=`${pos}/${ranked.length}`;
+      writeCount++;
+    });
+  });
+
+  try{
+    await update(ref(db,'/'),updates);
+    notify(`✅ Positions recalculated and saved for ${writeCount} students.`,'success',5000);
+    filterResults();
+  } catch(e){
+    notify('❌ Firebase write failed: '+e.message,'error',6000);
+  }
+}
+window.recalcPositions=recalcPositions;
+
+/* ══════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════ */
 const views={'dashboard':'Overview & Analytics','students':'Manage Students','results':'Results & Grades','analytics':'Deep Analytics','reports':'Report Cards & Export','announcements':'School Announcements','settings':'Portal Settings','auditlog':'Full Admin Audit Trail'};
@@ -7355,8 +7906,8 @@ function navTo(view,el){
   const viewEl=document.getElementById('view-'+view);
   if(viewEl)viewEl.classList.add('active');
   if(el)el.classList.add('active');
-  const crumbs={dashboard:'Overview & Analytics',students:'Student Directory',results:'Results & Grades',analytics:'Charts & Insights',atrisk:'Students Below 41%',reports:'Report Cards & Export',import:'CSV / Excel Import',announcements:'School Notices',messages:'Chat with teachers & staff',settings:'Portal Configuration',auditlog:'Full Admin Audit Trail',profile:'Edit Your Profile & Password'};
-  const titles={dashboard:'Dashboard',students:'Students',results:'Results',analytics:'Analytics',atrisk:'At-Risk Students',reports:'Report Cards',import:'Import Data',announcements:'Announcements',messages:'Messages',settings:'Settings',auditlog:'Audit Log',profile:'My Profile'};
+  const crumbs={dashboard:'Overview & Analytics',students:'Student Directory',results:'Results & Grades',analytics:'Charts & Insights',atrisk:'Students Below 41%',dataquality:'Missing marks & score outlier detection',duplicates:'Same name or UPI across records',reports:'Report Cards & Export',import:'CSV / Excel Import',announcements:'School Notices',messages:'Chat with teachers & staff',settings:'Portal Configuration',auditlog:'Full Admin Audit Trail',profile:'Edit Your Profile & Password'};
+  const titles={dashboard:'Dashboard',students:'Students',results:'Results',analytics:'Analytics',atrisk:'At-Risk Students',dataquality:'Data Quality',duplicates:'Duplicates',reports:'Report Cards',import:'Import Data',announcements:'Announcements',messages:'Messages',settings:'Settings',auditlog:'Audit Log',profile:'My Profile'};
   if(document.getElementById('topbar-title'))document.getElementById('topbar-title').textContent=titles[view]||view;
   if(view==='profile') profLoadInfo();
   if(document.getElementById('topbar-crumb'))document.getElementById('topbar-crumb').textContent=crumbs[view]||'';
@@ -7366,6 +7917,8 @@ function navTo(view,el){
   if(view==='auditlog') renderAuditView();
   if(view==='reports') setTimeout(_bridgeReportCardSystem, 50);
   if(view==='messages') msgInit();
+  if(view==='dataquality') renderDataQuality();
+  if(view==='duplicates') renderDuplicates();
   if(window.innerWidth<768) closeSidebar();
 }
 window.navTo=navTo;
@@ -9021,6 +9574,232 @@ function renderAtRisk(){
     injectPhoto('ar-av-'+i, name, grade, worst.id||'');
   });
 }
+/* ══════════════════════════════════════════
+   DATA QUALITY
+   1. Missing marks detector
+   2. Score outlier flag
+══════════════════════════════════════════ */
+
+let _dqCurrentTab = 'missing';
+let _dqMissingRows = [];
+let _dqOutlierRows = [];
+
+function switchDQTab(tab){
+  _dqCurrentTab = tab;
+  document.getElementById('dq-panel-missing').style.display = tab==='missing'?'':'none';
+  document.getElementById('dq-panel-outlier').style.display  = tab==='outlier' ?'':'none';
+  document.querySelectorAll('.dq-tab-btn').forEach(b=>b.classList.remove('active','btn-outline'));
+  const active = document.getElementById('dq-tab-'+tab);
+  const other  = document.getElementById('dq-tab-'+(tab==='missing'?'outlier':'missing'));
+  if(active){ active.classList.add('active'); active.classList.remove('btn-outline'); }
+  if(other){  other.classList.remove('active'); other.classList.add('btn-outline'); }
+}
+
+function renderDataQuality(){
+  const grade = document.getElementById('dq-grade-sel')?.value||'all';
+  const term  = document.getElementById('dq-term-sel')?.value||'all';
+
+  let data = allData.filter(r=>{
+    if(grade!=='all' && gShort(r['Grade'])!==grade) return false;
+    if(term!=='all'  && getRecordTerm(r)!==term)    return false;
+    return true;
+  });
+
+  // ── 1. MISSING MARKS ────────────────────────────────────────────────
+  // Find the union of all subjects for the filtered scope
+  const allSubjectsInScope = new Set();
+  data.forEach(r=>getSubjects(r).forEach(s=>allSubjectsInScope.add(s)));
+
+  // A record has a "missing" subject if any subject in the scope is blank/non-numeric for that record
+  _dqMissingRows = [];
+  data.forEach(r=>{
+    const presentSubjects = new Set(getSubjects(r));
+    // find subjects known in the same grade that this record is missing
+    const gradeSubjects = new Set();
+    allData.filter(x=>x['Grade']===r['Grade']).forEach(x=>getSubjects(x).forEach(s=>gradeSubjects.add(s)));
+
+    const missing = [...gradeSubjects].filter(s=>{
+      const v = r[s];
+      return v===undefined||v===null||v===''||isNaN(parseFloat(v));
+    });
+    if(missing.length>0) _dqMissingRows.push({rec:r, missing, entered:presentSubjects.size, total:gradeSubjects.size});
+  });
+
+  // ── 2. OUTLIER DETECTION ────────────────────────────────────────────
+  // Per-subject class average for each grade+term group
+  const groupMap = {};
+  data.forEach(r=>{
+    const key = (r['Grade']||'') + '||' + getRecordTerm(r);
+    if(!groupMap[key]) groupMap[key]={recs:[]};
+    groupMap[key].recs.push(r);
+  });
+
+  // Build per-subject stats per group
+  const subjectStats = {}; // key -> subject -> {mean, stddev}
+  Object.entries(groupMap).forEach(([key,{recs}])=>{
+    subjectStats[key]={};
+    const groupSubjects = new Set();
+    recs.forEach(r=>getSubjects(r).forEach(s=>groupSubjects.add(s)));
+    groupSubjects.forEach(s=>{
+      const vals = recs.map(r=>parseFloat(r[s])).filter(x=>!isNaN(x));
+      if(vals.length<2) return;
+      const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+      const std  = Math.sqrt(vals.map(v=>(v-mean)**2).reduce((a,b)=>a+b,0)/vals.length);
+      subjectStats[key][s]={mean, std};
+    });
+  });
+
+  _dqOutlierRows = [];
+  const SCORE_THRESHOLD = 30; // ≥30 pts from class mean = flag
+
+  data.forEach(r=>{
+    const key = (r['Grade']||'') + '||' + getRecordTerm(r);
+    const stats = subjectStats[key]||{};
+    getSubjects(r).forEach(s=>{
+      const score = parseFloat(r[s]);
+      if(isNaN(score)) return;
+      const st = stats[s];
+      if(!st) return;
+      const diff = score - st.mean;
+      if(Math.abs(diff) >= SCORE_THRESHOLD){
+        _dqOutlierRows.push({
+          rec:r, subject:s, score,
+          mean:st.mean.toFixed(1), diff:diff.toFixed(1),
+          type: diff>0 ? 'high' : 'low'
+        });
+      }
+    });
+  });
+
+  // ── RENDER KPIs ─────────────────────────────────────────────────────
+  const affectedIds = new Set([
+    ..._dqMissingRows.map(x=>x.rec.id||x.rec['Official Student Name']),
+    ..._dqOutlierRows.map(x=>x.rec.id||x.rec['Official Student Name'])
+  ]);
+  const totalIssues  = _dqMissingRows.length + _dqOutlierRows.length;
+  const cleanCount   = data.length - affectedIds.size;
+
+  document.getElementById('dq-kpi-missing').textContent  = _dqMissingRows.length;
+  document.getElementById('dq-kpi-outlier').textContent  = _dqOutlierRows.length;
+  document.getElementById('dq-kpi-affected').textContent = affectedIds.size;
+  document.getElementById('dq-kpi-clean').textContent    = Math.max(0,cleanCount);
+
+  // Nav badge
+  const badge = document.getElementById('nav-dq-count');
+  if(badge){
+    badge.textContent = totalIssues;
+    badge.style.display = totalIssues>0 ? '' : 'none';
+  }
+
+  // ── RENDER MISSING TABLE ─────────────────────────────────────────────
+  const mTbody = document.getElementById('dq-missing-tbody');
+  if(!_dqMissingRows.length){
+    mTbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--green)">✅ No missing marks found for this selection.</td></tr>';
+  } else {
+    mTbody.innerHTML = _dqMissingRows.map(({rec,missing,entered,total},i)=>{
+      const name = rec['Official Student Name']||'—';
+      const ini  = name.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
+      const avId = 'dq-av-m-'+i;
+      const missingChips = missing.map(s=>`<span style="display:inline-block;background:rgba(231,76,60,.13);color:var(--red);border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:1px 7px;font-size:10px;margin:1px">${s}</span>`).join('');
+      return `<tr>
+        <td>${i+1}</td>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text)">${name}</div>
+            <div style="font-size:10px;color:var(--text3)">UPI: ${rec['UPI']||'N/A'}</div>
+          </div>
+        </div></td>
+        <td>${rec['Assessment No']||'—'}</td>
+        <td style="font-size:10px;max-width:160px;word-break:break-word">${rec['Grade']||'—'} / ${getRecordTerm(rec)}</td>
+        <td>${missingChips}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text2)">${entered}/${total}</td>
+        <td><div style="display:flex;gap:5px">
+          <button class="btn btn-blue btn-xs" onclick="openRecordsModal('${rec.id}')">📋 Records</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    _dqMissingRows.forEach(({rec},i)=>injectPhoto('dq-av-m-'+i, rec['Official Student Name']||'', rec['Grade']||'', rec.id||''));
+  }
+
+  // ── RENDER OUTLIER TABLE ─────────────────────────────────────────────
+  const oTbody = document.getElementById('dq-outlier-tbody');
+  if(!_dqOutlierRows.length){
+    oTbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">✅ No score outliers detected for this selection.</td></tr>';
+  } else {
+    // Sort: biggest deviation first
+    const sorted = [..._dqOutlierRows].sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+    oTbody.innerHTML = sorted.map(({rec,subject,score,mean,diff,type},i)=>{
+      const name  = rec['Official Student Name']||'—';
+      const ini   = name.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
+      const avId  = 'dq-av-o-'+i;
+      const color = type==='high' ? 'var(--orange)' : 'var(--red)';
+      const icon  = type==='high' ? '📈' : '📉';
+      const diffDisplay = (parseFloat(diff)>0?'+':'')+diff;
+      return `<tr>
+        <td>${i+1}</td>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text)">${name}</div>
+            <div style="font-size:10px;color:var(--text3)">UPI: ${rec['UPI']||'N/A'}</div>
+          </div>
+        </div></td>
+        <td>${rec['Assessment No']||'—'}</td>
+        <td style="font-size:10px;max-width:140px;word-break:break-word">${rec['Grade']||'—'} / ${getRecordTerm(rec)}</td>
+        <td style="font-size:11px;color:var(--text2)">${icon} <strong>${subject}</strong></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:800;color:${color}">${score}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${color}">${diffDisplay} (class avg ${mean})</td>
+        <td><div style="display:flex;gap:5px">
+          <button class="btn btn-blue btn-xs" onclick="openRecordsModal('${rec.id}')">📋 Records</button>
+          <button class="btn btn-outline btn-xs" onclick="openProgressModal('${rec.id}')">📈</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    sorted.forEach(({rec},i)=>injectPhoto('dq-av-o-'+i, rec['Official Student Name']||'', rec['Grade']||'', rec.id||''));
+  }
+}
+window.renderDataQuality = renderDataQuality;
+
+function exportDQReport(){
+  const tab = _dqCurrentTab;
+  const rows = tab==='missing' ? _dqMissingRows : _dqOutlierRows;
+  if(!rows.length) return notify('No issues to export for current tab.','warn');
+
+  let csv;
+  if(tab==='missing'){
+    csv = 'Student Name,UPI,Adm No,Grade,Term,Missing Subjects,Entered/Total\n';
+    csv += _dqMissingRows.map(({rec,missing,entered,total})=>[
+      `"${rec['Official Student Name']||''}"`,
+      rec['UPI']||'',
+      rec['Assessment No']||'',
+      `"${rec['Grade']||''}"`,
+      getRecordTerm(rec),
+      `"${missing.join(', ')}"`,
+      `${entered}/${total}`
+    ].join(',')).join('\n');
+  } else {
+    csv = 'Student Name,UPI,Adm No,Grade,Term,Subject,Score,Class Avg,Difference\n';
+    csv += _dqOutlierRows.map(({rec,subject,score,mean,diff})=>[
+      `"${rec['Official Student Name']||''}"`,
+      rec['UPI']||'',
+      rec['Assessment No']||'',
+      `"${rec['Grade']||''}"`,
+      getRecordTerm(rec),
+      `"${subject}"`,
+      score, mean, diff
+    ].join(',')).join('\n');
+  }
+
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`DQ-${tab}-report.csv`; a.click();
+  URL.revokeObjectURL(url);
+  notify('📥 CSV exported.','success');
+}
+window.exportDQReport = exportDQReport;
+
 window.renderAtRisk=renderAtRisk;
 
 function exportAtRiskCSV(){
