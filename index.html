@@ -2101,7 +2101,6 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div id="subject-ranking"></div>
           </div>
         </div>
-      </div>
 
         <!-- ══ NEW ANALYTICS CARDS ══ -->
         <!-- Subject Difficulty Ranking -->
@@ -2132,8 +2131,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div class="chart-box"><canvas id="classsize-chart"></canvas></div>
           </div>
         </div>
-
-      <!-- ══ END NEW ANALYTICS ══ -->
+        <!-- ══ END NEW ANALYTICS ══ -->
+      </div>
 
       <!-- ══════ REPORTS VIEW ══════ -->
       <div class="view" id="view-reports">
@@ -2626,29 +2625,19 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           </div>
         </div>
         <div class="kpi-grid" style="margin-bottom:18px">
-          <div class="kpi-card" style="--accent-glow:rgba(231,76,60,.1)">
-            <div class="kpi-icon">🔴</div>
-            <div class="kpi-val" id="dup-kpi-groups" style="color:var(--red)">—</div>
-            <div class="kpi-label">Duplicate Groups</div>
+          <div class="kpi-card" style="--accent-glow:rgba(192,57,43,.15)">
+            <div class="kpi-icon">⛔</div>
+            <div class="kpi-val" id="dup-kpi-groups" style="color:var(--red-dk)">—</div>
+            <div class="kpi-label">Exact Match Groups (UPI+Name+Grade)</div>
           </div>
           <div class="kpi-card" style="--accent-glow:rgba(230,126,34,.1)">
             <div class="kpi-icon">📋</div>
             <div class="kpi-val" id="dup-kpi-records" style="color:var(--orange)">—</div>
             <div class="kpi-label">Affected Records</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-icon">🔑</div>
-            <div class="kpi-val" id="dup-kpi-byupi" style="color:var(--text)">—</div>
-            <div class="kpi-label">Same UPI</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon">✏️</div>
-            <div class="kpi-val" id="dup-kpi-byname" style="color:var(--text)">—</div>
-            <div class="kpi-label">Same Name</div>
-          </div>
         </div>
         <div class="card" style="margin-bottom:14px;padding:12px 16px;font-size:12px;color:var(--text2);line-height:1.7;background:rgba(231,76,60,.05);border:1px solid rgba(231,76,60,.18)">
-          🔍 Detects records sharing the same <strong>UPI number</strong> or the same <strong>student name</strong> across different grades or terms. Review each group carefully — some may be legitimate (same student re-enrolled) while others may be true data entry errors.
+          🔍 Detects records where the <strong>UPI number</strong>, <strong>student name</strong>, and <strong>grade</strong> all match at once — the highest-confidence sign of a true duplicate. Review each group carefully — some may be legitimate (same student re-enrolled) while others may be true data entry errors.
         </div>
         <div class="table-wrap">
           <table class="data-table">
@@ -3131,7 +3120,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div class="help-item" data-kw="duplicates same name upi merge">
           <div class="help-item-hdr" onclick="toggleHelpItem(this)"><span class="hi-icon">👥</span><span class="hi-title">Duplicates</span><span class="hi-chev">▾</span></div>
           <div class="help-item-body"><div class="help-item-body-inner">
-            Finds students who may have been entered twice (same name or UPI number appearing in more than one record), so you can review and merge or delete the extra one.
+            Finds students who may have been entered twice — flags a record only when the UPI number, student name, and grade all match another record exactly.
           </div></div>
         </div>
         <div class="help-item" data-kw="grading system cbc grade points scale">
@@ -7222,10 +7211,10 @@ function renderStudentsTable(){
       <td id="rec-pos-${r.id}">${getComputedPosition(r)}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:5px;align-items:center">
-          ${isTermLocked(r)?'<span title="Term is locked" style="font-size:13px">🔒</span>':''}
+          <span id="rec-lockicon-${r.id}" title="Term is locked" style="font-size:13px;${isTermLocked(r)?'':'display:none'}">🔒</span>
           <button class="btn btn-blue btn-xs" id="rec-view-${r.id}" onclick="viewStudent('${r.id}')">👁 View</button>
           <button class="btn btn-outline btn-xs" id="rec-edit-${r.id}" onclick="editStudent('${r.id}')" ${isTermLocked(r)?'disabled title="Term locked — go to Settings to unlock" style=\"opacity:.4;cursor:not-allowed\"':''}>✏️</button>
-          <button class="btn btn-red btn-xs" onclick="deleteStudent('${r.id}')" ${isTermLocked(r)?'disabled title="Term locked" style=\"opacity:.4;cursor:not-allowed\"':''}>🗑</button>
+          <button class="btn btn-red btn-xs" id="rec-del-${r.id}" onclick="deleteStudent('${r.id}')" ${isTermLocked(r)?'disabled title="Term locked" style=\"opacity:.4;cursor:not-allowed\"':''}>🗑</button>
         </div>
       </td>
     </tr>`;
@@ -7367,10 +7356,27 @@ function switchStudentRecord(masterId, idx){
 
   entry.id = rec.id;
 
+  const locked = isTermLocked(rec);
   const viewBtn = document.getElementById('rec-view-'+masterId);
   const editBtn = document.getElementById('rec-edit-'+masterId);
+  const delBtn  = document.getElementById('rec-del-'+masterId);
+  const lockIcon= document.getElementById('rec-lockicon-'+masterId);
   if(viewBtn) viewBtn.setAttribute('onclick', `viewStudent('${rec.id}')`);
-  if(editBtn) editBtn.setAttribute('onclick', `editStudent('${rec.id}')`);
+  if(editBtn){
+    editBtn.setAttribute('onclick', `editStudent('${rec.id}')`);
+    editBtn.disabled = locked;
+    editBtn.title = locked ? 'Term locked — go to Settings to unlock' : '';
+    editBtn.style.opacity = locked ? '.4' : '';
+    editBtn.style.cursor = locked ? 'not-allowed' : '';
+  }
+  if(delBtn){
+    delBtn.setAttribute('onclick', `deleteStudent('${rec.id}')`);
+    delBtn.disabled = locked;
+    delBtn.title = locked ? 'Term locked' : '';
+    delBtn.style.opacity = locked ? '.4' : '';
+    delBtn.style.cursor = locked ? 'not-allowed' : '';
+  }
+  if(lockIcon) lockIcon.style.display = locked ? '' : 'none';
 
   const st = calcStats(rec);
   const color = barColor(st.avg);
@@ -7467,6 +7473,11 @@ window.openAddStudentModal=openAddStudentModal;
 function editStudent(id){
   const rec=allData.find(r=>r.id===id);
   if(!rec) return;
+  // ── Lock guard — blocks ALL entry points (row button, records modal, switched record), not just the row UI state ──
+  if(isTermLocked(rec)){
+    notify(`🔒 "${_termLockLabel(rec)}" is locked. Ask an Advanced Admin to unlock it in Settings before editing.`,'error',5000);
+    return;
+  }
   editingKey=id;
   document.getElementById('edit-modal-title').textContent='Edit Student Record';
   document.getElementById('edit-name').value=rec['Official Student Name']||'';
@@ -8022,26 +8033,21 @@ window.runCompareResults=runCompareResults;
    FEATURE: DUPLICATE STUDENT DETECTOR
 ══════════════════════════════════════════ */
 function renderDuplicates(){
-  const byUPI={}, byName={};
+  const byAll={};
   allData.forEach(r=>{
     const upi=(r['UPI']||'').trim().toLowerCase();
     const name=(r['Official Student Name']||'').trim().toLowerCase().replace(/\s+/g,' ');
-    if(upi){ if(!byUPI[upi]) byUPI[upi]=[]; byUPI[upi].push(r); }
-    if(name){ if(!byName[name]) byName[name]=[]; byName[name].push(r); }
+    const grade=(r['Grade']||'').trim().toLowerCase().replace(/\s+/g,' ');
+    if(upi&&name&&grade){ const k=upi+'|'+name+'|'+grade; if(!byAll[k]) byAll[k]=[]; byAll[k].push(r); }
   });
-  const upiGroups=Object.values(byUPI).filter(g=>g.length>1);
-  const nameGroups=Object.values(byName).filter(g=>g.length>1);
-  // Merge — avoid showing a group in both if same records
+  const allGroups=Object.values(byAll).filter(g=>g.length>1);
   const seen=new Set();
   const groups=[];
-  upiGroups.forEach(g=>{ const k=g.map(r=>r.id).sort().join(','); if(!seen.has(k)){seen.add(k);groups.push({type:'UPI',recs:g});} });
-  nameGroups.forEach(g=>{ const k=g.map(r=>r.id).sort().join(','); if(!seen.has(k)){seen.add(k);groups.push({type:'Name',recs:g});} });
+  allGroups.forEach(g=>{ const k=g.map(r=>r.id).sort().join(','); if(!seen.has(k)){seen.add(k);groups.push({type:'UPI+Name+Grade',recs:g});} });
 
   const affectedRecs=new Set(groups.flatMap(g=>g.recs.map(r=>r.id)));
   document.getElementById('dup-kpi-groups').textContent=groups.length;
   document.getElementById('dup-kpi-records').textContent=affectedRecs.size;
-  document.getElementById('dup-kpi-byupi').textContent=upiGroups.length;
-  document.getElementById('dup-kpi-byname').textContent=nameGroups.length;
 
   const badge=document.getElementById('nav-dup-count');
   if(badge){ badge.textContent=groups.length; badge.style.display=groups.length?'':'none'; }
@@ -8054,7 +8060,7 @@ function renderDuplicates(){
   let rowNum=0;
   tbody.innerHTML=groups.map((g,gi)=>{
     const bgRow=gi%2?'background:rgba(255,255,255,.02)':'';
-    const typeColor=g.type==='UPI'?'var(--red)':'var(--orange)';
+    const typeColor='var(--red-dk)';
     return g.recs.map((r,ri)=>{
       rowNum++;
       const st=calcStats(r);
@@ -8086,16 +8092,15 @@ function exportDuplicatesCSV(){
   const tbody=document.getElementById('dup-tbody');
   if(!tbody||tbody.querySelector('[colspan]')){notify('No duplicates to export.','warn');return;}
   // Re-build data from allData
-  const byUPI={},byName={};
+  const byAll={};
   allData.forEach(r=>{
     const upi=(r['UPI']||'').trim().toLowerCase();
     const name=(r['Official Student Name']||'').trim().toLowerCase().replace(/\s+/g,' ');
-    if(upi){if(!byUPI[upi])byUPI[upi]=[];byUPI[upi].push(r);}
-    if(name){if(!byName[name])byName[name]=[];byName[name].push(r);}
+    const grade=(r['Grade']||'').trim().toLowerCase().replace(/\s+/g,' ');
+    if(upi&&name&&grade){const k=upi+'|'+name+'|'+grade;if(!byAll[k])byAll[k]=[];byAll[k].push(r);}
   });
   const seen=new Set(); const groups=[];
-  Object.values(byUPI).filter(g=>g.length>1).forEach(g=>{const k=g.map(r=>r.id).sort().join(',');if(!seen.has(k)){seen.add(k);groups.push({type:'UPI',recs:g});}});
-  Object.values(byName).filter(g=>g.length>1).forEach(g=>{const k=g.map(r=>r.id).sort().join(',');if(!seen.has(k)){seen.add(k);groups.push({type:'Name',recs:g});}});
+  Object.values(byAll).filter(g=>g.length>1).forEach(g=>{const k=g.map(r=>r.id).sort().join(',');if(!seen.has(k)){seen.add(k);groups.push({type:'UPI+Name+Grade',recs:g});}});
   let csv='Group,Match Type,Student Name,UPI,Adm No,Grade,Term,Average\n';
   groups.forEach((g,gi)=>g.recs.forEach(r=>{
     const st=calcStats(r);
@@ -9391,7 +9396,13 @@ function renderRecordContent(allRecs, idx){
 
   // Update footer button targets
   document.getElementById('rec-modal-view-btn').setAttribute('data-id', rec.id);
-  document.getElementById('rec-modal-edit-btn').setAttribute('data-id', rec.id);
+  const _modalEditBtn = document.getElementById('rec-modal-edit-btn');
+  _modalEditBtn.setAttribute('data-id', rec.id);
+  const _locked = isTermLocked(rec);
+  _modalEditBtn.disabled = _locked;
+  _modalEditBtn.title = _locked ? 'Term locked — go to Settings to unlock' : '';
+  _modalEditBtn.style.opacity = _locked ? '.4' : '';
+  _modalEditBtn.style.cursor = _locked ? 'not-allowed' : '';
 
   document.getElementById('rec-modal-content').innerHTML = `
     <!-- Raw DB identifier -->
