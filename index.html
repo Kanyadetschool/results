@@ -12387,7 +12387,7 @@ async function generateBulkReportCards() {
         const progressNotif = NotificationManager.info(
             `Generating <strong>${pool.length}</strong> single-term report cards (${gradeVal})...<br/>` +
             `<div style="width:100%;background:rgba(255,255,255,0.3);height:8px;border-radius:4px;margin-top:8px;">` +
-            `<div id="bulk-progress-single" style="width:0%;background:white;height:100%;border-radius:4px;transition:width 0.3s;"></div></div>`,
+            `<div id="bulk-progress" style="width:0%;background:white;height:100%;border-radius:4px;transition:width 0.3s;"></div></div>`,
             0
         );
         try {
@@ -12397,7 +12397,7 @@ async function generateBulkReportCards() {
             for (let i = 0; i < pool.length; i++) {
                 const student = pool[i];
                 const progress = ((i + 1) / pool.length * 100).toFixed(0);
-                const pb = document.getElementById('bulk-progress-single');
+                const pb = document.getElementById('bulk-progress');
                 if (pb) pb.style.width = `${progress}%`;
                 if (!isFirstPage) combinedDoc.addPage();
                 const tempDoc = await generateStudentReportCard(student, false);
@@ -12453,7 +12453,7 @@ async function generateBulkReportCards() {
     const progressNotif = NotificationManager.info(
         `Generating <strong>${mergedStudents.length}</strong> multi-term report cards (${termHeader})...<br/>` +
         `<div style="width:100%;background:rgba(255,255,255,0.3);height:8px;border-radius:4px;margin-top:8px;">` +
-        `<div id="bulk-progress-multi" style="width:0%;background:white;height:100%;border-radius:4px;transition:width 0.3s;"></div></div>`,
+        `<div id="bulk-progress" style="width:0%;background:white;height:100%;border-radius:4px;transition:width 0.3s;"></div></div>`,
         0
     );
 
@@ -12466,7 +12466,7 @@ async function generateBulkReportCards() {
         for (let i = 0; i < mergedStudents.length; i++) {
             const ms = mergedStudents[i];
             const progress = ((i + 1) / mergedStudents.length * 100).toFixed(0);
-            const pb = document.getElementById('bulk-progress-multi');
+            const pb = document.getElementById('bulk-progress');
             if (pb) pb.style.width = `${progress}%`;
 
             if (!isFirstPage) combinedDoc.addPage();
