@@ -250,7 +250,7 @@ body::before{
 .grid-60-40{display:grid;grid-template-columns:60% 40%;gap:18px;min-width:0;}
 @media(max-width:1024px){.grid-60-40{grid-template-columns:1fr 1fr;}}
 @media(max-width:1200px){.grid-2,.grid-3{grid-template-columns:1fr;}}
-@media(max-width:1000px){.grid-2,.grid-3,.grid-60-40{grid-template-columns:1fr;}}
+@media(max-width:900px){.grid-2,.grid-3,.grid-60-40{grid-template-columns:1fr;}}
 @media(max-width:768px){.grid-2{grid-template-columns:1fr;}}
 
 /* ══════════════════════════════════════════
@@ -1302,7 +1302,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 .qlinks-toggle:hover{border-color:var(--border-strong);color:var(--text2);background:rgba(41,128,185,.05);}
 .qlinks-toggle .qt-arrow{font-size:10px;transition:transform .3s;}
 .qlinks-toggle.open .qt-arrow{transform:rotate(90deg);}
-.qlinks-panel{overflow:scroll;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
+.qlinks-panel{overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
 .qlinks-panel.open{max-height:400px;opacity:1;}
 .auth-qlink{
   display:flex;align-items:center;gap:9px;
@@ -1672,7 +1672,9 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <span class="qt-arrow">›</span>
       </button>
       <div class="qlinks-panel" id="quick-links-panel">
-   
+    <a href="./docs/CBC-Grading-System-Guide.docx" download="CBC-Grading-System-Guide.docx" class="auth-qlink auth-qlink-3">
+          <div class="auth-qlink-dot"></div>🏅 Grading System Guide (.docx)<span class="auth-qlink-arrow">⬇</span>
+        </a>
 
     <a href="./Report-Cards/Active-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
           <div class="auth-qlink-dot"></div>📄 Active students<span class="auth-qlink-arrow">→</span>
@@ -2476,8 +2478,18 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
               Lock a term to make all its records <strong>read-only</strong>. Locked terms cannot be edited or deleted by any user until an Advanced Admin unlocks them. Use this after sharing report cards with parents.
             </p>
-            <div id="term-lock-list" style="display:grid;gap:8px">
+            <div id="term-lock-list" style="display:grid;gap:8px;max-height:360px;overflow-y:auto;padding-right:4px">
               <p style="font-size:12px;color:var(--text3)">Loading terms…</p>
+            </div>
+          </div>
+
+          <div class="settings-section" id="pending-exams-section" style="display:none">
+            <h3>🕒 Pending Exams (Quick Entry)</h3>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
+              Exams published via Quick Entry's "Create New Exam / Term" that have <strong>zero score records yet</strong>. Fix a typo directly, or delete one that was created by mistake — these exams don't exist in the results database yet, so nothing else is affected.
+            </p>
+            <div id="pending-exams-list" style="display:grid;gap:8px">
+              <p style="font-size:12px;color:var(--text3)">Loading…</p>
             </div>
           </div>
 
@@ -2809,15 +2821,15 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
                 </select>
               </div>
               <div>
-                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Assessment Period Index.</label>
+                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Stream No.</label>
                 <input type="number" id="qe-ne-stream" class="sel" style="width:70px" value="1" min="1">
               </div>
               <div>
                 <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam Type</label>
                 <select id="qe-ne-examtype" class="sel" style="width:150px" onchange="_qeUpdateNewExamPreview()">
-                  <option value="Opener-">Opener</option>
-                  <option value="Mid-">Mid Term</option>
-                  <option value="End-">End Term</option>
+                  <option value="Opener">Opener</option>
+                  <option value="Mid Term">Mid Term</option>
+                  <option value="End Term">End Term</option>
                   <option value="CAT">CAT</option>
                   <option value="Holiday Assignment">Holiday Assignment</option>
                 </select>
@@ -6193,6 +6205,7 @@ function loadAllData(){
     onValue(ref(db, PENDING_EXAMS_PATH), (snap) => {
       _pendingExams = snap.val() || {};
       if(document.getElementById('view-quickentry')?.classList.contains('active')) _populateQuickEntrySelectors();
+      if(document.getElementById('view-settings')?.classList.contains('active')) renderPendingExamsSettings();
     });
 
   }catch(e){
@@ -6247,6 +6260,7 @@ function renderAll(){
   renderClassSizeVsPerf();
   renderStreamAccountability();
   renderTermLockSettings();
+  renderPendingExamsSettings();
   // Nav count: show scoped count for teachers, total for advanced admins
   const visibleCount = (currentAssignedGrade === '__NONE__' && !currentAssignedGrades.length)
     ? 0
@@ -8498,7 +8512,7 @@ function _applyLockBadges(){
   // Re-render results table rows to reflect new lock state
   if(document.getElementById('view-results')?.classList.contains('active')) filterResults();
   // Refresh settings panel if open
-  if(document.getElementById('view-settings')?.classList.contains('active')) renderTermLockSettings();
+  if(document.getElementById('view-settings')?.classList.contains('active')){ renderTermLockSettings(); renderPendingExamsSettings(); }
 }
 
 function renderTermLockSettings(){
@@ -8575,6 +8589,107 @@ async function toggleTermLock(key, label, currentlyLocked){
 window.toggleTermLock=toggleTermLock;
 
 /* ══════════════════════════════════════════
+   PENDING EXAMS MANAGEMENT (Settings)
+   Lets an Advanced Admin fix or remove a wrongly-created
+   Quick Entry "New Exam / Term" — these have zero score
+   records in the DB, so editing/deleting only touches the
+   pendingExams entry itself, nothing in allData.
+══════════════════════════════════════════ */
+function renderPendingExamsSettings(){
+  const section=document.getElementById('pending-exams-section');
+  if(!section) return;
+  // Only show to Advanced Admins
+  section.style.display = isAdvancedAdmin ? '' : 'none';
+  if(!isAdvancedAdmin) return;
+
+  const list=document.getElementById('pending-exams-list');
+  const entries=Object.entries(_pendingExams||{});
+  if(!entries.length){
+    list.innerHTML='<p style="font-size:12px;color:var(--text3)">No pending exams — every published exam already has scores entered, or none have been created yet.</p>';
+    return;
+  }
+  list.innerHTML=entries
+    .sort((a,b)=>(b[1]?.createdAt||0)-(a[1]?.createdAt||0))
+    .map(([key,pe])=>{
+      const compound = pe?.compound || decodeURIComponent(key);
+      const who      = pe?.createdBy || 'Unknown';
+      const when     = pe?.createdAt ? new Date(pe.createdAt).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}) : '';
+      const inputId  = `pe-edit-${key}`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--border);flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <input type="text" id="${inputId}" value="${compound.replace(/"/g,'&quot;')}"
+            style="width:100%;padding:7px 10px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace">
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">🕒 Awaiting scores · created by ${who}${when?' on '+when:''}</div>
+        </div>
+        <button class="btn btn-blue btn-sm" style="flex-shrink:0" onclick="savePendingExamEdit('${key}','${inputId}')">💾 Save</button>
+        <button class="btn btn-red btn-sm" style="flex-shrink:0" onclick="deletePendingExam('${key}','${compound.replace(/'/g,"\\'")}')">🗑️ Delete</button>
+      </div>`;
+    }).join('');
+}
+window.renderPendingExamsSettings=renderPendingExamsSettings;
+
+async function savePendingExamEdit(oldKey, inputId){
+  if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
+  const input=document.getElementById(inputId);
+  if(!input) return;
+  const newVal=input.value.trim();
+  if(!newVal){notify('⚠️ Exam identity cannot be blank.','warn');return;}
+
+  const oldPe = _pendingExams?.[oldKey];
+  const oldVal = oldPe?.compound || decodeURIComponent(oldKey);
+  if(newVal === oldVal){ notify('No changes to save.','info'); return; }
+
+  const newKey = encodeURIComponent(newVal);
+  // Guard: don't silently merge into another exam that already has real records
+  const collidesWithRecords = allData.some(r => getRecordTerm(r) === newVal);
+  const ok = await showConfirm(
+    '💾 Save Exam Edit',
+    `Rename this pending exam from<br><strong>${oldVal}</strong><br>to<br><strong>${newVal}</strong>?`
+      + (collidesWithRecords ? `<br><br>⚠️ <strong style="color:var(--red)">${newVal}</strong> already has real score records — saving will just remove the pending marker instead of renaming.` : ''),
+    '✏️','Save','btn-blue'
+  );
+  if(!ok) return;
+
+  try{
+    const { ref, set, remove } = window._fb;
+    await remove(ref(db, `${PENDING_EXAMS_PATH}/${oldKey}`));
+    if(!collidesWithRecords){
+      await set(ref(db, `${PENDING_EXAMS_PATH}/${newKey}`), {
+        ...oldPe,
+        compound: newVal,
+        grade: gShort(newVal) || oldPe?.grade || '',
+        editedBy: currentAdminName || 'Admin',
+        editedAt: Date.now()
+      });
+    }
+    notify(`✅ Pending exam updated to "${newVal}".`,'success');
+    logActivity(`✏️ Edited pending exam: "${oldVal}" → "${newVal}"`,'act-blue',currentAdminName,{category:'system'});
+  }catch(e){
+    notify('Error saving exam edit: '+e.message,'error');
+  }
+}
+window.savePendingExamEdit=savePendingExamEdit;
+
+async function deletePendingExam(key, label){
+  if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
+  const ok = await showConfirm(
+    '🗑️ Delete Pending Exam',
+    `Delete <strong>${label}</strong>? This removes it from Quick Entry's exam list. It won't be visible to teachers anymore, and no score data is affected since none has been entered yet.`,
+    '🗑️','Delete','btn-red'
+  );
+  if(!ok) return;
+  try{
+    const { ref, remove } = window._fb;
+    await remove(ref(db, `${PENDING_EXAMS_PATH}/${key}`));
+    notify(`🗑️ "${label}" deleted.`,'success');
+    logActivity(`🗑️ Deleted pending exam: "${label}"`,'act-red',currentAdminName,{category:'system'});
+  }catch(e){
+    notify('Error deleting pending exam: '+e.message,'error');
+  }
+}
+window.deletePendingExam=deletePendingExam;
+
+/* ══════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════ */
 const views={'dashboard':'Overview & Analytics','students':'Manage Students','results':'Results & Grades','analytics':'Deep Analytics','reports':'Report Cards & Export','announcements':'School Announcements','settings':'Portal Settings','auditlog':'Full Admin Audit Trail'};
@@ -8607,7 +8722,7 @@ function navTo(view,el){
   if(view==='messages') msgInit();
   if(view==='dataquality') renderDataQuality();
   if(view==='duplicates') renderDuplicates();
-  if(view==='settings') renderTermLockSettings();
+  if(view==='settings'){ renderTermLockSettings(); renderPendingExamsSettings(); }
   if(window.innerWidth<768) closeSidebar();
 }
 window.navTo=navTo;
@@ -11030,8 +11145,8 @@ async function commitImport(){
         const name     = String(row['Official Student Name']||'').trim();
         const upi      = String(row['UPI']||'').trim();
         const asmNo    = String(row['Assessment No']||'').trim();
-        const compound = compoundCol ? String(row[compoundCol]||'').trim()
-          : String(row['Grade']||row['Term']||'').trim();
+        const compound = stripIndexSuffix(compoundCol ? String(row[compoundCol]||'').trim()
+          : String(row['Grade']||row['Term']||'').trim());
 
         if(!name && !upi) continue; // no student identity
 
@@ -11154,8 +11269,11 @@ function _populateTemplateSelectors(){
   }
 
   // ── Exam/Term selector — shows the full compound Grade strings ─────────
-  // These are the raw values from allData (e.g. "Grade 9-2024-01-Opener-Term 1")
-  // The teacher picks which exam they are entering results for.
+  // These are the raw values from allData (e.g. "Grade 9-2024-01-Opener-Term 1"),
+  // PLUS any exams that have been published but have zero records yet
+  // (i.e. still "awaiting scores" — created via Quick Entry's New Exam/Term
+  // builder). This lets an admin/teacher generate a results template for a
+  // brand-new exam before anyone has entered a single score.
   const termEl = document.getElementById('tpl-term');
   if(termEl){
     while(termEl.options.length > 1) termEl.remove(1);
@@ -11164,22 +11282,31 @@ function _populateTemplateSelectors(){
     const myGrades = currentAssignedGrades.length
       ? currentAssignedGrades
       : (currentAssignedGrade && currentAssignedGrade !== '__NONE__' ? [currentAssignedGrade] : null);
+    const inScope = g => !myGrades || myGrades.includes(g);
 
-    // Collect unique compound Grade strings, filtered by teacher's grades
-    const termSet = new Set();
+    // Exams that already have at least one real record
+    const fromRecords = new Set();
     allData.forEach(r => {
       const g = gShort(r['Grade']);
-      if(myGrades && !myGrades.includes(g)) return;
+      if(!inScope(g)) return;
       // Use the index-suffix-stripped exam identity as the term identifier
       const raw = getRecordTerm(r);
-      if(raw && raw !== 'Unknown') termSet.add(raw);
+      if(raw && raw !== 'Unknown') fromRecords.add(raw);
     });
 
-    const terms = [...termSet].sort((a,b)=>a.localeCompare(b));
-    terms.forEach(t => {
+    // Exams published but still awaiting scores — zero records so far
+    const pendingOnly = new Set();
+    Object.values(_pendingExams||{}).forEach(pe => {
+      if(!pe || !pe.compound) return;
+      const g = gShort(pe.grade || pe.compound);
+      if(!inScope(g)) return;
+      if(!fromRecords.has(pe.compound)) pendingOnly.add(pe.compound);
+    });
+
+    [...fromRecords, ...pendingOnly].sort((a,b)=>a.localeCompare(b)).forEach(t => {
       const o = document.createElement('option');
       o.value = t;
-      o.textContent = t; // raw compound string e.g. "Grade 9-2024-01-Opener-Term 1"
+      o.textContent = pendingOnly.has(t) ? `🕒 ${t} (pending — awaiting scores)` : t; // raw compound string
       termEl.appendChild(o);
     });
     // Do NOT auto-select — teacher must consciously choose the exam
@@ -11269,16 +11396,22 @@ window.downloadResultsTemplate = function(){
   const subjects = [...subjectSet].sort();
 
   // ── Build rows ────────────────────────────────────────────────────────
-  // The Grade column gets the FULL compound term string — this IS the record identity
-  // _tpl_compound is a hidden marker so the importer knows the Grade to use
+  // Grade = the raw compound exam identity (no suffix) — the exam this
+  // template is for, exactly as it will read in the database.
+  // Term   = same compound, but with a preview "-INDxx" suffix auto-added per
+  // row so the file mirrors what each committed record will actually look
+  // like. The suffix is only a preview: commitImport() strips it and assigns
+  // a fresh one at commit time, so re-downloading/re-ordering rows is safe.
   const META_COLS  = ['Grade', 'Term', 'Assessment No', 'Official Student Name', 'UPI'];
   const SCORE_COLS = subjects;
   const header     = [...META_COLS, ...SCORE_COLS];
 
+  const _tplIdxTracker = createIndexTracker(); // seeded from existing -INDxx in allData
+
   const rows = students.map(r => {
     const row = {};
-    row['Grade']                 = targetGrade || gShort(r['Grade']) || '';
-    row['Term']                  = selCompound; // the chosen exam term — stored as Grade compound key
+    row['Grade']                 = selCompound || targetGrade || gShort(r['Grade']) || '';
+    row['Term']                  = `${selCompound}-${_tplIdxTracker.next(selCompound)}`; // e.g. "...-Term 2-IND01"
     row['Assessment No']         = r['Assessment No'] || '';
     row['Official Student Name'] = r['Official Student Name'] || '';
     row['UPI']                   = r['UPI'] || '';
@@ -11324,8 +11457,8 @@ window.downloadResultsTemplate = function(){
 
   // Instructions sheet
   const instrRows = [
-    { Column: 'Grade',                  Notes: `DO NOT EDIT — grade/class this exam template is for: ${targetGrade || ''}` },
-    { Column: 'Term',                  Notes: `DO NOT EDIT — set to: ${selCompound} (a unique -IND01, -IND02… suffix is auto-assigned to each student's record on import)` },
+    { Column: 'Grade',                  Notes: `DO NOT EDIT — full exam identity, exactly as stored in the database: ${selCompound}` },
+    { Column: 'Term',                  Notes: `DO NOT EDIT — preview of this record's final identity (base: ${selCompound}). The -INDxx suffix shown is just a preview; a fresh one is assigned automatically when you commit.` },
     { Column: 'Assessment No',          Notes: 'DO NOT EDIT — fallback match key' },
     { Column: 'Official Student Name',  Notes: 'DO NOT EDIT — used to identify the student' },
     { Column: 'UPI',                    Notes: 'DO NOT EDIT — primary matching key' },
@@ -11472,7 +11605,14 @@ function _qeBuildNewExamString(){
   const examType = document.getElementById('qe-ne-examtype')?.value || 'Opener';
   const letter = _TERM_LETTER[termNum] || 'A';
   if(!gradeVal) return {compound:'', gradeVal};
-  const compound = `${gradeVal}-${year}-${letter}${stream}-${examType} Term ${termNum}`;
+  // "End Term"/"Mid Term" already contain the word "Term" — hyphenate them
+  // instead of appending a second, separate "Term" before the number
+  // (e.g. "End-Term 2", not "End Term Term 2"). Other exam types
+  // (Opener, CAT, Holiday Assignment) still get " Term N" appended.
+  const examLabel = /\bterm\b/i.test(examType)
+    ? `${examType.replace(/\s+Term\b/i,'-Term')} ${termNum}`
+    : `${examType} Term ${termNum}`;
+  const compound = `${gradeVal}-${year}-${letter}${stream}-${examLabel}`;
   return {compound, gradeVal};
 }
 
