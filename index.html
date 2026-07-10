@@ -12697,30 +12697,33 @@ async function _qeSaveDraft(){
   const scores = _qeCollectScores();
   const updatedAt = Date.now();
 
-  // Online → write straight to Firebase, no local-first detour.
-  if(navigator.onLine){
-    try{
-      const {ref, set} = window._fb;
-      await set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), { grade: _qeGrade, compound: _qeCompound, scores, updatedAt });
-      // DB now holds the latest — clear any stale local draft so a future
-      // offline session doesn't resurrect older locally-cached scores.
-      _qeClearLocalDraft(myUid, draftKey);
-      if(statusEl) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
-      return;
-    }catch(e){
-      // navigator.onLine said true but the write still failed (flaky
-      // connection) — fall through to the local-storage fallback below.
-    }
+  // navigator.onLine is unreliable — it can read false on a perfectly good
+  // connection (or true on a dead one). So don't gate on it: always ATTEMPT
+  // the real Firebase write first, and only fall back to local storage if
+  // that attempt genuinely fails or times out. A 6s timeout keeps a truly
+  // offline device from hanging the autosave indefinitely.
+  try{
+    const {ref, set} = window._fb;
+    if(!ref || !set) throw new Error('firebase-not-ready');
+    const writePromise = set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), { grade: _qeGrade, compound: _qeCompound, scores, updatedAt });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000));
+    await Promise.race([writePromise, timeoutPromise]);
+
+    // Write confirmed — DB now holds the latest — clear any stale local
+    // draft so a future offline session doesn't resurrect older scores.
+    _qeClearLocalDraft(myUid, draftKey);
+    if(statusEl) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
+    return;
+  }catch(e){
+    console.warn('[QuickEntry] online draft write failed, falling back to local:', e?.code || e?.message || e);
   }
 
-  // Offline, or the online write above just failed — save locally instead,
-  // flagged for the automatic sync-on-reconnect to pick up later.
+  // The real write failed or timed out — genuinely offline (or flaky).
+  // Save locally, flagged for the automatic sync-on-reconnect to pick up.
   _qeWriteLocalDraft(myUid, draftKey, {
     grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: true
   });
-  if(statusEl) statusEl.innerHTML = navigator.onLine
-    ? `📴 Saved on this device — will sync once connection is stable`
-    : `📴 Offline — saved on this device, will sync automatically`;
+  if(statusEl) statusEl.innerHTML = `📴 Saved on this device — will sync once connection is stable`;
 }
 
 function _qeCollectScores(){
