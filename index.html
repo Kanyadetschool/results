@@ -1643,6 +1643,9 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       <div class="nav-item" onclick="navTo('import',this)" data-label="Import Data">
         <span class="nav-icon">📥</span> Import Data
       </div>
+      <div class="nav-item" onclick="navTo('quickentry',this)" data-label="Quick Entry">
+        <span class="nav-icon">⚡</span> Quick Entry
+      </div>
       <div class="nav-item" onclick="navTo('announcements',this)" data-label="Announcements">
         <span class="nav-icon">📢</span> Announcements
       </div>
@@ -2130,6 +2133,30 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
             <div class="chart-box"><canvas id="classsize-chart"></canvas></div>
           </div>
+        </div>
+
+        <!-- Student Cohort Tracker -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-hdr">
+            <div class="card-title">📈 Student Cohort Tracker</div>
+          </div>
+          <div style="padding:2px 0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="cohort-search" placeholder="Search student by name or UPI…" oninput="_cohortSearchInput()" style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:12px">
+          </div>
+          <div id="cohort-results" style="font-size:12px;color:var(--text2)"></div>
+          <div id="cohort-chart-wrap" style="display:none;margin-top:10px">
+            <div class="chart-box"><canvas id="cohort-chart"></canvas></div>
+            <div id="cohort-table-wrap" style="overflow-x:auto;margin-top:10px"></div>
+          </div>
+        </div>
+
+        <!-- Per-Stream Subject Accountability -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-hdr">
+            <div class="card-title">🏫 Per-Stream Subject Accountability</div>
+            <select class="sel" id="stream-acc-term-sel" onchange="renderStreamAccountability()"><option value="all">All Terms</option></select>
+          </div>
+          <div id="stream-accountability-container" style="overflow-x:auto"></div>
         </div>
         <!-- ══ END NEW ANALYTICS ══ -->
       </div>
@@ -2744,6 +2771,42 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           </div>
           <div class="table-wrap" id="import-preview-table"></div>
           <div id="import-dup-warning" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- ══════ QUICK ENTRY VIEW ══════ -->
+      <div class="view" id="view-quickentry">
+        <div class="sec-hdr">
+          <h2>⚡ Quick Entry</h2>
+        </div>
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-hdr"><div class="card-title">1️⃣ Select Grade &amp; Exam</div></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding:4px 0">
+            <div>
+              <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Grade</label>
+              <select class="sel" id="qe-grade" style="min-width:160px"><option value="">Select grade…</option></select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam / Term</label>
+              <select class="sel" id="qe-term" style="min-width:260px"><option value="">Select exam…</option></select>
+            </div>
+            <button class="btn btn-blue btn-sm" onclick="loadQuickEntry()">📋 Load Students</button>
+          </div>
+          <div id="qe-draft-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(41,128,185,.08);border:1px solid rgba(41,128,185,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--blue-lt)"></div>
+        </div>
+
+        <div class="card" id="qe-table-card" style="display:none">
+          <div class="card-hdr">
+            <div class="card-title">2️⃣ Enter Scores</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="qe-save-status" style="font-size:11px;color:var(--text2)"></span>
+              <button class="btn btn-green btn-sm" id="qe-submit-btn" onclick="submitQuickEntry()">✅ Submit Final to Database</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table class="data-table" id="qe-table" style="min-width:700px">
+            <thead><tr id="qe-thead-row"></tr></thead>
+            <tbody id="qe-tbody"></tbody>
+          </table></div>
         </div>
       </div>
 
@@ -6107,6 +6170,7 @@ function renderAll(){
   renderSubjectDifficulty();
   renderGenderSubjectGap();
   renderClassSizeVsPerf();
+  renderStreamAccountability();
   renderTermLockSettings();
   // Nav count: show scoped count for teachers, total for advanced admins
   const visibleCount = (currentAssignedGrade === '__NONE__' && !currentAssignedGrades.length)
@@ -6202,7 +6266,7 @@ function populateFilters(){
     if(currentAssignedGrades.length) el.value=currentAssignedGrades[0];
     else if(currentAssignedGrade && currentAssignedGrade!=='__NONE__') el.value=currentAssignedGrade;
   });
-  ['results-term-sel','print-term','top-term-sel','subj-diff-term-sel','classsize-term-sel'].forEach(id=>{
+  ['results-term-sel','print-term','top-term-sel','subj-diff-term-sel','classsize-term-sel','stream-acc-term-sel'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
     const first=el.options[0];
@@ -7931,6 +7995,169 @@ function renderClassSizeVsPerf(){
   });
 }
 window.renderClassSizeVsPerf=renderClassSizeVsPerf;
+
+/* ══════════════════════════════════════════
+   FEATURE: STUDENT COHORT TRACKER
+   Follows one student's average % across EVERY term/grade they've ever had
+   a record for — a multi-year trajectory, not just the current grade filter.
+══════════════════════════════════════════ */
+let _cohortChart=null;
+let _cohortSearchTimer=null;
+
+function _cohortSearchInput(){
+  clearTimeout(_cohortSearchTimer);
+  _cohortSearchTimer=setTimeout(_cohortRunSearch, 250);
+}
+window._cohortSearchInput=_cohortSearchInput;
+
+function _cohortRunSearch(){
+  const q=(document.getElementById('cohort-search')?.value||'').trim().toLowerCase();
+  const resultsEl=document.getElementById('cohort-results');
+  const chartWrap=document.getElementById('cohort-chart-wrap');
+  if(!q){ resultsEl.innerHTML=''; chartWrap.style.display='none'; return; }
+
+  // Group all matching records by student identity (UPI preferred, else name)
+  const byStudent={};
+  allData.forEach(r=>{
+    const name=(r['Official Student Name']||'').trim();
+    const upi=(r['UPI']||'').trim();
+    if(!name.toLowerCase().includes(q) && !upi.toLowerCase().includes(q)) return;
+    const key=upi || name.toLowerCase();
+    if(!byStudent[key]) byStudent[key]={name, upi, recs:[]};
+    byStudent[key].recs.push(r);
+  });
+  const matches=Object.values(byStudent);
+
+  if(!matches.length){ resultsEl.innerHTML='<p style="padding:10px 0">No matching students found.</p>'; chartWrap.style.display='none'; return; }
+
+  if(matches.length>1 && q.length){
+    resultsEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;padding:6px 0">${
+      matches.slice(0,15).map(m=>`<div style="cursor:pointer;padding:6px 10px;border-radius:6px;background:var(--surface2)" onclick="_cohortShowStudent('${(m.upi||m.name).replace(/'/g,"\\'")}')">
+        <strong>${m.name}</strong> <span style="color:var(--text3)">· UPI: ${m.upi||'N/A'} · ${m.recs.length} record(s)</span>
+      </div>`).join('')
+    }</div>`;
+    chartWrap.style.display='none';
+    return;
+  }
+
+  _cohortShowStudent(matches[0].upi || matches[0].name.toLowerCase());
+}
+
+function _cohortShowStudent(key){
+  const byStudent={};
+  allData.forEach(r=>{
+    const name=(r['Official Student Name']||'').trim();
+    const upi=(r['UPI']||'').trim();
+    const k=upi || name.toLowerCase();
+    if(k!==key) return;
+    if(!byStudent[k]) byStudent[k]={name, upi, recs:[]};
+    byStudent[k].recs.push(r);
+  });
+  const student=Object.values(byStudent)[0];
+  if(!student) return;
+
+  // Sort chronologically by year+term parsed from the compound Grade field
+  const rows=student.recs.map(r=>{
+    const p=parseGradeField(r['Grade']||r['Term']||'');
+    const st=calcStats(r);
+    return {label:`${p.grade||'—'} ${p.term||''} ${p.examType||''} (${p.year||'—'})`.replace(/\s+/g,' ').trim(), avg:parseFloat(st.avg), year:p.year||'0000', term:p.term||''};
+  }).sort((a,b)=> (a.year+a.term).localeCompare(b.year+b.term));
+
+  document.getElementById('cohort-results').innerHTML = `<div style="padding:6px 0"><strong>${student.name}</strong> · UPI: ${student.upi||'N/A'} · ${rows.length} record(s) found across all grades/terms</div>`;
+  const wrap=document.getElementById('cohort-chart-wrap');
+  wrap.style.display='block';
+
+  const ctx=document.getElementById('cohort-chart').getContext('2d');
+  if(_cohortChart) _cohortChart.destroy();
+  _cohortChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels: rows.map(r=>r.label),
+      datasets:[{
+        label:'Average %',
+        data: rows.map(r=>r.avg),
+        borderColor:'#5dade2', backgroundColor:'rgba(93,173,226,.15)',
+        tension:.3, fill:true, pointRadius:4, pointBackgroundColor:rows.map(r=>barColor(r.avg))
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#7aaec9',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{min:0,max:100,ticks:{color:'#7aaec9'},grid:{color:'rgba(255,255,255,.05)'}}
+      }
+    }
+  });
+
+  document.getElementById('cohort-table-wrap').innerHTML=`<table class="data-table" style="min-width:400px">
+    <thead><tr><th>Grade / Term / Exam</th><th>Average %</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td style="font-size:11px">${r.label}</td><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${barColor(r.avg)}">${r.avg.toFixed(1)}%</td></tr>`).join('')}</tbody>
+  </table>`;
+}
+window._cohortShowStudent=_cohortShowStudent;
+
+/* ══════════════════════════════════════════
+   FEATURE: PER-STREAM SUBJECT ACCOUNTABILITY
+   Same idea as Subject Difficulty Ranking, but grouped by Class/Stream
+   instead of by grade — surfaces e.g. "Grade 7 Stream B is weak in Math"
+   rather than just "Math is hard school-wide".
+   NOTE: relies on a 'Class' or 'Stream' field on each record; records
+   without either are grouped under "Unassigned".
+══════════════════════════════════════════ */
+function renderStreamAccountability(){
+  const term = document.getElementById('stream-acc-term-sel')?.value||'all';
+  const data = term==='all' ? allData : allData.filter(r=>getRecordTerm(r)===term);
+
+  // stream -> subject -> [scores]
+  const byStream={};
+  data.forEach(r=>{
+    const stream = (r['Class']||r['Stream']||'Unassigned').trim() || 'Unassigned';
+    getSubjects(r).forEach(s=>{
+      const v=parseFloat(r[s]); if(isNaN(v)) return;
+      if(!byStream[stream]) byStream[stream]={};
+      if(!byStream[stream][s]) byStream[stream][s]=[];
+      byStream[stream][s].push(v);
+    });
+  });
+
+  const container=document.getElementById('stream-accountability-container');
+  const streamKeys=Object.keys(byStream).sort();
+  if(!streamKeys.length || (streamKeys.length===1 && streamKeys[0]==='Unassigned' && !byStream['Unassigned'])){
+    container.innerHTML='<p style="font-size:12px;color:var(--text3);padding:20px">No data.</p>';
+    return;
+  }
+  if(streamKeys.length===1 && streamKeys[0]==='Unassigned'){
+    container.innerHTML=`<p style="font-size:12px;color:var(--text3);padding:14px 4px">
+      ℹ️ No records have a <strong>Class</strong> or <strong>Stream</strong> field set, so results can't be split by stream yet.
+      Add a "Class" or "Stream" column (e.g. "9A", "9B") to your result records to unlock this view.
+    </p>`;
+    return;
+  }
+
+  // Build: for each stream, find its single weakest subject (lowest average) — the "accountability" flag
+  const rows=streamKeys.map(stream=>{
+    const subjMap=byStream[stream];
+    const subjAvgs=Object.entries(subjMap).map(([s,vals])=>({s,avg:vals.reduce((a,b)=>a+b,0)/vals.length,n:vals.length}));
+    subjAvgs.sort((a,b)=>a.avg-b.avg);
+    const weakest=subjAvgs[0];
+    const overallVals=Object.values(subjMap).flat();
+    const overallAvg = overallVals.reduce((a,b)=>a+b,0)/overallVals.length;
+    return {stream, weakest, overallAvg, subjAvgs};
+  }).sort((a,b)=>a.overallAvg-b.overallAvg);
+
+  container.innerHTML=`<table class="data-table" style="min-width:600px">
+    <thead><tr><th>Stream / Class</th><th>Overall Avg</th><th>Weakest Subject</th><th>Subject Avg</th><th># Scores</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr>
+      <td style="font-size:12px;font-weight:700">${r.stream}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${barColor(r.overallAvg.toFixed(1))}">${r.overallAvg.toFixed(1)}%</td>
+      <td style="font-size:12px">${r.weakest?r.weakest.s:'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${r.weakest?barColor(r.weakest.avg.toFixed(1)):'var(--text3)'}">${r.weakest?r.weakest.avg.toFixed(1)+'%':'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.weakest?r.weakest.n:0}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+window.renderStreamAccountability=renderStreamAccountability;
 
 /* ══════════════════════════════════════════
    FEATURE: COMPARE TERMS MODAL
@@ -10635,24 +10862,60 @@ function showImportPreview(rows,dupes){
   card.style.display='block';
   document.getElementById('import-preview-info').textContent=`${rows.length} rows · ${_importHeaders.length} columns`;
   const preview=rows.slice(0,10);
+  const isTemplateFmt = _importHeaders.includes('UPI') && _importHeaders.includes('Official Student Name');
+  const metaCols=new Set(['Official Student Name','UPI','Assessment No','Term','Grade']);
+  // Known subject set for this grade/exam, so we can flag a score entered under an unexpected subject column
+  const knownSubjects = getDynamicSubjects();
+  let invalidCount=0, unknownSubjCount=0;
+  rows.forEach(r=>{
+    _importHeaders.forEach(h=>{
+      if(metaCols.has(h)||META_KEYS.has(h)) return;
+      const raw=r[h];
+      if(raw===undefined||raw===null||raw==='') return;
+      const v=parseFloat(raw);
+      if(isNaN(v)||v<0||v>100) invalidCount++;
+      else if(isTemplateFmt && knownSubjects.length && !knownSubjects.includes(h)) unknownSubjCount++;
+    });
+  });
   const html=`<table class="data-table" style="min-width:600px">
     <thead><tr>${_importHeaders.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
     <tbody>${preview.map(r=>{
       const adm=String(r['Assessment No']||Object.values(r)[1]||'').trim();
       const isDupe=dupeAsms.has(adm);
-      return `<tr style="${isDupe?'background:rgba(230,126,34,.1)':''}">${_importHeaders.map(h=>`<td style="font-size:11px">${r[h]||''}</td>`).join('')}</tr>`;
+      return `<tr style="${isDupe?'background:rgba(230,126,34,.1)':''}">${_importHeaders.map(h=>{
+        const raw=r[h];
+        let cellStyle='font-size:11px';
+        let title='';
+        if(raw!==undefined && raw!==null && raw!=='' && !metaCols.has(h) && !META_KEYS.has(h)){
+          const v=parseFloat(raw);
+          if(isNaN(v)||v<0||v>100){
+            cellStyle+=';background:rgba(231,76,60,.18);color:var(--red);font-weight:700';
+            title=' title="Invalid score — must be a number 0–100"';
+          } else if(isTemplateFmt && knownSubjects.length && !knownSubjects.includes(h)){
+            cellStyle+=';background:rgba(230,126,34,.15);color:var(--orange);font-weight:700';
+            title=' title="This subject is not normally offered for this grade — double-check the column"';
+          }
+        }
+        return `<td style="${cellStyle}"${title}>${raw||''}</td>`;
+      }).join('')}</tr>`;
     }).join('')}</tbody>
   </table>`;
   document.getElementById('import-preview-table').innerHTML=html;
-  const isTemplateFmt = _importHeaders.includes('UPI') && _importHeaders.includes('Official Student Name');
+  let warnParts=[];
   if(dupes.length){
-    const msg = isTemplateFmt
+    warnParts.push(isTemplateFmt
       ? `⚠️ ${dupes.length} rows already exist in the database for this exam/term and will be <strong>skipped</strong> automatically on commit.`
-      : `⚠️ ${dupes.length} rows highlighted in orange may be duplicates based on Assessment No. They will still be imported as new records.`;
-    document.getElementById('import-dup-warning').innerHTML=`<div style="background:rgba(230,126,34,.1);border:1px solid rgba(230,126,34,.3);border-radius:var(--radius-md);padding:10px 14px;font-size:12px;color:var(--orange)">${msg}</div>`;
-  } else {
-    document.getElementById('import-dup-warning').innerHTML='';
+      : `⚠️ ${dupes.length} rows highlighted in orange may be duplicates based on Assessment No. They will still be imported as new records.`);
   }
+  if(invalidCount){
+    warnParts.push(`⛔ <strong>${invalidCount}</strong> score cell(s) shown in red are out of the valid 0–100 range (or non-numeric) and will be <strong>skipped</strong> on commit — only that cell, not the whole row.`);
+  }
+  if(unknownSubjCount){
+    warnParts.push(`🟠 <strong>${unknownSubjCount}</strong> score cell(s) shown in orange are under a subject column not normally offered for this grade — please double check before committing.`);
+  }
+  document.getElementById('import-dup-warning').innerHTML = warnParts.length
+    ? warnParts.map(m=>`<div style="background:rgba(230,126,34,.08);border:1px solid rgba(230,126,34,.25);border-radius:var(--radius-md);padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:6px">${m}</div>`).join('')
+    : '';
 }
 
 async function commitImport(){
@@ -10670,7 +10933,7 @@ async function commitImport(){
   // The template's 'Term' column holds the compound Grade string
   const compoundCol = _importHeaders.includes('Term') ? 'Term' : null;
 
-  let count=0, skipped=0, created=0;
+  let count=0, skipped=0, created=0, invalidScoresSkipped=0;
   try{
     if(isTemplateUpload){
       // ── Template mode: ALWAYS create new records (new exam results) ───────
@@ -10700,14 +10963,18 @@ async function commitImport(){
         const isDupe  = (upi && existingKeys.has(upiKey)) || existingKeys.has(nameKey);
         if(isDupe){ skipped++; continue; }
 
-        // ── Collect subject scores from the row ─────────────────────────────
+        // ── Collect subject scores from the row — reject out-of-range values ─
         const scores = {};
         Object.keys(row).forEach(k => {
           // Skip meta/identity columns
           if(['Official Student Name','UPI','Assessment No','Term','Grade'].includes(k)) return;
           if(META_KEYS.has(k)) return;
-          const v = parseFloat(row[k]);
-          if(!isNaN(v)) scores[k] = v;
+          const raw=row[k];
+          if(raw===undefined||raw===null||raw==='') return;
+          const v = parseFloat(raw);
+          if(isNaN(v)) return;
+          if(v<0||v>100){ invalidScoresSkipped++; return; } // out-of-range — never written
+          scores[k] = v;
         });
 
         if(!Object.keys(scores).length) continue; // no scores entered — skip blank rows
@@ -10736,6 +11003,7 @@ async function commitImport(){
 
       let msg = `✅ Bulk upload complete — <strong>${created}</strong> new result records created.`;
       if(skipped) msg += ` <span style="color:var(--orange)">${skipped} skipped (already exist for this exam).</span>`;
+      if(invalidScoresSkipped) msg += ` <span style="color:var(--red)">${invalidScoresSkipped} invalid score cell(s) ignored (out of 0–100 range).</span>`;
       notify(msg, 'success', 7000);
 
     } else {
@@ -10866,25 +11134,39 @@ window.downloadResultsTemplate = function(){
 
   const targetGrade = selGrade || (myGrades ? myGrades[0] : null);
 
-  // ── Build student list from results data ──────────────────────────────
+  // ── Build student list — RAW extraction from database, no aggressive dedup ──
+  // Dedup only by true unique identities: UPI or Assessment No. Name is only
+  // used as a last-resort fallback identity for the rare record with NEITHER
+  // a UPI nor an Assessment No — it must never cause a student who DOES have
+  // a UPI/Assessment No to be dropped just because another student shares
+  // the same name (e.g. siblings, common names in the same grade).
   let students = [];
 
   {
-    const seenUPI  = new Set();
-    const seenName = new Set();
+    const seenUPI      = new Set();
+    const seenAsmNo    = new Set();
+    const seenNoIdName = new Set();
     allData.forEach(r => {
       if(targetGrade){
         if(gShort(r['Grade']) !== targetGrade && r['Grade'] !== targetGrade) return;
       } else if(myGrades){
         if(!myGrades.includes(gShort(r['Grade'])) && !myGrades.includes(r['Grade'])) return;
       }
-      const upi  = String(r['UPI']||'').trim();
-      const name = String(r['Official Student Name']||'').trim().toLowerCase();
+      const upi   = String(r['UPI']||'').trim();
+      const asmNo = String(r['Assessment No']||'').trim();
+      const name  = String(r['Official Student Name']||'').trim().toLowerCase();
       if(!name) return;
-      if(upi && seenUPI.has(upi))  return;
-      if(seenName.has(name)) return;
-      if(upi) seenUPI.add(upi);
-      seenName.add(name);
+      if(upi){
+        if(seenUPI.has(upi)) return;
+        seenUPI.add(upi);
+      } else if(asmNo){
+        if(seenAsmNo.has(asmNo)) return;
+        seenAsmNo.add(asmNo);
+      } else {
+        // Neither UPI nor Assessment No — fall back to name as the only identity we have
+        if(seenNoIdName.has(name)) return;
+        seenNoIdName.add(name);
+      }
       students.push(r);
     });
   }
@@ -10910,16 +11192,17 @@ window.downloadResultsTemplate = function(){
   // ── Build rows ────────────────────────────────────────────────────────
   // The Grade column gets the FULL compound term string — this IS the record identity
   // _tpl_compound is a hidden marker so the importer knows the Grade to use
-  const META_COLS  = ['Official Student Name', 'UPI', 'Assessment No', 'Term'];
+  const META_COLS  = ['Grade', 'Term', 'Assessment No', 'Official Student Name', 'UPI'];
   const SCORE_COLS = subjects;
   const header     = [...META_COLS, ...SCORE_COLS];
 
   const rows = students.map(r => {
     const row = {};
+    row['Grade']                 = targetGrade || gShort(r['Grade']) || '';
+    row['Term']                  = selCompound; // the chosen exam term — stored as Grade compound key
+    row['Assessment No']         = r['Assessment No'] || '';
     row['Official Student Name'] = r['Official Student Name'] || '';
     row['UPI']                   = r['UPI'] || '';
-    row['Assessment No']         = r['Assessment No'] || '';
-    row['Term']                  = selCompound; // the chosen exam term — stored as Grade compound key
     SCORE_COLS.forEach(s => { row[s] = ''; });
     return row;
   });
@@ -10962,10 +11245,11 @@ window.downloadResultsTemplate = function(){
 
   // Instructions sheet
   const instrRows = [
+    { Column: 'Grade',                  Notes: `DO NOT EDIT — grade/class this exam template is for: ${targetGrade || ''}` },
+    { Column: 'Term',                  Notes: `DO NOT EDIT — set to: ${selCompound}` },
+    { Column: 'Assessment No',          Notes: 'DO NOT EDIT — fallback match key' },
     { Column: 'Official Student Name',  Notes: 'DO NOT EDIT — used to identify the student' },
     { Column: 'UPI',                    Notes: 'DO NOT EDIT — primary matching key' },
-    { Column: 'Assessment No',          Notes: 'DO NOT EDIT — fallback match key' },
-    { Column: 'Term',                  Notes: `DO NOT EDIT — set to: ${selCompound}` },
     ...subjects.map(s => ({ Column: s, Notes: 'Enter score 0–100. Leave blank if not assessed.' })),
     { Column: '', Notes: '' },
     { Column: 'UPLOAD STEPS', Notes: '1) Fill in subject scores  2) Save file  3) Go to Import Data  4) Drop file in upload zone  5) Click Commit to Database' },
@@ -11001,17 +11285,290 @@ window.downloadResultsTemplate = function(){
     window.navTo = function(view, el){
       _origNavTo(view, el);
       if(view === 'import') setTimeout(_populateTemplateSelectors, 100);
+      if(view === 'quickentry') setTimeout(_populateQuickEntrySelectors, 100);
     };
   } else {
     // navTo not yet defined — hook via MutationObserver once
     document.addEventListener('DOMContentLoaded', ()=>{
       if(typeof window.navTo === 'function'){
         const _o = window.navTo;
-        window.navTo = function(view, el){ _o(view, el); if(view==='import') setTimeout(_populateTemplateSelectors, 100); };
+        window.navTo = function(view, el){
+          _o(view, el);
+          if(view==='import') setTimeout(_populateTemplateSelectors, 100);
+          if(view==='quickentry') setTimeout(_populateQuickEntrySelectors, 100);
+        };
       }
     });
   }
 })();
+
+/* ══════════════════════════════════════════
+   FEATURE: QUICK ENTRY MODE (single-page score entry, no Excel round-trip)
+   + PARTIAL-SAVE DRAFTS (autosave in-progress entry to Firebase, resume later)
+══════════════════════════════════════════ */
+const QE_DRAFTS_PATH = 'quickEntryDrafts'; // {teacherUid}/{sanitizedCompoundKey} -> {compound,grade,scores:{studentKey:{subj:val}},updatedAt}
+let _qeStudents = [];      // students loaded for the current grade+exam
+let _qeSubjects = [];      // subject columns for the current grade
+let _qeCompound  = '';     // the full compound Grade string (exam identity)
+let _qeGrade     = '';     // plain grade label
+let _qeSaveTimer = null;
+
+/** Populate the Grade / Exam selects, scoped to the teacher's own assigned grades. */
+function _populateQuickEntrySelectors(){
+  const gradeEl = document.getElementById('qe-grade');
+  const termEl  = document.getElementById('qe-term');
+  if(!gradeEl || !termEl) return;
+
+  while(gradeEl.options.length > 1) gradeEl.remove(1);
+  const myGrades = currentAssignedGrades.length
+    ? currentAssignedGrades
+    : (currentAssignedGrade && currentAssignedGrade !== '__NONE__' ? [currentAssignedGrade] : getUniqueGrades());
+  myGrades.forEach(g => {
+    const o = document.createElement('option');
+    o.value = g; o.textContent = g;
+    gradeEl.appendChild(o);
+  });
+  if(myGrades.length === 1) gradeEl.value = myGrades[0];
+
+  const rebuildTerms = () => {
+    while(termEl.options.length > 1) termEl.remove(1);
+    const selGrade = gradeEl.value;
+    const termSet = new Set();
+    allData.forEach(r => {
+      const g = gShort(r['Grade']);
+      if(selGrade && g !== selGrade) return;
+      if(!selGrade && myGrades.length && !myGrades.includes(g)) return;
+      const raw = (r['Grade'] || r['Term'] || '').trim();
+      if(raw && raw !== 'Unknown') termSet.add(raw);
+    });
+    [...termSet].sort((a,b)=>a.localeCompare(b)).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      termEl.appendChild(o);
+    });
+  };
+  gradeEl.onchange = rebuildTerms;
+  rebuildTerms();
+}
+window._populateQuickEntrySelectors = _populateQuickEntrySelectors;
+
+/** Load the student roster + subject columns for the chosen grade/exam,
+ *  then check for and restore any existing draft before rendering the table. */
+async function loadQuickEntry(){
+  const gradeEl = document.getElementById('qe-grade');
+  const termEl  = document.getElementById('qe-term');
+  const selGrade = gradeEl ? gradeEl.value.trim() : '';
+  const selCompound = termEl ? termEl.value.trim() : '';
+  if(!selCompound){ notify('⚠️ Please select an exam/term first.','warn'); return; }
+
+  // ── Lock guard — block the whole entry screen for a locked exam ──────────
+  if(_lockedTerms[encodeURIComponent(selCompound)] && _lockedTerms[encodeURIComponent(selCompound)].locked){
+    notify(`🔒 "${selCompound}" is locked. Ask an Advanced Admin to unlock it before entering scores.`,'error',6000);
+    return;
+  }
+
+  _qeGrade = selGrade;
+  _qeCompound = selCompound;
+
+  // ── Build raw student roster (same safe UPI/AssessmentNo dedup as the template) ──
+  const seenUPI = new Set(), seenAsmNo = new Set(), seenNoIdName = new Set();
+  const students = [];
+  allData.forEach(r => {
+    if(selGrade){ if(gShort(r['Grade']) !== selGrade && r['Grade'] !== selGrade) return; }
+    const upi = String(r['UPI']||'').trim();
+    const asmNo = String(r['Assessment No']||'').trim();
+    const name = String(r['Official Student Name']||'').trim().toLowerCase();
+    if(!name) return;
+    if(upi){ if(seenUPI.has(upi)) return; seenUPI.add(upi); }
+    else if(asmNo){ if(seenAsmNo.has(asmNo)) return; seenAsmNo.add(asmNo); }
+    else { if(seenNoIdName.has(name)) return; seenNoIdName.add(name); }
+    students.push(r);
+  });
+  students.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
+
+  if(!students.length){ notify('⚠️ No students found for that grade.','warn'); return; }
+
+  // ── Subject columns for this grade ────────────────────────────────────────
+  const subjSet = new Set();
+  allData.forEach(r => {
+    if(selGrade && gShort(r['Grade']) !== selGrade && r['Grade'] !== selGrade) return;
+    getSubjects(r).forEach(s => subjSet.add(s));
+  });
+  if(!subjSet.size) allData.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
+  _qeSubjects = [...subjSet].sort();
+  _qeStudents = students;
+
+  // ── Check for an existing record for this student+exam (to know if we'd be updating) ──
+  // and check for a saved draft to restore in-progress scores.
+  let draftScores = {};
+  let draftTime = null;
+  try{
+    const {ref, get} = window._fb;
+    const myUid = window._currentUser?.uid || 'anon';
+    const draftKey = encodeURIComponent(selCompound);
+    const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`));
+    if(snap.exists()){
+      const d = snap.val();
+      draftScores = d.scores || {};
+      draftTime = d.updatedAt || null;
+    }
+  }catch(e){ /* no draft — fine */ }
+
+  renderQuickEntryTable(draftScores);
+
+  const banner = document.getElementById('qe-draft-banner');
+  if(draftTime){
+    banner.style.display='block';
+    banner.innerHTML = `📝 Restored your unsaved draft from <strong>${new Date(draftTime).toLocaleString()}</strong> — keep entering scores below.`;
+  } else {
+    banner.style.display='none';
+  }
+
+  document.getElementById('qe-table-card').style.display='block';
+}
+window.loadQuickEntry = loadQuickEntry;
+
+function _qeStudentKey(rec){
+  return (String(rec['UPI']||'').trim()) || (String(rec['Assessment No']||'').trim()) || rec.id;
+}
+
+function renderQuickEntryTable(draftScores){
+  const thead = document.getElementById('qe-thead-row');
+  const tbody = document.getElementById('qe-tbody');
+  thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>`<th style="min-width:90px">${s}</th>`).join('')}`;
+  tbody.innerHTML = _qeStudents.map((r,i)=>{
+    const key = _qeStudentKey(r);
+    const draft = draftScores[key] || {};
+    return `<tr>
+      <td>${i+1}</td>
+      <td style="font-size:12px;font-weight:600">${r['Official Student Name']||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r['UPI']||'—'}</td>
+      ${_qeSubjects.map(s=>{
+        const val = draft[s]!==undefined ? draft[s] : '';
+        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+}
+
+/** Debounced autosave — fires ~1.2s after the user stops typing. */
+function _qeOnScoreInput(){
+  clearTimeout(_qeSaveTimer);
+  const statusEl = document.getElementById('qe-save-status');
+  if(statusEl) statusEl.textContent = '✏️ Editing…';
+  _qeSaveTimer = setTimeout(_qeSaveDraft, 1200);
+}
+window._qeOnScoreInput = _qeOnScoreInput;
+
+async function _qeSaveDraft(){
+  const statusEl = document.getElementById('qe-save-status');
+  try{
+    const {ref, set} = window._fb;
+    const myUid = window._currentUser?.uid || 'anon';
+    const draftKey = encodeURIComponent(_qeCompound);
+    const scores = _qeCollectScores();
+    await set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), {
+      grade: _qeGrade, compound: _qeCompound, scores, updatedAt: Date.now()
+    });
+    if(statusEl) statusEl.innerHTML = `💾 Draft saved ${new Date().toLocaleTimeString()}`;
+  }catch(e){
+    if(statusEl) statusEl.textContent = '⚠️ Autosave failed — check connection';
+  }
+}
+
+function _qeCollectScores(){
+  const scores = {};
+  document.querySelectorAll('#qe-tbody input[data-student]').forEach(inp=>{
+    const v = inp.value.trim();
+    if(v===''){ return; }
+    const key = inp.getAttribute('data-student');
+    const subj = inp.getAttribute('data-subject');
+    if(!scores[key]) scores[key] = {};
+    scores[key][subj] = v;
+  });
+  return scores;
+}
+
+/** Commit all entered scores to the real database, one record per student.
+ *  Updates an existing record for that student+exam if one already exists,
+ *  otherwise creates a new one. Clears the draft on success. */
+async function submitQuickEntry(){
+  if(!_qeStudents.length){ notify('Load students first.','warn'); return; }
+
+  // ── Lock guard (re-check at submit time too — lock state can change) ─────
+  if(_lockedTerms[encodeURIComponent(_qeCompound)] && _lockedTerms[encodeURIComponent(_qeCompound)].locked){
+    notify(`🔒 "${_qeCompound}" is locked. Ask an Advanced Admin to unlock it before submitting.`,'error',6000);
+    return;
+  }
+
+  const scores = _qeCollectScores();
+  const studentsWithScores = Object.keys(scores);
+  if(!studentsWithScores.length){ notify('No scores entered yet.','warn'); return; }
+
+  // ── Validate range before writing ─────────────────────────────────────────
+  let invalidCount=0;
+  Object.values(scores).forEach(subjMap=>{
+    Object.keys(subjMap).forEach(s=>{
+      const v=parseFloat(subjMap[s]);
+      if(isNaN(v)||v<0||v>100){ invalidCount++; delete subjMap[s]; }
+    });
+  });
+
+  const btn = document.getElementById('qe-submit-btn');
+  btn.disabled = true; btn.textContent = '⏳ Submitting…';
+
+  const {ref, push, update} = window._fb;
+  let created=0, updated=0;
+
+  for(const r of _qeStudents){
+    const key = _qeStudentKey(r);
+    const subjMap = scores[key];
+    if(!subjMap || !Object.keys(subjMap).length) continue;
+
+    const parsed = {};
+    Object.keys(subjMap).forEach(s=>{ const v=parseFloat(subjMap[s]); if(!isNaN(v)) parsed[s]=v; });
+    if(!Object.keys(parsed).length) continue;
+
+    // Does a record already exist for this exact student + exam?
+    const existing = allData.find(x =>
+      (x['Grade']||'').trim() === _qeCompound &&
+      ((r['UPI'] && x['UPI'] === r['UPI']) ||
+       (!r['UPI'] && x['Official Student Name'] === r['Official Student Name']))
+    );
+
+    if(existing){
+      await update(ref(db, `${DB_PATH}/${existing.id}`), parsed);
+      updated++;
+    } else {
+      await push(ref(db, DB_PATH), {
+        'Official Student Name': r['Official Student Name']||'',
+        'UPI': r['UPI']||'',
+        'Assessment No': r['Assessment No']||'',
+        'Grade': _qeCompound,
+        ...parsed
+      });
+      created++;
+    }
+  }
+
+  // ── Clear the draft now that it's been committed ──────────────────────────
+  try{
+    const {ref:ref2, remove} = window._fb;
+    const myUid = window._currentUser?.uid || 'anon';
+    await remove(ref2(db, `${QE_DRAFTS_PATH}/${myUid}/${encodeURIComponent(_qeCompound)}`));
+  }catch(e){}
+
+  let msg = `✅ Quick Entry submitted — <strong>${created}</strong> created, <strong>${updated}</strong> updated.`;
+  if(invalidCount) msg += ` <span style="color:var(--red)">${invalidCount} invalid score(s) ignored.</span>`;
+  notify(msg,'success',7000);
+  logActivity(`⚡ Quick Entry: ${created} created, ${updated} updated for ${_qeCompound}`,'act-green',currentAdminName,{category:'import'});
+
+  btn.disabled=false; btn.textContent='✅ Submit Final to Database';
+  document.getElementById('qe-draft-banner').style.display='none';
+  setTimeout(refreshData, 1200);
+}
+window.submitQuickEntry = submitQuickEntry;
+
 
 /* ══════════════════════════════════════════
    SETTINGS
