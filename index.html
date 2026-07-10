@@ -2788,9 +2788,45 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
             <div>
               <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam / Term</label>
-              <select class="sel" id="qe-term" style="min-width:260px"><option value="">Select exam…</option></select>
+              <select class="sel" id="qe-term" style="min-width:260px" onchange="_qeToggleNewExamBuilder()">
+                <option value="">Select exam…</option>
+                <option value="__new__" id="qe-term-new-opt">➕ Create New Exam / Term (Advanced Admin)…</option>
+              </select>
             </div>
             <button class="btn btn-blue btn-sm" onclick="loadQuickEntry()">📋 Load Students</button>
+          </div>
+          <div id="qe-new-exam-builder" style="display:none;margin-top:14px;padding:12px 14px;background:rgba(41,128,185,.06);border:1px solid rgba(41,128,185,.2);border-radius:var(--radius-md)">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Advanced Admin only — create a new exam identity for the selected Grade above. It will appear in the "Exam / Term" list for teachers assigned to that grade only, ready for them to enter scores.</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+              <div>
+                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Year</label>
+                <input type="number" id="qe-ne-year" class="sel" style="width:90px" placeholder="2026">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Term</label>
+                <select id="qe-ne-term" class="sel" style="width:110px" onchange="_qeUpdateNewExamPreview()">
+                  <option value="1">Term 1 (A)</option>
+                  <option value="2">Term 2 (B)</option>
+                  <option value="3">Term 3 (C)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Stream No.</label>
+                <input type="number" id="qe-ne-stream" class="sel" style="width:70px" value="1" min="1">
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam Type</label>
+                <select id="qe-ne-examtype" class="sel" style="width:150px" onchange="_qeUpdateNewExamPreview()">
+                  <option value="Opener">Opener</option>
+                  <option value="Mid Term">Mid Term</option>
+                  <option value="End Term">End Term</option>
+                  <option value="CAT">CAT</option>
+                  <option value="Holiday Assignment">Holiday Assignment</option>
+                </select>
+              </div>
+              <button class="btn btn-green btn-sm" onclick="_qeUseNewExam()">📤 Create &amp; Publish to Teacher</button>
+            </div>
+            <div style="margin-top:10px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--blue-lt)">Preview: <span id="qe-ne-preview">—</span></div>
           </div>
           <div id="qe-draft-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(41,128,185,.08);border:1px solid rgba(41,128,185,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--blue-lt)"></div>
         </div>
@@ -3606,9 +3642,13 @@ const FB_CONFIG = {
 const DB_PATH = 'Results/default-app-id/students';
 const AUDIT_PATH = 'audit_logs';
 const LOCK_PATH  = 'termLocks'; // {encodedTermKey: {locked:true, lockedBy, lockedAt, label}}
+const PENDING_EXAMS_PATH = 'pendingExams'; // {encodedCompound: {compound, grade, createdBy, createdByUid, createdAt}}
+                                            // Advanced Admin creates these; the assigned grade's teacher(s)
+                                            // see them in Quick Entry as "pending" exams awaiting scores.
 
 /* ── Term Lock state (loaded from Firebase on boot) ── */
 let _lockedTerms = {}; // key → {locked, lockedBy, lockedAt, label}
+let _pendingExams = {}; // key → {compound, grade, createdBy, createdByUid, createdAt}
 let currentAdminName = 'Admin';
 let currentAdminEmail = '';
 let isAdvancedAdmin = false;     // set to true after Firestore confirms Advancedadmin:true
@@ -3752,12 +3792,12 @@ function getComputedPosition(rec){
   const stored = String(rec['Position']||'').trim();
   if(stored && stored!=='N/A' && stored!=='—') return stored;
 
-  // Group key = grade field (which encodes grade + term + exam type)
-  const groupKey = rec['Grade'] || rec['Term'] || '';
-  if(!groupKey) return 'N/A';
+  // Group key = exam identity (grade + term + exam type), index-suffix stripped
+  const groupKey = getRecordTerm(rec);
+  if(!groupKey || groupKey==='Unknown') return 'N/A';
 
   // Gather all records in the same group
-  const group = allData.filter(r => (r['Grade']||r['Term']||'') === groupKey);
+  const group = allData.filter(r => getRecordTerm(r) === groupKey);
   if(group.length === 0) return 'N/A';
 
   // Sort descending by average; ties share the same rank
@@ -3830,14 +3870,44 @@ function parseGradeField(raw){
 }
 function cleanTerm(t){ const p=parseGradeField(t); return p.term?(p.term+(p.examType?' — '+p.examType:'')+(p.year?' ('+p.year+')':'')):String(t||'Unknown'); }
 function gShort(raw){ return parseGradeField(raw).grade||'N/A'; }
+// ── Per-record index suffix (e.g. "-IND01") ──────────────────────────────
+// Each individual student record written by Quick Entry / Bulk Import gets a
+// unique "-INDxx" suffix appended to its Grade field so that two records can
+// never collide, even when they belong to the exact same student+grade+exam.
+// Every grouping/filtering function must therefore compare the STRIPPED
+// (index-free) value — the "exam identity" — never the raw Grade field.
+function stripIndexSuffix(s){
+  return String(s||'').replace(/-IND\d+\s*$/i,'').trim();
+}
 function getRecordTerm(r){
-  // Return the raw DB value — Grade field is the primary identifier
-  return r['Grade']||r['Term']||'Unknown';
+  // Return the DB value with any trailing -INDxx removed — the exam identity
+  return stripIndexSuffix(r['Grade']||r['Term']||'')||'Unknown';
 }
 function getExamType(r){ return parseGradeField(r['Grade']||r['Term']||'').examType||''; }
-// Short label: same raw value (used in other places)
+// Short label: same stripped value (used in other places)
 function getTermShort(r){
-  return r['Grade']||r['Term']||'N/A';
+  return stripIndexSuffix(r['Grade']||r['Term']||'')||'N/A';
+}
+/** Builds a per-exam-identity index counter, seeded from the highest -INDxx
+ *  already present in allData for each base identity. Call once per
+ *  submit/import operation and call .next(base) for every new record. */
+function createIndexTracker(){
+  const counters = {};
+  allData.forEach(r=>{
+    const raw = r['Grade']||r['Term']||'';
+    const m = String(raw).match(/-IND(\d+)\s*$/i);
+    if(!m) return;
+    const base = stripIndexSuffix(raw);
+    const n = parseInt(m[1],10);
+    if(!counters[base] || n>counters[base]) counters[base]=n;
+  });
+  return {
+    next(base){
+      const n=(counters[base]||0)+1;
+      counters[base]=n;
+      return 'IND'+String(n).padStart(2,'0');
+    }
+  };
 }
 function termSortKey(label){
   const y=(label.match(/(\d{4})/)||['','0'])[1];
@@ -6120,6 +6190,13 @@ function loadAllData(){
       _applyLockBadges();
     });
 
+    // ── Pending exams listener: exam identities Advanced Admin has created,
+    //    awaiting the assigned teacher to enter scores ─────────────────────
+    onValue(ref(db, PENDING_EXAMS_PATH), (snap) => {
+      _pendingExams = snap.val() || {};
+      if(document.getElementById('view-quickentry')?.classList.contains('active')) _populateQuickEntrySelectors();
+    });
+
   }catch(e){
     notify('Error setting up real-time listener: '+e.message,'error');
   }
@@ -7206,7 +7283,7 @@ function filterStudents(){
       if((op==='='||op==='==')&&!(Math.round(avg)===val)) return false;
     }
     if(g&&gShort(r['Grade'])!==g) return false;
-    if(t&&(r['Grade']||r['Term']||'')!==t) return false;
+    if(t&&getRecordTerm(r)!==t) return false;
     if(gend&&r['Gender']!==gend) return false;
     if(lv&&!calcStats(r).level.includes(lv)) return false;
     return true;
@@ -8112,7 +8189,7 @@ function renderStreamAccountability(){
   // stream -> subject -> [scores]
   const byStream={};
   data.forEach(r=>{
-    const stream = (r['Class']||r['Stream']||'Unassigned').trim() || 'Unassigned';
+    const stream = String(r['Class']||r['Stream']||'Unassigned').trim() || 'Unassigned';
     getSubjects(r).forEach(s=>{
       const v=parseFloat(r[s]); if(isNaN(v)) return;
       if(!byStream[stream]) byStream[stream]={};
@@ -8264,7 +8341,7 @@ function renderDuplicates(){
   allData.forEach(r=>{
     const upi=(r['UPI']||'').trim().toLowerCase();
     const name=(r['Official Student Name']||'').trim().toLowerCase().replace(/\s+/g,' ');
-    const grade=(r['Grade']||'').trim().toLowerCase().replace(/\s+/g,' ');
+    const grade=getRecordTerm(r).trim().toLowerCase().replace(/\s+/g,' ');
     if(upi&&name&&grade){ const k=upi+'|'+name+'|'+grade; if(!byAll[k]) byAll[k]=[]; byAll[k].push(r); }
   });
   const allGroups=Object.values(byAll).filter(g=>g.length>1);
@@ -8323,7 +8400,7 @@ function exportDuplicatesCSV(){
   allData.forEach(r=>{
     const upi=(r['UPI']||'').trim().toLowerCase();
     const name=(r['Official Student Name']||'').trim().toLowerCase().replace(/\s+/g,' ');
-    const grade=(r['Grade']||'').trim().toLowerCase().replace(/\s+/g,' ');
+    const grade=getRecordTerm(r).trim().toLowerCase().replace(/\s+/g,' ');
     if(upi&&name&&grade){const k=upi+'|'+name+'|'+grade;if(!byAll[k])byAll[k]=[];byAll[k].push(r);}
   });
   const seen=new Set(); const groups=[];
@@ -8366,9 +8443,9 @@ async function recalcPositions(){
 
   notify('⏳ Recalculating positions…','info',60000);
 
-  // Group by Grade field value (unique grade+term+exam key)
+  // Group by exam identity (index-suffix stripped grade+term+exam key)
   const groups={};
-  scope.forEach(r=>{ const k=r['Grade']||''; if(!groups[k]) groups[k]=[]; groups[k].push(r); });
+  scope.forEach(r=>{ const k=getRecordTerm(r); if(!groups[k]) groups[k]=[]; groups[k].push(r); });
 
   let writeCount=0, errorCount=0;
   const updates={};
@@ -10435,7 +10512,7 @@ function renderDataQuality(){
     const presentSubjects = new Set(getSubjects(r));
     // find subjects known in the same grade that this record is missing
     const gradeSubjects = new Set();
-    allData.filter(x=>x['Grade']===r['Grade']).forEach(x=>getSubjects(x).forEach(s=>gradeSubjects.add(s)));
+    allData.filter(x=>getRecordTerm(x)===getRecordTerm(r)).forEach(x=>getSubjects(x).forEach(s=>gradeSubjects.add(s)));
 
     const missing = [...gradeSubjects].filter(s=>{
       const v = r[s];
@@ -10448,7 +10525,7 @@ function renderDataQuality(){
   // Per-subject class average for each grade+term group
   const groupMap = {};
   data.forEach(r=>{
-    const key = (r['Grade']||'') + '||' + getRecordTerm(r);
+    const key = getRecordTerm(r);
     if(!groupMap[key]) groupMap[key]={recs:[]};
     groupMap[key].recs.push(r);
   });
@@ -10472,7 +10549,7 @@ function renderDataQuality(){
   const SCORE_THRESHOLD = 30; // ≥30 pts from class mean = flag
 
   data.forEach(r=>{
-    const key = (r['Grade']||'') + '||' + getRecordTerm(r);
+    const key = getRecordTerm(r);
     const stats = subjectStats[key]||{};
     getSubjects(r).forEach(s=>{
       const score = parseFloat(r[s]);
@@ -10941,12 +11018,15 @@ async function commitImport(){
       // Build a set of "UPI|compoundGrade" and "name|compoundGrade" that exist
       const existingKeys = new Set();
       allData.forEach(r => {
-        const compound = (r['Grade']||'').trim().toLowerCase();
+        // Use the index-stripped exam identity — the raw Grade field now carries
+        // a unique -INDxx suffix per record, so it can't be used for dedup.
+        const compound = getRecordTerm(r).trim().toLowerCase();
         const upi  = String(r['UPI']||'').trim().toLowerCase();
         const name = String(r['Official Student Name']||'').trim().toLowerCase();
         if(upi && compound)  existingKeys.add('upi:'  + upi  + '|' + compound);
         if(name && compound) existingKeys.add('name:' + name + '|' + compound);
       });
+      const idxTracker = createIndexTracker(); // seeds from existing -INDxx in allData
 
       for(const row of _importData){
         const name     = String(row['Official Student Name']||'').trim();
@@ -10988,11 +11068,12 @@ async function commitImport(){
         // ─────────────────────────────────────────────────────────────────
 
         // ── Build the new record ──────────────────────────────────────────
+        // Grade = the compound exam identity plus a fresh, unique -INDxx suffix
         const rec = {
           'Official Student Name': name,
           'UPI':          upi,
           'Assessment No':asmNo,
-          'Grade':        compound, // the compound term IS the Grade field
+          'Grade':        `${compound}-${idxTracker.next(compound)}`,
           ...scores
         };
 
@@ -11091,8 +11172,8 @@ function _populateTemplateSelectors(){
     allData.forEach(r => {
       const g = gShort(r['Grade']);
       if(myGrades && !myGrades.includes(g)) return;
-      // Use the full compound Grade string as the term identifier
-      const raw = (r['Grade'] || r['Term'] || '').trim();
+      // Use the index-suffix-stripped exam identity as the term identifier
+      const raw = getRecordTerm(r);
       if(raw && raw !== 'Unknown') termSet.add(raw);
     });
 
@@ -11246,7 +11327,7 @@ window.downloadResultsTemplate = function(){
   // Instructions sheet
   const instrRows = [
     { Column: 'Grade',                  Notes: `DO NOT EDIT — grade/class this exam template is for: ${targetGrade || ''}` },
-    { Column: 'Term',                  Notes: `DO NOT EDIT — set to: ${selCompound}` },
+    { Column: 'Term',                  Notes: `DO NOT EDIT — set to: ${selCompound} (a unique -IND01, -IND02… suffix is auto-assigned to each student's record on import)` },
     { Column: 'Assessment No',          Notes: 'DO NOT EDIT — fallback match key' },
     { Column: 'Official Student Name',  Notes: 'DO NOT EDIT — used to identify the student' },
     { Column: 'UPI',                    Notes: 'DO NOT EDIT — primary matching key' },
@@ -11313,11 +11394,22 @@ let _qeCompound  = '';     // the full compound Grade string (exam identity)
 let _qeGrade     = '';     // plain grade label
 let _qeSaveTimer = null;
 
-/** Populate the Grade / Exam selects, scoped to the teacher's own assigned grades. */
+/** Populate the Grade / Exam selects, scoped to the teacher's own assigned grades.
+ *  Only Advanced Admin sees the "Create New Exam" option; regular teachers only
+ *  ever see exams that already have records OR that Admin published as pending
+ *  for their own assigned grade — never another teacher's pending exams. */
 function _populateQuickEntrySelectors(){
   const gradeEl = document.getElementById('qe-grade');
   const termEl  = document.getElementById('qe-term');
   if(!gradeEl || !termEl) return;
+
+  // ── "Create New Exam" is Advanced Admin only ──────────────────────────────
+  const newOpt = document.getElementById('qe-term-new-opt');
+  if(newOpt) newOpt.style.display = isAdvancedAdmin ? '' : 'none';
+  if(!isAdvancedAdmin && termEl.value === '__new__'){
+    termEl.value = '';
+    _qeToggleNewExamBuilder();
+  }
 
   while(gradeEl.options.length > 1) gradeEl.remove(1);
   const myGrades = currentAssignedGrades.length
@@ -11331,19 +11423,34 @@ function _populateQuickEntrySelectors(){
   if(myGrades.length === 1) gradeEl.value = myGrades[0];
 
   const rebuildTerms = () => {
-    while(termEl.options.length > 1) termEl.remove(1);
+    while(termEl.options.length > 2) termEl.remove(2); // keep "Select exam…" and "➕ Create New Exam…"
     const selGrade = gradeEl.value;
-    const termSet = new Set();
+    const inScope = g => selGrade ? (g === selGrade) : (!myGrades.length || myGrades.includes(g));
+
+    // Exams that already have at least one real record
+    const fromRecords = new Set();
     allData.forEach(r => {
       const g = gShort(r['Grade']);
-      if(selGrade && g !== selGrade) return;
-      if(!selGrade && myGrades.length && !myGrades.includes(g)) return;
-      const raw = (r['Grade'] || r['Term'] || '').trim();
-      if(raw && raw !== 'Unknown') termSet.add(raw);
+      if(!inScope(g)) return;
+      const raw = getRecordTerm(r); // index-suffix stripped exam identity
+      if(raw && raw !== 'Unknown') fromRecords.add(raw);
     });
-    [...termSet].sort((a,b)=>a.localeCompare(b)).forEach(t => {
+
+    // Exams Admin has published but no one has entered scores for yet —
+    // scoped to the same grade rules, so a teacher only ever sees pending
+    // exams for their OWN assigned grade(s), never another teacher's.
+    const pendingOnly = new Set();
+    Object.values(_pendingExams||{}).forEach(pe => {
+      if(!pe || !pe.compound) return;
+      const g = gShort(pe.grade || pe.compound);
+      if(!inScope(g)) return;
+      if(!fromRecords.has(pe.compound)) pendingOnly.add(pe.compound);
+    });
+
+    [...fromRecords, ...pendingOnly].sort((a,b)=>a.localeCompare(b)).forEach(t => {
       const o = document.createElement('option');
-      o.value = t; o.textContent = t;
+      o.value = t;
+      o.textContent = pendingOnly.has(t) ? `🕒 ${t} (pending — awaiting scores)` : t;
       termEl.appendChild(o);
     });
   };
@@ -11351,6 +11458,82 @@ function _populateQuickEntrySelectors(){
   rebuildTerms();
 }
 window._populateQuickEntrySelectors = _populateQuickEntrySelectors;
+
+/* ── Quick Entry: "New Exam / Term" builder ──────────────────────────────
+ * Lets the user construct a brand-new compound Grade/Term identity
+ * (e.g. "Grade 9-2026-B1-Mid Term 2") for an exam that has zero records
+ * in the database yet, instead of only picking from existing ones. */
+const _TERM_LETTER = {'1':'A','2':'B','3':'C'};
+
+function _qeBuildNewExamString(){
+  const gradeEl = document.getElementById('qe-grade');
+  const gradeVal = gradeEl ? gradeEl.value.trim() : '';
+  const year   = (document.getElementById('qe-ne-year')?.value || '').trim() || String(new Date().getFullYear());
+  const termNum  = document.getElementById('qe-ne-term')?.value || '1';
+  const stream   = (document.getElementById('qe-ne-stream')?.value || '1').trim() || '1';
+  const examType = document.getElementById('qe-ne-examtype')?.value || 'Opener';
+  const letter = _TERM_LETTER[termNum] || 'A';
+  if(!gradeVal) return {compound:'', gradeVal};
+  const compound = `${gradeVal}-${year}-${letter}${stream}-${examType} Term ${termNum}`;
+  return {compound, gradeVal};
+}
+
+function _qeUpdateNewExamPreview(){
+  const {compound, gradeVal} = _qeBuildNewExamString();
+  const el = document.getElementById('qe-ne-preview');
+  if(!el) return;
+  el.textContent = gradeVal ? compound : '— select a Grade above first —';
+}
+window._qeUpdateNewExamPreview = _qeUpdateNewExamPreview;
+
+function _qeToggleNewExamBuilder(){
+  const termEl = document.getElementById('qe-term');
+  const panel  = document.getElementById('qe-new-exam-builder');
+  if(!termEl || !panel) return;
+  if(termEl.value === '__new__' && isAdvancedAdmin){
+    panel.style.display = 'block';
+    if(!document.getElementById('qe-ne-year').value) document.getElementById('qe-ne-year').value = new Date().getFullYear();
+    _qeUpdateNewExamPreview();
+  } else {
+    if(termEl.value === '__new__') termEl.value = ''; // non-admin can never land on this option
+    panel.style.display = 'none';
+  }
+}
+window._qeToggleNewExamBuilder = _qeToggleNewExamBuilder;
+
+/** Advanced Admin creates a new exam identity and publishes it to Firebase
+ *  as a "pending" exam. It becomes visible in Quick Entry only to teachers
+ *  assigned to that specific grade — no other teacher ever sees it. */
+async function _qeUseNewExam(){
+  if(!isAdvancedAdmin){ notify('⛔ Only Advanced Admin can create a new exam.','error'); return; }
+  const gradeEl = document.getElementById('qe-grade');
+  if(!gradeEl || !gradeEl.value.trim()){ notify('⚠️ Select a Grade first.','warn'); return; }
+  const {compound, gradeVal} = _qeBuildNewExamString();
+  if(!compound){ notify('⚠️ Could not build the exam string — check the fields.','warn'); return; }
+
+  const btn = document.querySelector('#qe-new-exam-builder button.btn-green');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Publishing…'; }
+
+  try{
+    const {ref, set} = window._fb;
+    await set(ref(db, `${PENDING_EXAMS_PATH}/${encodeURIComponent(compound)}`), {
+      compound,
+      grade: gradeVal,
+      createdBy: currentAdminName || 'Admin',
+      createdByUid: window._currentUser?.uid || '',
+      createdAt: Date.now()
+    });
+    logActivity(`📤 Created exam "${compound}" for ${gradeVal} — pending teacher entry`,'act-blue',currentAdminName,{category:'import'});
+    notify(`✅ "${compound}" published — visible to ${gradeVal}'s teacher(s) in Quick Entry.`,'success',6000);
+  }catch(e){
+    notify('Error publishing exam: '+e.message,'error');
+  }
+
+  if(btn){ btn.disabled = false; btn.textContent = '📤 Create & Publish to Teacher'; }
+  document.getElementById('qe-new-exam-builder').style.display = 'none';
+  document.getElementById('qe-term').value = '';
+}
+window._qeUseNewExam = _qeUseNewExam;
 
 /** Load the student roster + subject columns for the chosen grade/exam,
  *  then check for and restore any existing draft before rendering the table. */
@@ -11519,6 +11702,7 @@ async function submitQuickEntry(){
 
   const {ref, push, update} = window._fb;
   let created=0, updated=0;
+  const idxTracker = createIndexTracker(); // seeds from existing -INDxx in allData
 
   for(const r of _qeStudents){
     const key = _qeStudentKey(r);
@@ -11530,8 +11714,10 @@ async function submitQuickEntry(){
     if(!Object.keys(parsed).length) continue;
 
     // Does a record already exist for this exact student + exam?
+    // (compare against the index-stripped exam identity, since the raw Grade
+    // field on stored records now carries a unique -INDxx suffix per record)
     const existing = allData.find(x =>
-      (x['Grade']||'').trim() === _qeCompound &&
+      getRecordTerm(x) === _qeCompound &&
       ((r['UPI'] && x['UPI'] === r['UPI']) ||
        (!r['UPI'] && x['Official Student Name'] === r['Official Student Name']))
     );
@@ -11540,11 +11726,13 @@ async function submitQuickEntry(){
       await update(ref(db, `${DB_PATH}/${existing.id}`), parsed);
       updated++;
     } else {
+      // New record — assign the next available -INDxx for this exam identity
+      const gradeVal = `${_qeCompound}-${idxTracker.next(_qeCompound)}`;
       await push(ref(db, DB_PATH), {
         'Official Student Name': r['Official Student Name']||'',
         'UPI': r['UPI']||'',
         'Assessment No': r['Assessment No']||'',
-        'Grade': _qeCompound,
+        'Grade': gradeVal,
         ...parsed
       });
       created++;
@@ -11557,6 +11745,14 @@ async function submitQuickEntry(){
     const myUid = window._currentUser?.uid || 'anon';
     await remove(ref2(db, `${QE_DRAFTS_PATH}/${myUid}/${encodeURIComponent(_qeCompound)}`));
   }catch(e){}
+
+  // ── This exam is no longer "pending" once at least one record exists ──────
+  if(created>0){
+    try{
+      const {ref:ref3, remove:remove3} = window._fb;
+      await remove3(ref3(db, `${PENDING_EXAMS_PATH}/${encodeURIComponent(_qeCompound)}`));
+    }catch(e){}
+  }
 
   let msg = `✅ Quick Entry submitted — <strong>${created}</strong> created, <strong>${updated}</strong> updated.`;
   if(invalidCount) msg += ` <span style="color:var(--red)">${invalidCount} invalid score(s) ignored.</span>`;
