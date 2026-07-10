@@ -5,11 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kanyadet School — Results portal</title>
 <link rel="icon" type="image/x-icon" href="./images/logo.png">
+<link rel="manifest" href="./manifest.json">
 
  <link rel="stylesheet" href="./Report-Cards/css/swalOnly.css">
  <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="./image-popup.js"></script>
+<script>
+// ── Service Worker registration (offline app-shell caching) ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('[SW] registered, scope:', reg.scope))
+      .catch((err) => console.warn('[SW] registration failed:', err));
+  });
+}
+</script>
  
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -6434,7 +6445,11 @@ function _saveCache(data) {
 function _loadCache() {
   try {
     const ts = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0');
-    if (Date.now() - ts > CACHE_MAX_AGE) return null; // stale
+    // Age-based expiry only applies while online — if there's no connection
+    // to refresh from anyway, a stale cache is still far better than a blank
+    // Quick Entry roster. Once back online, the live listener re-syncs and
+    // re-stamps the cache immediately, so staleness self-corrects.
+    if (navigator.onLine && Date.now() - ts > CACHE_MAX_AGE) return null;
     const raw = localStorage.getItem(CACHE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch(e) { return null; }
