@@ -29,7 +29,7 @@ if ('serviceWorker' in navigator) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
 /* ══════════════════════════════════════════
-   CSS VARIABLES..
+   CSS VARIABLES
 ══════════════════════════════════════════ */
 :root {
   --blue:#2980b9; --blue-dk:#1a5276; --blue-lt:#5dade2; --blue-glow:rgba(41,128,185,.35);
@@ -12697,27 +12697,30 @@ async function _qeSaveDraft(){
   const scores = _qeCollectScores();
   const updatedAt = Date.now();
 
-  // Always cache locally FIRST — this is what makes Quick Entry keep working
-  // exactly like a local spreadsheet with zero connection.
+  // Online → write straight to Firebase, no local-first detour.
+  if(navigator.onLine){
+    try{
+      const {ref, set} = window._fb;
+      await set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), { grade: _qeGrade, compound: _qeCompound, scores, updatedAt });
+      // DB now holds the latest — clear any stale local draft so a future
+      // offline session doesn't resurrect older locally-cached scores.
+      _qeClearLocalDraft(myUid, draftKey);
+      if(statusEl) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
+      return;
+    }catch(e){
+      // navigator.onLine said true but the write still failed (flaky
+      // connection) — fall through to the local-storage fallback below.
+    }
+  }
+
+  // Offline, or the online write above just failed — save locally instead,
+  // flagged for the automatic sync-on-reconnect to pick up later.
   _qeWriteLocalDraft(myUid, draftKey, {
     grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: true
   });
-
-  if(!navigator.onLine){
-    if(statusEl) statusEl.innerHTML = `📴 Offline — saved on this device, will sync automatically`;
-    return;
-  }
-
-  try{
-    const {ref, set} = window._fb;
-    await set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), { grade: _qeGrade, compound: _qeCompound, scores, updatedAt });
-    _qeWriteLocalDraft(myUid, draftKey, { grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: false });
-    if(statusEl) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
-  }catch(e){
-    // navigator.onLine said true but the write still failed (flaky connection) —
-    // keep it flagged pendingSync so the next 'online' event retries it.
-    if(statusEl) statusEl.innerHTML = `📴 Saved on this device — will sync once connection is stable`;
-  }
+  if(statusEl) statusEl.innerHTML = navigator.onLine
+    ? `📴 Saved on this device — will sync once connection is stable`
+    : `📴 Offline — saved on this device, will sync automatically`;
 }
 
 function _qeCollectScores(){
