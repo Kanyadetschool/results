@@ -1307,55 +1307,102 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 .stu-av-rank{width:36px;height:36px;border-radius:10px;font-size:13px;}
 
 /* ══════════════════════════════════════════
-   QUICK LINKS — sidebar panel
+   QUICK LINKS — sidebar trigger + modal (redesigned)
 ══════════════════════════════════════════ */
-.qlinks-section{padding:10px 12px 6px;}
+.qlinks-section{padding:12px 12px 6px;}
 .qlinks-toggle{
-  width:100%;padding:9px 12px;border-radius:var(--radius-md);
-  background:transparent;border:1.5px dashed var(--border);
-  color:var(--text3);font-family:'Plus Jakarta Sans',sans-serif;
-  font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  width:100%;padding:10px 12px;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,rgba(41,128,185,.08),rgba(22,160,133,.06));
+  border:1px solid var(--border);
+  color:var(--text2);font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:11.5px;font-weight:800;cursor:pointer;letter-spacing:.02em;
+  display:flex;align-items:center;gap:9px;
   transition:var(--transition);
 }
-.qlinks-toggle:hover{border-color:var(--border-strong);color:var(--text2);background:rgba(41,128,185,.05);}
-.qlinks-toggle .qt-arrow{font-size:10px;transition:transform .3s;}
-.qlinks-toggle.open .qt-arrow{transform:rotate(90deg);}
-.qlinks-panel{overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
-.qlinks-panel.open{max-height:400px;opacity:1;overflow-y:auto;overflow-x:hidden;}
+.qlinks-toggle:hover{border-color:var(--border-strong);background:linear-gradient(135deg,rgba(41,128,185,.13),rgba(22,160,133,.1));box-shadow:0 4px 14px rgba(41,128,185,.1);transform:translateY(-1px);}
+.qlinks-toggle .qt-icon{
+  width:24px;height:24px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  background:linear-gradient(135deg,var(--blue),var(--teal));
+  box-shadow:0 2px 8px rgba(41,128,185,.35);
+}
+.qlinks-toggle .qt-label{flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qlinks-toggle .qt-count{
+  font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:20px;flex-shrink:0;
+  background:var(--surface);border:1px solid var(--border-strong);color:var(--text3);
+}
+.qlinks-toggle .qt-arrow{font-size:10px;flex-shrink:0;color:var(--text3);transition:transform .2s,color .2s;}
+.qlinks-toggle:hover .qt-arrow{transform:translate(1px,-1px);color:var(--blue-lt);}
+
+/* Modal body content (id="quick-links-panel" lives inside #qlinks-modal now) */
+#quick-links-panel{padding:0;}
+
+.qlinks-search-wrap{position:relative;margin-bottom:14px;}
+.qlinks-search-wrap .qs-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text3);pointer-events:none;}
+.qlinks-search{
+  width:100%;padding:9px 12px 9px 32px;border-radius:var(--radius-md);
+  border:1.5px solid var(--border);background:var(--surface2);color:var(--text);
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;
+  transition:var(--transition);
+}
+.qlinks-search:focus{outline:none;border-color:var(--blue-lt);box-shadow:0 0 0 3px rgba(41,128,185,.12);background:var(--surface);}
+.qlinks-search::placeholder{color:var(--text3);font-weight:500;}
+.qlinks-empty{font-size:12px;color:var(--text3);text-align:center;padding:24px 6px;display:none;}
+
+.qlinks-group{margin-bottom:16px;}
+.qlinks-group:last-of-type{margin-bottom:0;}
+.qlinks-group-label{
+  font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;
+  padding:0 2px 8px;display:flex;align-items:center;gap:8px;
+}
+.qlinks-group-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.qlinks-group-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;}
+
 .auth-qlink{
   display:flex;align-items:center;gap:9px;
-  padding:8px 10px;border-radius:var(--radius-md);
-  margin-top:5px;text-decoration:none;
-  font-size:11px;font-weight:600;letter-spacing:.01em;
+  padding:9px 10px;border-radius:var(--radius-md);
+  text-decoration:none;
+  font-size:12px;font-weight:650;letter-spacing:.01em;
   border:1px solid transparent;position:relative;overflow:hidden;
-  transition:background .2s,border-color .2s,transform .15s;
+  transition:background .2s,border-color .2s,transform .15s,box-shadow .2s;
+  white-space:nowrap;
 }
-.auth-qlink:hover{transform:translateX(2px);}
-.auth-qlink-arrow{margin-left:auto;font-size:10px;opacity:.4;transition:transform .2s,opacity .2s;flex-shrink:0;}
-.auth-qlink:hover .auth-qlink-arrow{transform:translateX(3px);opacity:.85;}
-.auth-qlink-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.auth-qlink:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.1);}
+.auth-qlink-arrow{margin-left:auto;font-size:11px;opacity:.4;transition:transform .2s,opacity .2s;flex-shrink:0;}
+.auth-qlink:hover .auth-qlink-arrow{transform:translateX(3px);opacity:.9;}
+.auth-qlink-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* Icon swatch — replaces the old plain dot with a small glyph chip */
+.auth-qlink-dot{
+  width:26px;height:26px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:13px;
+  transition:transform .2s;
+}
+.auth-qlink:hover .auth-qlink-dot{transform:scale(1.08);}
 
 /* Variant 1 — cyan/blue */
 .auth-qlink-1{color:var(--blue-lt);border-color:rgba(41,128,185,.18);background:rgba(41,128,185,.05);}
 .auth-qlink-1:hover{border-color:rgba(41,128,185,.35);background:rgba(41,128,185,.11);}
-.auth-qlink-1 .auth-qlink-dot{background:var(--blue-lt);box-shadow:0 0 6px rgba(93,173,226,.6);}
+.auth-qlink-1 .auth-qlink-dot{background:rgba(41,128,185,.16);box-shadow:inset 0 0 0 1px rgba(41,128,185,.3);}
 /* Variant 2 — blue accent */
 .auth-qlink-2{color:#5b9bd5;border-color:rgba(59,130,246,.18);background:rgba(59,130,246,.05);}
 .auth-qlink-2:hover{border-color:rgba(59,130,246,.32);background:rgba(59,130,246,.1);}
-.auth-qlink-2 .auth-qlink-dot{background:#3b82f6;box-shadow:0 0 6px rgba(59,130,246,.6);}
+.auth-qlink-2 .auth-qlink-dot{background:rgba(59,130,246,.16);box-shadow:inset 0 0 0 1px rgba(59,130,246,.3);}
 /* Variant 3 — teal/green (students portal) */
 .auth-qlink-3{color:var(--teal);border-color:rgba(22,160,133,.18);background:rgba(22,160,133,.05);}
 .auth-qlink-3:hover{border-color:rgba(22,160,133,.32);background:rgba(22,160,133,.1);}
-.auth-qlink-3 .auth-qlink-dot{background:var(--teal);box-shadow:0 0 6px rgba(22,160,133,.6);}
+.auth-qlink-3 .auth-qlink-dot{background:rgba(22,160,133,.16);box-shadow:inset 0 0 0 1px rgba(22,160,133,.3);}
 
 [data-theme="light"] .auth-qlink-1{color:#1a5276;border-color:rgba(41,128,185,.18);background:rgba(41,128,185,.05);}
 [data-theme="light"] .auth-qlink-1:hover{border-color:rgba(41,128,185,.32);background:rgba(41,128,185,.1);}
-[data-theme="light"] .auth-qlink-1 .auth-qlink-dot{background:#2980b9;box-shadow:none;}
+[data-theme="light"] .auth-qlink-1 .auth-qlink-dot{background:rgba(41,128,185,.12);box-shadow:inset 0 0 0 1px rgba(41,128,185,.25);}
 [data-theme="light"] .auth-qlink-2{color:#1e4d8c;border-color:rgba(59,130,246,.18);background:rgba(59,130,246,.04);}
 [data-theme="light"] .auth-qlink-2:hover{border-color:rgba(59,130,246,.32);background:rgba(59,130,246,.09);}
+[data-theme="light"] .auth-qlink-2 .auth-qlink-dot{background:rgba(59,130,246,.12);box-shadow:inset 0 0 0 1px rgba(59,130,246,.25);}
 [data-theme="light"] .auth-qlink-3{color:#0e6655;border-color:rgba(22,160,133,.18);background:rgba(22,160,133,.05);}
 [data-theme="light"] .auth-qlink-3:hover{border-color:rgba(22,160,133,.32);background:rgba(22,160,133,.1);}
+[data-theme="light"] .auth-qlink-3 .auth-qlink-dot{background:rgba(22,160,133,.12);box-shadow:inset 0 0 0 1px rgba(22,160,133,.25);}
+
 
 /* ══════════════════════════════════════════
    REPORT CARD — TERM / GRADE CHIPS
@@ -1686,74 +1733,12 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 
     <div class="qlinks-section">
       <div class="s-label" style="margin-bottom:8px">Quick Links</div>
-      <button class="qlinks-toggle" id="qlinks-toggle-btn" onclick="toggleQuickLinks()">
-        <span>🔗 Report Cards &amp; Portals</span>
-        <span class="qt-arrow">›</span>
+      <button class="qlinks-toggle" id="qlinks-toggle-btn" onclick="openQuickLinksModal()">
+        <span class="qt-icon">🔗</span>
+        <span class="qt-label">Report Cards &amp; Portals</span>
+        <span class="qt-count">17</span>
+        <span class="qt-arrow">↗</span>
       </button>
-      <div class="qlinks-panel" id="quick-links-panel">
-    <a href="./docs/CBC-Grading-System-Guide.docx" download="CBC-Grading-System-Guide.docx" class="auth-qlink auth-qlink-3">
-          <div class="auth-qlink-dot"></div>🏅 Grading System Guide (.docx)<span class="auth-qlink-arrow">⬇</span>
-        </a>
-
-    <a href="./Report-Cards/Active-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Active students<span class="auth-qlink-arrow">→</span>
-        </a>
-       
-        <a href="./Report-Cards/All-Deleted-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Restore Deleted students<span class="auth-qlink-arrow">→</span>
-        </a>
-
-  <a href="./Report-Cards/Results.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄Results<span class="auth-qlink-arrow">→</span>
-        </a>
-       
-        <a href="./Report-Cards/Termly-ReportsRmks.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>🎓 All Terms Merged Rmks<span class="auth-qlink-arrow">→</span>
-        </a>
-          <a href="./Report-Cards/Admin-Individual-student-portal.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-3">
-          <div class="auth-qlink-dot"></div>🎓 Admin Students Portal<span class="auth-qlink-arrow">→</span>
-        </a>
-          <a href="./Report-Cards/Individual-student-portal.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-3">
-          <div class="auth-qlink-dot"></div>🎓 Students Portal<span class="auth-qlink-arrow">→</span>
-        </a>
-              
-        
- <a href="./updater.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div> 📄 Updater<span class="auth-qlink-arrow">→</span>
-        </a>
-              
-        
- <a href="./cleaner.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div> 📄 Cleaner<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./index2.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-3">
-          <div class="auth-qlink-dot"></div>🎓 Landing<span class="auth-qlink-arrow">→</span>
-        </a>  
-        <a href="./lunch.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Lunch Contributions<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./food.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Food Budget<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./Report-Cards/Junior-School.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Junior School<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./Report-Cards/Junior-School-Normks.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Junior School Normks<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./Report-Cards/Primary-Report-Cards.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-2">
-          <div class="auth-qlink-dot"></div>📄 Primary School<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./Report-Cards/Primary-Report-Cards-Normks.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>📄 Primary School Normks<span class="auth-qlink-arrow">→</span>
-        </a>
-        <a href="./Report-Cards/Termly-Reports.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
-          <div class="auth-qlink-dot"></div>🎓 All Terms Merged<span class="auth-qlink-arrow">→</span>
-        </a>
-
-
-
-      </div>
     </div>
 
     <div class="sidebar-footer">
@@ -2653,6 +2638,102 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div class="modal-box modal-wide">
           <div class="modal-hdr"><h3 id="settings-item-modal-title">Settings</h3><button class="modal-close" onclick="closeSettingsModal()">✕</button></div>
           <div class="modal-body" id="settings-item-modal-body"></div>
+        </div>
+      </div>
+
+      <!-- ══════ QUICK LINKS MODAL ══════ -->
+      <div class="modal-overlay" id="qlinks-modal" onclick="if(event.target===this)closeQuickLinksModal()">
+        <div class="modal-box modal-wide">
+          <div class="modal-hdr"><h3>🔗 Report Cards &amp; Portals</h3><button class="modal-close" onclick="closeQuickLinksModal()">✕</button></div>
+          <div class="modal-body" id="quick-links-panel">
+            <div class="qlinks-search-wrap">
+              <span class="qs-icon">🔍</span>
+              <input type="text" class="qlinks-search" id="qlinks-search-input" placeholder="Search quick links…" oninput="filterQuickLinks(this.value)">
+            </div>
+
+            <div class="qlinks-group">
+              <div class="qlinks-group-label">Results &amp; Records</div>
+              <div class="qlinks-group-links">
+                <a href="./Report-Cards/Active-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="active students">
+                  <div class="auth-qlink-dot">📄</div><span class="auth-qlink-label">Active students</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/All-Deleted-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="restore deleted students">
+                  <div class="auth-qlink-dot">🗃️</div><span class="auth-qlink-label">Restore Deleted students</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Results.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="results">
+                  <div class="auth-qlink-dot">📄</div><span class="auth-qlink-label">Results</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Termly-ReportsRmks.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="all terms merged rmks">
+                  <div class="auth-qlink-dot">🎓</div><span class="auth-qlink-label">All Terms Merged Rmks</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Termly-Reports.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="all terms merged">
+                  <div class="auth-qlink-dot">🎓</div><span class="auth-qlink-label">All Terms Merged</span><span class="auth-qlink-arrow">→</span>
+                </a>
+              </div>
+            </div>
+
+            <div class="qlinks-group">
+              <div class="qlinks-group-label">Student Portals</div>
+              <div class="qlinks-group-links">
+                <a href="./Report-Cards/Admin-Individual-student-portal.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-3" data-qlink-label="admin students portal">
+                  <div class="auth-qlink-dot">🎓</div><span class="auth-qlink-label">Admin Students Portal</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Individual-student-portal.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-3" data-qlink-label="students portal">
+                  <div class="auth-qlink-dot">🎓</div><span class="auth-qlink-label">Students Portal</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./index2.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-3" data-qlink-label="landing">
+                  <div class="auth-qlink-dot">🏠</div><span class="auth-qlink-label">Landing</span><span class="auth-qlink-arrow">→</span>
+                </a>
+              </div>
+            </div>
+
+            <div class="qlinks-group">
+              <div class="qlinks-group-label">Report Cards</div>
+              <div class="qlinks-group-links">
+                <a href="./Report-Cards/Junior-School.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="junior school">
+                  <div class="auth-qlink-dot">📄</div><span class="auth-qlink-label">Junior School</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Junior-School-Normks.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="junior school normks">
+                  <div class="auth-qlink-dot">📄</div><span class="auth-qlink-label">Junior School Normks</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Primary-Report-Cards.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-2" data-qlink-label="primary school">
+                  <div class="auth-qlink-dot">📄</div><span class="auth-qlink-label">Primary School</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./Report-Cards/Primary-Report-Cards-Normks.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="primary school normks">
+                  <div class="auth-qlink-dot">📄</div><span class="auth-qlink-label">Primary School Normks</span><span class="auth-qlink-arrow">→</span>
+                </a>
+              </div>
+            </div>
+
+            <div class="qlinks-group">
+              <div class="qlinks-group-label">Welfare &amp; Finance</div>
+              <div class="qlinks-group-links">
+                <a href="./lunch.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="lunch contributions">
+                  <div class="auth-qlink-dot">🍽️</div><span class="auth-qlink-label">Lunch Contributions</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./food.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="food budget">
+                  <div class="auth-qlink-dot">🧾</div><span class="auth-qlink-label">Food Budget</span><span class="auth-qlink-arrow">→</span>
+                </a>
+              </div>
+            </div>
+
+            <div class="qlinks-group">
+              <div class="qlinks-group-label">Utilities &amp; Docs</div>
+              <div class="qlinks-group-links">
+                <a href="./docs/CBC-Grading-System-Guide.docx" download="CBC-Grading-System-Guide.docx" class="auth-qlink auth-qlink-3" data-qlink-label="grading system guide docx">
+                  <div class="auth-qlink-dot">🏅</div><span class="auth-qlink-label">Grading System Guide (.docx)</span><span class="auth-qlink-arrow">⬇</span>
+                </a>
+                <a href="./updater.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="updater">
+                  <div class="auth-qlink-dot">🔄</div><span class="auth-qlink-label">Updater</span><span class="auth-qlink-arrow">→</span>
+                </a>
+                <a href="./cleaner.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1" data-qlink-label="cleaner">
+                  <div class="auth-qlink-dot">🧹</div><span class="auth-qlink-label">Cleaner</span><span class="auth-qlink-arrow">→</span>
+                </a>
+              </div>
+            </div>
+
+            <p class="qlinks-empty" id="qlinks-empty-msg">No quick links match your search.</p>
+          </div>
         </div>
       </div>
 
@@ -9047,6 +9128,7 @@ function navTo(view,el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(view!=='settings' && document.getElementById('settings-item-modal')?.classList.contains('on')) closeSettingsModal();
+  if(document.getElementById('qlinks-modal')?.classList.contains('on')) closeQuickLinksModal();
   const viewEl=document.getElementById('view-'+view);
   if(viewEl)viewEl.classList.add('active');
   if(el)el.classList.add('active');
@@ -9650,24 +9732,47 @@ window.addEventListener('resize', () => {
 /* ══════════════════════════════════════════
    QUICK LINKS TOGGLE
 ══════════════════════════════════════════ */
-function toggleQuickLinks(){
-  const panel=document.getElementById('quick-links-panel');
-  const btn=document.getElementById('qlinks-toggle-btn');
-  if(!panel||!btn) return;
-  const isOpen=panel.classList.toggle('open');
-  btn.classList.toggle('open',isOpen);
-  localStorage.setItem('kss_qlinks_open',isOpen?'1':'0');
+/** Opens the Quick Links modal — same pattern as the Settings modal.
+ *  Resets any previous search filter and auto-focuses the search box. */
+function openQuickLinksModal(){
+  const modal = document.getElementById('qlinks-modal');
+  if(!modal) return;
+  const search = document.getElementById('qlinks-search-input');
+  if(search){ search.value=''; }
+  filterQuickLinks('');
+  modal.classList.add('on');
+  if(search) setTimeout(()=>search.focus(),200);
 }
-window.toggleQuickLinks=toggleQuickLinks;
-// Restore state on load
-(function(){
-  if(localStorage.getItem('kss_qlinks_open')==='1'){
-    const panel=document.getElementById('quick-links-panel');
-    const btn=document.getElementById('qlinks-toggle-btn');
-    if(panel) panel.classList.add('open');
-    if(btn) btn.classList.add('open');
-  }
-})();
+window.openQuickLinksModal=openQuickLinksModal;
+
+function closeQuickLinksModal(){
+  document.getElementById('qlinks-modal')?.classList.remove('on');
+}
+window.closeQuickLinksModal=closeQuickLinksModal;
+
+/** Live-filters the Quick Links panel as the admin types. Matches against
+ *  each link's data-qlink-label; hides whole groups (and their header)
+ *  when none of their links match, and shows an empty-state message
+ *  when the search yields nothing at all. */
+function filterQuickLinks(q){
+  const query = (q||'').trim().toLowerCase();
+  const groups = document.querySelectorAll('#quick-links-panel .qlinks-group');
+  let anyVisible = false;
+  groups.forEach(group=>{
+    let groupHasVisible = false;
+    group.querySelectorAll('.auth-qlink').forEach(link=>{
+      const label = (link.getAttribute('data-qlink-label') || link.textContent || '').toLowerCase();
+      const match = !query || label.includes(query);
+      link.style.display = match ? '' : 'none';
+      if(match) groupHasVisible = true;
+    });
+    group.style.display = groupHasVisible ? '' : 'none';
+    if(groupHasVisible) anyVisible = true;
+  });
+  const empty = document.getElementById('qlinks-empty-msg');
+  if(empty) empty.style.display = anyVisible ? 'none' : 'block';
+}
+window.filterQuickLinks=filterQuickLinks;
 
 function toggleSidebar(){
   if(window.innerWidth>768) return;
