@@ -3055,6 +3055,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
             <div style="margin-top:10px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--blue-lt)">Preview: <span id="qe-ne-preview">—</span></div>
           </div>
+          <div id="qe-offline-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(243,156,18,.10);border:1px solid rgba(243,156,18,.3);border-radius:var(--radius-md);padding:10px 14px;color:#b9770e"></div>
           <div id="qe-draft-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(41,128,185,.08);border:1px solid rgba(41,128,185,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--blue-lt)"></div>
           <div id="qe-lock-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--red)"></div>
         </div>
@@ -3064,6 +3065,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div class="card-title">2️⃣ Enter Scores</div>
             <div style="display:flex;gap:8px;align-items:center">
               <span id="qe-save-status" style="font-size:11px;color:var(--text2)"></span>
+              <button class="btn btn-outline btn-sm" id="qe-add-student-btn" onclick="_qeOpenAddStudentModal()">➕ Add Student</button>
+              <button class="btn btn-outline btn-sm" id="qe-add-subject-btn" style="display:none" onclick="_qeAddSubjectToSheet()">➕ Add Subject</button>
               <button class="btn btn-green btn-sm" id="qe-submit-btn" onclick="submitQuickEntry()">✅ Submit Final to Database</button>
             </div>
           </div>
@@ -3185,6 +3188,37 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeStudentModal()">Close</button>
       <button class="btn btn-blue btn-sm" id="modal-pdf-btn">📄 Download Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ENTRY: ADD STUDENT TO SHEET MODAL -->
+<div class="modal-overlay" id="qe-add-student-modal" onclick="if(event.target===this)_qeCloseAddStudentModal()">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-hdr">
+      <h3>➕ Add Student to This Sheet</h3>
+      <button class="modal-close" onclick="_qeCloseAddStudentModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Adds a student to this Quick Entry sheet only — e.g. a transfer-in who isn't on the class list yet. All fields are required. They're saved to the database once you enter their scores and submit.</div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>STUDENT NAME</label>
+          <input type="text" id="qe-add-name" placeholder="Full legal name">
+        </div>
+        <div class="form-group">
+          <label>ASSESSMENT NO</label>
+          <input type="text" id="qe-add-asm" placeholder="e.g. 12345">
+        </div>
+        <div class="form-group">
+          <label>UPI</label>
+          <input type="text" id="qe-add-upi" placeholder="UPI number">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="_qeCloseAddStudentModal()">Cancel</button>
+      <button class="btn btn-green btn-sm" onclick="_qeConfirmAddStudent()">➕ Add to Sheet</button>
     </div>
   </div>
 </div>
@@ -4159,6 +4193,34 @@ function termSortKey(label){
   const y=(label.match(/(\d{4})/)||['','0'])[1];
   const t=(label.match(/Term\s*(\d+)/i)||['','0'])[1];
   return y+'_'+t.padStart(2,'0');
+}
+// ── Chronological ordering for exam identities like "Grade 1-2026-A2-End-Term 1" ──
+// The "-A2-", "-B1-" etc. cycle code (letter = term-in-year run, number = sub-cycle
+// within it) increases in issue order, so year → letter → number → term number gives
+// a reliable latest-first sort even when two exams share the same "Term N" label
+// (e.g. Mid-Term 1 = A1, End-Term 1 = A2 — both "Term 1" but A2 is later).
+function _qeCompoundOrderKey(compound){
+  const c = String(compound||'');
+  const year = (c.match(/(\d{4})/)||['','0'])[1];
+  const cyc = c.match(/-([A-Za-z])(\d+)-/);
+  const letter = cyc ? cyc[1].toUpperCase() : 'A';
+  const num = cyc ? parseInt(cyc[2],10) : 0;
+  const term = (c.match(/Term\s*(\d+)/i)||['','0'])[1];
+  return `${year}_${letter}_${String(num).padStart(2,'0')}_${String(term).padStart(2,'0')}`;
+}
+/** Finds the single most recent exam identity that already has real records
+ *  for the given short grade (e.g. "Grade 3"), or null if that grade has no
+ *  results on file at all yet. Used to seed a brand-new/pending exam's roster
+ *  from the latest class list instead of merging every past term together. */
+function _qeLatestTermForGrade(grade){
+  const compounds = new Set();
+  allData.forEach(r => {
+    if(gShort(r['Grade']) !== grade) return;
+    const t = getRecordTerm(r);
+    if(t && t !== 'Unknown') compounds.add(t);
+  });
+  if(!compounds.size) return null;
+  return [...compounds].sort((a,b) => _qeCompoundOrderKey(b).localeCompare(_qeCompoundOrderKey(a)))[0];
 }
 function barColor(score){
   const n=parseFloat(score);if(isNaN(n))return'#777';
@@ -9057,28 +9119,59 @@ window.addExtraSubject=addExtraSubject;
 
 async function deleteExtraSubject(key, subject, grade){
   if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
+
+  // Does this subject already have real scores recorded for this grade? If so,
+  // just removing the "extra subject" placeholder isn't a real delete — the
+  // subject would keep reappearing everywhere because it's still present as
+  // real data on those records. So when real data exists, this now offers to
+  // permanently strip that subject's scores from every affected record too.
+  const affectedRecords = allData.filter(r => gShort(r['Grade'])===grade && getSubjects(r).includes(subject));
+  const hasRealData = affectedRecords.length > 0;
+
   const ok = await showConfirm(
-    '🗑️ Remove Extra Subject',
-    `Remove <strong>${subject}</strong> (${grade})? It will no longer appear in Quick Entry or the Results Template unless real scores have already been entered for it.`,
-    '🗑️','Remove','btn-red'
+    hasRealData ? '⚠️ Permanently Delete Subject Data?' : '🗑️ Remove Extra Subject',
+    hasRealData
+      ? `<strong>${subject}</strong> (${grade}) already has recorded scores on <strong>${affectedRecords.length}</strong> student record${affectedRecords.length===1?'':'s'}.<br><br>
+         Removing it will <strong>permanently delete every "${subject}" score</strong> for this grade — this cannot be undone.<br><br>
+         Are you sure you want to continue?`
+      : `Remove <strong>${subject}</strong> (${grade})? It hasn't been used for any scores yet, so nothing else is affected.`,
+    hasRealData ? '⚠️' : '🗑️',
+    hasRealData ? 'Yes, Delete Permanently' : 'Remove',
+    'btn-red'
   );
   if(!ok) return;
+
   try{
-    const { ref, remove } = window._fb;
+    const { ref, remove, update } = window._fb;
     // Optimistic local update — reflect the removal immediately
     const next = { ..._extraSubjects };
     delete next[key];
     _extraSubjects = next;
     renderExtraSubjectsSettings();
-    const stillHasRealData = allData.some(r => gShort(r['Grade'])===grade && getSubjects(r).includes(subject));
-    if(!stillHasRealData && _qeGrade === grade && document.getElementById('view-quickentry')?.classList.contains('active') && _qeStudents.length){
+    if(_qeGrade === grade && document.getElementById('view-quickentry')?.classList.contains('active') && _qeStudents.length){
       _qeSubjects = _qeSubjects.filter(s => s !== subject);
       renderQuickEntryTable(_qeCollectScores(), _qeLocked);
     }
 
     await remove(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`));
-    notify(`🗑️ "${subject}" removed from ${grade}.`,'success');
-    logActivity(`🗑️ Removed extra subject "${subject}" for ${grade}`,'act-red',currentAdminName,{category:'system'});
+
+    // Strip the actual score data too, so this is a real delete rather than
+    // just hiding the placeholder while stale scores linger in the database.
+    let deletedFrom = 0;
+    if(hasRealData){
+      for(const r of affectedRecords){
+        if(!r.id) continue;
+        try{ await update(ref(db, `${DB_PATH}/${r.id}`), { [subject]: null }); deletedFrom++; }
+        catch(e){ /* keep going — report the partial count below */ }
+      }
+    }
+
+    if(hasRealData){
+      notify(`🗑️ "${subject}" permanently deleted for ${grade} — removed from ${deletedFrom} student record${deletedFrom===1?'':'s'}.`,'success',6000);
+    } else {
+      notify(`🗑️ "${subject}" removed from ${grade}.`,'success');
+    }
+    logActivity(`🗑️ ${hasRealData?'Permanently deleted':'Removed'} subject "${subject}" for ${grade}${hasRealData?` (${deletedFrom} record(s) affected)`:''}`,'act-red',currentAdminName,{category:'system'});
   }catch(e){
     notify('Error removing subject: '+e.message,'error');
   }
@@ -11951,7 +12044,7 @@ window.downloadResultsTemplate = function(){
     window.navTo = function(view, el){
       _origNavTo(view, el);
       if(view === 'import') setTimeout(_populateTemplateSelectors, 100);
-      if(view === 'quickentry') setTimeout(_populateQuickEntrySelectors, 100);
+      if(view === 'quickentry'){ setTimeout(_populateQuickEntrySelectors, 100); setTimeout(_qeUpdateOnlineBanner, 100); if(navigator.onLine) _qeSyncPendingLocalDrafts(); }
     };
   } else {
     // navTo not yet defined — hook via MutationObserver once
@@ -11961,7 +12054,7 @@ window.downloadResultsTemplate = function(){
         window.navTo = function(view, el){
           _o(view, el);
           if(view==='import') setTimeout(_populateTemplateSelectors, 100);
-          if(view==='quickentry') setTimeout(_populateQuickEntrySelectors, 100);
+          if(view==='quickentry'){ setTimeout(_populateQuickEntrySelectors, 100); setTimeout(_qeUpdateOnlineBanner, 100); if(navigator.onLine) _qeSyncPendingLocalDrafts(); }
         };
       }
     });
@@ -11979,6 +12072,104 @@ let _qeCompound  = '';     // the full compound Grade string (exam identity)
 let _qeGrade     = '';     // plain grade label
 let _qeSaveTimer = null;
 let _qeLocked    = false;  // true when the currently loaded exam is term-locked (view-only)
+let _qeWasPending = false; // true when the loaded exam had zero records yet (first-time entry) —
+                            // used to prompt an extra "no mistakes?" confirmation before submit
+
+/* ── OFFLINE SUPPORT (Google-Sheets-style) ───────────────────────────────────
+   Quick Entry keeps working with no internet connection at all: every
+   autosave writes to localStorage FIRST (always succeeds, even offline), and
+   only THEN tries to push that same draft to Firebase. If the push fails
+   (offline, or a network blip) the local copy is flagged pendingSync:true.
+   The moment the browser regains connectivity ('online' event), every
+   pendingSync draft on this device — for any exam, not just the one
+   currently open — is pushed to Firebase automatically. Nothing is ever
+   submitted to the real database this way; it only reaches the DRAFTS node,
+   exactly like a normal autosave, and still needs "Submit Final to Database"
+   (which itself requires being online) to become real scores. ────────────── */
+const QE_LS_PREFIX = 'kss_qe_offline_';
+function _qeLocalKey(uid, draftKey){ return `${QE_LS_PREFIX}${uid}::${draftKey}`; }
+function _qeReadLocalDraft(uid, draftKey){
+  try{
+    const raw = localStorage.getItem(_qeLocalKey(uid, draftKey));
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function _qeWriteLocalDraft(uid, draftKey, payload){
+  try{ localStorage.setItem(_qeLocalKey(uid, draftKey), JSON.stringify(payload)); }
+  catch(e){ /* storage full/unavailable — Firebase write (if online) still goes ahead */ }
+}
+function _qeClearLocalDraft(uid, draftKey){
+  try{ localStorage.removeItem(_qeLocalKey(uid, draftKey)); }catch(e){}
+}
+
+/** Pushes every locally-queued, not-yet-synced draft on this device to
+ *  Firebase. Runs automatically whenever the browser comes back online, and
+ *  once on page load in case drafts were left queued from a prior offline
+ *  session that was closed before reconnecting. */
+async function _qeSyncPendingLocalDrafts(){
+  if(!navigator.onLine || !window._fb || !window._fb.ref || !window._fb.set) return;
+  const pending = [];
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(!k || !k.startsWith(QE_LS_PREFIX)) continue;
+    let obj; try{ obj = JSON.parse(localStorage.getItem(k)); }catch(e){ continue; }
+    if(obj && obj.pendingSync) pending.push({key:k, obj});
+  }
+  if(!pending.length) return;
+
+  const {ref, set} = window._fb;
+  let synced = 0;
+  for(const {key, obj} of pending){
+    try{
+      const rest = key.slice(QE_LS_PREFIX.length);
+      const sep = rest.indexOf('::');
+      if(sep < 0) continue;
+      const uid = rest.slice(0, sep), draftKey = rest.slice(sep+2);
+      await set(ref(db, `${QE_DRAFTS_PATH}/${uid}/${draftKey}`), {
+        grade: obj.grade, compound: obj.compound, scores: obj.scores, updatedAt: obj.updatedAt
+      });
+      obj.pendingSync = false;
+      localStorage.setItem(key, JSON.stringify(obj));
+      synced++;
+    }catch(e){ /* still offline/failing — leave queued, we'll retry on the next 'online' event */ }
+  }
+  if(synced){
+    notify(`☁️ Synced ${synced} offline Quick Entry draft${synced>1?'s':''} to the database — still awaiting final submission.`,'success',6000);
+    if(document.getElementById('view-quickentry')?.classList.contains('active')){
+      const statusEl = document.getElementById('qe-save-status');
+      if(statusEl && _qeCompound) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
+    }
+  }
+}
+window._qeSyncPendingLocalDrafts = _qeSyncPendingLocalDrafts;
+
+function _qeUpdateOnlineBanner(){
+  const banner = document.getElementById('qe-offline-banner');
+  const submitBtn = document.getElementById('qe-submit-btn');
+  if(!banner) return;
+  const inQE = document.getElementById('view-quickentry')?.classList.contains('active');
+  if(!navigator.onLine){
+    banner.style.display = 'block';
+    banner.innerHTML = `📴 You're offline — Quick Entry still works. Keep entering scores; they're saved on this device and will sync to the database automatically once you're back online.`;
+    if(submitBtn && inQE && _qeCompound && !_qeLocked){ submitBtn.disabled = true; submitBtn.dataset.offlineDisabled = '1'; submitBtn.textContent = '📴 Offline — connect to submit'; }
+  } else {
+    banner.style.display = 'none';
+    if(submitBtn && submitBtn.dataset.offlineDisabled){ submitBtn.disabled = false; submitBtn.textContent = '✅ Submit Final to Database'; delete submitBtn.dataset.offlineDisabled; }
+  }
+}
+window.addEventListener('online', ()=>{
+  _qeUpdateOnlineBanner();
+  notify('🌐 Back online — syncing any offline Quick Entry drafts…','info',4000);
+  _qeSyncPendingLocalDrafts();
+});
+window.addEventListener('offline', ()=>{
+  _qeUpdateOnlineBanner();
+  if(document.getElementById('view-quickentry')?.classList.contains('active')){
+    notify("📴 You're offline. Quick Entry keeps working — scores are saved on this device and will sync once you reconnect.",'warn',6000);
+  }
+});
+// Catch drafts left queued from a prior session that was closed before reconnecting.
+if(navigator.onLine) setTimeout(_qeSyncPendingLocalDrafts, 3000);
 
 /** Populate the Grade / Exam selects, scoped to the teacher's own assigned grades.
  *  Only Advanced Admin sees the "Create New Exam" option; regular teachers only
@@ -12168,14 +12359,21 @@ async function loadQuickEntry(){
   // so the roster should come from records belonging to THIS exact exam
   // identity — not every record that merely shares the same short grade
   // (which would pull in students from other terms/exams in that class).
-  // Only fall back to a grade-wide match when the exam has zero records yet
-  // (a brand-new "pending" exam awaiting its first scores), so there's still
-  // a roster to show teachers instead of an empty sheet.
+  // A brand-new "pending" exam (zero records yet) instead pulls its starting
+  // roster from the single LATEST results term already on file for that
+  // grade — not merged across every past term/exam, which could resurrect
+  // students who've since left or double up on stale records. If a class has
+  // no results on file at all yet, it starts with an empty sheet that the
+  // teacher can build up using "➕ Add Student" below.
   const exactRows = allData.filter(r => getRecordTerm(r) === selCompound);
   const useExact = exactRows.length > 0;
-  const rosterRows = useExact
-    ? exactRows
-    : allData.filter(r => !selGrade || gShort(r['Grade']) === selGrade || r['Grade'] === selGrade);
+  const pendingGrade = selGrade || gShort(selCompound);
+  let rosterRows = exactRows;
+  if(!useExact){
+    const latestTerm = _qeLatestTermForGrade(pendingGrade);
+    rosterRows = latestTerm ? allData.filter(r => getRecordTerm(r) === latestTerm) : [];
+  }
+  _qeWasPending = !useExact; // remembered so submitQuickEntry can double-check with the user
 
   const seenAsmNo = new Set(), seenUPI = new Set(), seenNoIdName = new Set();
   const students = [];
@@ -12191,12 +12389,14 @@ async function loadQuickEntry(){
   });
   students.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
 
-  if(!students.length){ notify('⚠️ No students found for that grade.','warn'); return; }
+  if(!students.length){
+    notify('⚠️ No existing students found for that grade/exam yet — use "➕ Add Student" below to start building the sheet.','warn',6000);
+  }
 
   // ── Subject columns for this grade/exam ────────────────────────────────────
   const subjSet = new Set();
   rosterRows.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
-  if(!subjSet.size) allData.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
+  if(!subjSet.size) allData.filter(r => gShort(r['Grade']) === pendingGrade).forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
   // Include Advanced-Admin-registered subjects awaiting their first score
   // (Settings → Extra Subjects) so they're ready for teachers to fill in.
   getExtraSubjectsForGrade(selGrade).forEach(s => subjSet.add(s));
@@ -12210,20 +12410,39 @@ async function loadQuickEntry(){
 
   // ── Check for a saved draft to restore in-progress scores (unlocked only —
   // a locked exam is view-only, so there's nothing to resume editing). ──────
+  // Offline-first: a not-yet-synced local draft (typed while offline) always
+  // wins over the server copy, since it's the most recent thing the user
+  // actually entered. If we're offline and there's no pending edit, fall
+  // back to whatever was last mirrored locally so the sheet still opens
+  // fully populated with no connection at all.
   let draftScores = {};
   let draftTime = null;
+  let draftFromLocalOnly = false;
   if(!locked){
-    try{
-      const {ref, get} = window._fb;
-      const myUid = window._currentUser?.uid || 'anon';
-      const draftKey = encodeURIComponent(selCompound);
-      const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`));
-      if(snap.exists()){
-        const d = snap.val();
-        draftScores = d.scores || {};
-        draftTime = d.updatedAt || null;
-      }
-    }catch(e){ /* no draft — fine */ }
+    const myUid = window._currentUser?.uid || 'anon';
+    const draftKey = encodeURIComponent(selCompound);
+    const localDraft = _qeReadLocalDraft(myUid, draftKey);
+
+    if(localDraft && localDraft.pendingSync){
+      draftScores = localDraft.scores || {};
+      draftTime = localDraft.updatedAt || null;
+      draftFromLocalOnly = true;
+    } else if(navigator.onLine){
+      try{
+        const {ref, get} = window._fb;
+        const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`));
+        if(snap.exists()){
+          const d = snap.val();
+          draftScores = d.scores || {};
+          draftTime = d.updatedAt || null;
+        }
+      }catch(e){ /* no draft, or a network blip — fall through to local mirror below */ }
+    }
+    if(!draftTime && localDraft){
+      draftScores = localDraft.scores || {};
+      draftTime = localDraft.updatedAt || null;
+      draftFromLocalOnly = !navigator.onLine;
+    }
   }
 
   // Merge: already-submitted scores are the base, an in-progress draft
@@ -12250,12 +12469,17 @@ async function loadQuickEntry(){
     if(submitBtn) submitBtn.style.display = '';
     if(draftTime){
       banner.style.display='block';
-      banner.innerHTML = `📝 Restored your unsaved draft from <strong>${new Date(draftTime).toLocaleString()}</strong> — keep entering scores below.`;
+      banner.innerHTML = draftFromLocalOnly
+        ? `📴 Restored your <strong>offline</strong> draft from <strong>${new Date(draftTime).toLocaleString()}</strong> (not yet synced) — keep entering scores below.`
+        : `📝 Restored your unsaved draft from <strong>${new Date(draftTime).toLocaleString()}</strong> — keep entering scores below.`;
     } else {
       banner.style.display='none';
     }
   }
 
+  _qeUpdateOnlineBanner();
+  const addSubjectBtn = document.getElementById('qe-add-subject-btn');
+  if(addSubjectBtn) addSubjectBtn.style.display = (isAdvancedAdmin && _qeWasPending && !locked) ? '' : 'none';
   document.getElementById('qe-table-card').style.display='block';
 }
 window.loadQuickEntry = loadQuickEntry;
@@ -12297,7 +12521,16 @@ function _qeStudentKey(rec){
 function renderQuickEntryTable(draftScores, locked){
   const thead = document.getElementById('qe-thead-row');
   const tbody = document.getElementById('qe-tbody');
-  thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>`<th style="min-width:90px">${s}</th>`).join('')}`;
+  // On a PENDING exam (first-time entry), subject columns are auto-picked
+  // from the latest existing term's real data as a starting suggestion —
+  // Advanced Admins can prune ones that don't apply to this new exam right
+  // from the header, no need to go through Settings → Extra Subjects.
+  const canEditSubjects = isAdvancedAdmin && _qeWasPending && !locked;
+  thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>
+    canEditSubjects
+      ? `<th style="min-width:90px">${s} <button onclick="_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
+      : `<th style="min-width:90px">${s}</th>`
+  ).join('')}${locked?'':'<th style="width:44px"></th>'}`;
   tbody.innerHTML = _qeStudents.map((r,i)=>{
     const key = _qeStudentKey(r);
     const draft = draftScores[key] || {};
@@ -12311,9 +12544,127 @@ function renderQuickEntryTable(draftScores, locked){
           ? `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.75;cursor:not-allowed"></td>`
           : `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
       }).join('')}
+      ${locked ? '' : `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>`}
     </tr>`;
   }).join('');
 }
+
+/** Advanced Admin only, pending exams only — drops a subject column that was
+ *  auto-suggested from the latest existing term but doesn't apply to this
+ *  new exam. Purely local to this sheet: the new exam has no scores of its
+ *  own yet, so there's nothing in the database to clean up — this just
+ *  narrows what gets asked for when scores are entered and submitted. */
+function _qeRemoveSubjectFromSheet(subject){
+  if(!isAdvancedAdmin){ notify('⛔ Advanced Admin only.','error'); return; }
+  if(!_qeWasPending){ notify('⚠️ Subject columns can only be edited here for a brand-new (pending) exam.','warn'); return; }
+  const scores = _qeCollectScores();
+  Object.keys(scores).forEach(k => { if(scores[k]) delete scores[k][subject]; });
+  _qeSubjects = _qeSubjects.filter(s => s !== subject);
+  renderQuickEntryTable(scores, _qeLocked);
+  notify(`Removed "${subject}" from this sheet.`,'info');
+}
+window._qeRemoveSubjectFromSheet = _qeRemoveSubjectFromSheet;
+
+/** Advanced Admin only, pending exams only — adds a subject column to this
+ *  sheet that Firebase didn't auto-suggest (e.g. a subject new to this term).
+ *  Also registers it as an Extra Subject so it persists on reload and shows
+ *  up for any teacher entering scores for this same grade/exam. */
+async function _qeAddSubjectToSheet(){
+  if(!isAdvancedAdmin){ notify('⛔ Advanced Admin only.','error'); return; }
+  if(!_qeWasPending){ notify('⚠️ Subject columns can only be edited here for a brand-new (pending) exam.','warn'); return; }
+  const subject = (window.prompt('Subject name to add to this sheet:')||'').trim();
+  if(!subject) return;
+  if(subject.length > 60){ notify('⚠️ Subject title is too long.','warn'); return; }
+  if(_qeSubjects.some(s => s.toLowerCase()===subject.toLowerCase())){
+    notify(`⚠️ "${subject}" is already on this sheet.`,'warn'); return;
+  }
+  _qeSubjects = [..._qeSubjects, subject].sort();
+  renderQuickEntryTable(_qeCollectScores(), _qeLocked);
+  notify(`✅ "${subject}" added to this sheet.`,'success');
+
+  // Best-effort persistence so it survives a reload / shows up for teachers —
+  // mirrors Settings → Extra Subjects, but doesn't block the local UI on it.
+  try{
+    const { ref, set } = window._fb;
+    const gradeForKey = _qeGrade || gShort(_qeCompound);
+    const key = _extraSubjKey(gradeForKey, subject);
+    const entry = { grade: gradeForKey, subject, addedBy: currentAdminName||'Admin', addedByUid: window._currentUser?.uid||'', addedAt: Date.now() };
+    _extraSubjects = { ..._extraSubjects, [key]: entry };
+    await set(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`), entry);
+  }catch(e){ /* sheet already has the column locally even if this persistence step fails */ }
+}
+window._qeAddSubjectToSheet = _qeAddSubjectToSheet;
+
+// ── Quick Entry: manually add/remove a student from the current sheet ──────
+// These edits only affect the in-memory _qeStudents list for this session —
+// nothing is written to the database until scores are entered and Submit is
+// pressed (for an add), and a remove never touches any already-saved record.
+function _qeOpenAddStudentModal(){
+  if(!document.getElementById('qe-table-card') || document.getElementById('qe-table-card').style.display==='none'){
+    notify('⚠️ Load a grade/exam first.','warn'); return;
+  }
+  if(_qeLocked){ notify('🔒 This exam is locked — cannot add students.','warn'); return; }
+  document.getElementById('qe-add-name').value = '';
+  document.getElementById('qe-add-asm').value = '';
+  document.getElementById('qe-add-upi').value = '';
+  document.getElementById('qe-add-student-modal').classList.add('on');
+  setTimeout(()=>document.getElementById('qe-add-name')?.focus(), 50);
+}
+window._qeOpenAddStudentModal = _qeOpenAddStudentModal;
+
+function _qeCloseAddStudentModal(){
+  document.getElementById('qe-add-student-modal').classList.remove('on');
+}
+window._qeCloseAddStudentModal = _qeCloseAddStudentModal;
+
+function _qeConfirmAddStudent(){
+  const name = document.getElementById('qe-add-name').value.trim();
+  const asm = document.getElementById('qe-add-asm').value.trim();
+  const upi = document.getElementById('qe-add-upi').value.trim();
+
+  if(!name){ notify("⚠️ Please enter the student's name.",'warn'); return; }
+  if(!asm){ notify('⚠️ Assessment No is required.','warn'); return; }
+  if(!upi){ notify('⚠️ UPI is required.','warn'); return; }
+
+  const dupe = _qeStudents.some(r=>
+    _qeRealId(r['Assessment No'])===asm || _qeRealId(r['UPI'])===upi
+  );
+  if(dupe){ notify('⚠️ A student with that Assessment No or UPI is already on this sheet.','warn'); return; }
+
+  _qeStudents.push({
+    id: 'NEW_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    'Official Student Name': name,
+    'Assessment No': asm,
+    'UPI': upi,
+    'Grade': _qeCompound
+  });
+  _qeStudents.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
+
+  const scores = _qeCollectScores(); // preserve whatever's already on-screen
+  renderQuickEntryTable(scores, _qeLocked);
+  _qeCloseAddStudentModal();
+  notify(`✅ ${name} added — enter their scores, then Submit.`,'success');
+}
+window._qeConfirmAddStudent = _qeConfirmAddStudent;
+
+async function _qeRemoveStudentRow(key){
+  if(_qeLocked){ notify('🔒 This exam is locked — cannot remove students.','warn'); return; }
+  const r = _qeStudents.find(x=>_qeStudentKey(x)===key);
+  if(!r) return;
+  const ok = await showConfirm(
+    'Remove From This Sheet?',
+    `Remove <strong>${r['Official Student Name']||'this student'}</strong> from this Quick Entry sheet?<br><br>
+     This only removes them from <strong>this list</strong> — it does <u>not</u> delete any of their scores already saved in the database.`,
+    '🗑️','Remove','btn-red'
+  );
+  if(!ok) return;
+  _qeStudents = _qeStudents.filter(x=>_qeStudentKey(x)!==key);
+  const scores = _qeCollectScores();
+  delete scores[key];
+  renderQuickEntryTable(scores, _qeLocked);
+  notify('Student removed from this sheet.','info');
+}
+window._qeRemoveStudentRow = _qeRemoveStudentRow;
 
 /** Debounced autosave — fires ~1.2s after the user stops typing. */
 function _qeOnScoreInput(){
@@ -12326,17 +12677,31 @@ window._qeOnScoreInput = _qeOnScoreInput;
 
 async function _qeSaveDraft(){
   const statusEl = document.getElementById('qe-save-status');
+  const myUid = window._currentUser?.uid || 'anon';
+  const draftKey = encodeURIComponent(_qeCompound);
+  const scores = _qeCollectScores();
+  const updatedAt = Date.now();
+
+  // Always cache locally FIRST — this is what makes Quick Entry keep working
+  // exactly like a local spreadsheet with zero connection.
+  _qeWriteLocalDraft(myUid, draftKey, {
+    grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: true
+  });
+
+  if(!navigator.onLine){
+    if(statusEl) statusEl.innerHTML = `📴 Offline — saved on this device, will sync automatically`;
+    return;
+  }
+
   try{
     const {ref, set} = window._fb;
-    const myUid = window._currentUser?.uid || 'anon';
-    const draftKey = encodeURIComponent(_qeCompound);
-    const scores = _qeCollectScores();
-    await set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), {
-      grade: _qeGrade, compound: _qeCompound, scores, updatedAt: Date.now()
-    });
-    if(statusEl) statusEl.innerHTML = `💾 Draft saved ${new Date().toLocaleTimeString()}`;
+    await set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), { grade: _qeGrade, compound: _qeCompound, scores, updatedAt });
+    _qeWriteLocalDraft(myUid, draftKey, { grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: false });
+    if(statusEl) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
   }catch(e){
-    if(statusEl) statusEl.textContent = '⚠️ Autosave failed — check connection';
+    // navigator.onLine said true but the write still failed (flaky connection) —
+    // keep it flagged pendingSync so the next 'online' event retries it.
+    if(statusEl) statusEl.innerHTML = `📴 Saved on this device — will sync once connection is stable`;
   }
 }
 
@@ -12359,6 +12724,14 @@ function _qeCollectScores(){
 async function submitQuickEntry(){
   if(!_qeStudents.length){ notify('Load students first.','warn'); return; }
 
+  // ── Final submission needs a connection — offline work is never lost, ────
+  // it's just kept queued as a local draft (synced automatically once back
+  // online) until the teacher can actually submit it for real.
+  if(!navigator.onLine){
+    notify("📴 You're offline — your scores are saved on this device as a draft and will sync automatically. Submit once you're back online.",'warn',6000);
+    return;
+  }
+
   // ── Lock guard (re-check at submit time too — lock state can change) ─────
   if(_lockedTerms[encodeURIComponent(_qeCompound)] && _lockedTerms[encodeURIComponent(_qeCompound)].locked){
     notify(`🔒 "${_qeCompound}" is locked. Ask an Advanced Admin to unlock it before submitting.`,'error',6000);
@@ -12377,6 +12750,21 @@ async function submitQuickEntry(){
       if(isNaN(v)||v<0||v>100){ invalidCount++; delete subjMap[s]; }
     });
   });
+
+  // ── Extra confirmation for a pending exam's very first submission ─────────
+  // This is the first time ANY record is being created for this exam identity,
+  // so there's no existing data to double-check against — ask the user to
+  // confirm there are no mistakes before writing anything to the database.
+  if(_qeWasPending){
+    const ok = await showConfirm(
+      '🕒 Confirm First-Time Submission',
+      `This is a <strong>new exam/term</strong> — <strong>${_qeCompound}</strong> — and has no scores in the database yet.<br><br>
+       You're about to create <strong>${studentsWithScores.length}</strong> new score record(s) for <strong>${_qeGrade || gShort(_qeCompound)}</strong>.<br><br>
+       Please double-check the scores you've entered are correct before submitting — there is no mistake, right?`,
+      '🕒','Yes, Submit','btn-green'
+    );
+    if(!ok) return;
+  }
 
   const btn = document.getElementById('qe-submit-btn');
   btn.disabled = true; btn.textContent = '⏳ Submitting…';
@@ -12426,6 +12814,7 @@ async function submitQuickEntry(){
     const myUid = window._currentUser?.uid || 'anon';
     await remove(ref2(db, `${QE_DRAFTS_PATH}/${myUid}/${encodeURIComponent(_qeCompound)}`));
   }catch(e){}
+  _qeClearLocalDraft(window._currentUser?.uid || 'anon', encodeURIComponent(_qeCompound));
 
   // ── This exam is no longer "pending" once at least one record exists ──────
   if(created>0){
