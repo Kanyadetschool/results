@@ -12162,10 +12162,24 @@ async function loadQuickEntry(){
   // have no UPI at all). Priority: Assessment No → UPI → Name. Placeholder
   // junk values ("N/A", "-", "0", etc.) are treated as blank so a shared
   // placeholder can't collapse many different students into one record.
+  //
+  // ── Pick the source rows to build the roster from ─────────────────────────
+  // Grade headers are unique per exam/term (e.g. "Grade 1-2026-A2-End-Term 1"),
+  // so the roster should come from records belonging to THIS exact exam
+  // identity — not every record that merely shares the same short grade
+  // (which would pull in students from other terms/exams in that class).
+  // Only fall back to a grade-wide match when the exam has zero records yet
+  // (a brand-new "pending" exam awaiting its first scores), so there's still
+  // a roster to show teachers instead of an empty sheet.
+  const exactRows = allData.filter(r => getRecordTerm(r) === selCompound);
+  const useExact = exactRows.length > 0;
+  const rosterRows = useExact
+    ? exactRows
+    : allData.filter(r => !selGrade || gShort(r['Grade']) === selGrade || r['Grade'] === selGrade);
+
   const seenAsmNo = new Set(), seenUPI = new Set(), seenNoIdName = new Set();
   const students = [];
-  allData.forEach(r => {
-    if(selGrade){ if(gShort(r['Grade']) !== selGrade && r['Grade'] !== selGrade) return; }
+  rosterRows.forEach(r => {
     const asmNo = _qeRealId(r['Assessment No']);
     const upi = _qeRealId(r['UPI']);
     const name = String(r['Official Student Name']||'').trim().toLowerCase();
@@ -12179,12 +12193,9 @@ async function loadQuickEntry(){
 
   if(!students.length){ notify('⚠️ No students found for that grade.','warn'); return; }
 
-  // ── Subject columns for this grade ────────────────────────────────────────
+  // ── Subject columns for this grade/exam ────────────────────────────────────
   const subjSet = new Set();
-  allData.forEach(r => {
-    if(selGrade && gShort(r['Grade']) !== selGrade && r['Grade'] !== selGrade) return;
-    getSubjects(r).forEach(s => subjSet.add(s));
-  });
+  rosterRows.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
   if(!subjSet.size) allData.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
   // Include Advanced-Admin-registered subjects awaiting their first score
   // (Settings → Extra Subjects) so they're ready for teachers to fill in.
