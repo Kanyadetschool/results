@@ -1322,7 +1322,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 .qlinks-toggle .qt-arrow{font-size:10px;transition:transform .3s;}
 .qlinks-toggle.open .qt-arrow{transform:rotate(90deg);}
 .qlinks-panel{overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
-.qlinks-panel.open{max-height:400px;opacity:1;}
+.qlinks-panel.open{max-height:400px;opacity:1;overflow-y:auto;overflow-x:hidden;}
 .auth-qlink{
   display:flex;align-items:center;gap:9px;
   padding:8px 10px;border-radius:var(--radius-md);
@@ -8945,12 +8945,25 @@ async function addExtraSubject(){
   try{
     const { ref, set } = window._fb;
     const key = _extraSubjKey(grade, subject);
-    await set(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`), {
+    const entry = {
       grade, subject,
       addedBy: currentAdminName || 'Admin',
       addedByUid: window._currentUser?.uid || '',
       addedAt: Date.now()
-    });
+    };
+    // Optimistic local update — don't wait on the realtime round-trip to
+    // reflect the change; the listener will just confirm/re-sync afterwards.
+    _extraSubjects = { ..._extraSubjects, [key]: entry };
+    renderExtraSubjectsSettings();
+    if(_qeGrade === grade && document.getElementById('view-quickentry')?.classList.contains('active') && _qeStudents.length){
+      // Quick Entry roster is already loaded for this grade — add the column live
+      if(!_qeSubjects.includes(subject)){
+        _qeSubjects = [..._qeSubjects, subject].sort();
+        renderQuickEntryTable(_qeCollectScores());
+      }
+    }
+
+    await set(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`), entry);
     notify(`✅ "${subject}" added for ${grade} — visible now in Quick Entry & Results Template.`,'success',6000);
     logActivity(`📚 Added extra subject "${subject}" for ${grade}`,'act-green',currentAdminName,{category:'system'});
     if(nameEl) nameEl.value='';
@@ -8970,6 +8983,17 @@ async function deleteExtraSubject(key, subject, grade){
   if(!ok) return;
   try{
     const { ref, remove } = window._fb;
+    // Optimistic local update — reflect the removal immediately
+    const next = { ..._extraSubjects };
+    delete next[key];
+    _extraSubjects = next;
+    renderExtraSubjectsSettings();
+    const stillHasRealData = allData.some(r => gShort(r['Grade'])===grade && getSubjects(r).includes(subject));
+    if(!stillHasRealData && _qeGrade === grade && document.getElementById('view-quickentry')?.classList.contains('active') && _qeStudents.length){
+      _qeSubjects = _qeSubjects.filter(s => s !== subject);
+      renderQuickEntryTable(_qeCollectScores());
+    }
+
     await remove(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`));
     notify(`🗑️ "${subject}" removed from ${grade}.`,'success');
     logActivity(`🗑️ Removed extra subject "${subject}" for ${grade}`,'act-red',currentAdminName,{category:'system'});
