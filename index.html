@@ -250,7 +250,7 @@ body::before{
 .grid-60-40{display:grid;grid-template-columns:60% 40%;gap:18px;min-width:0;}
 @media(max-width:1024px){.grid-60-40{grid-template-columns:1fr 1fr;}}
 @media(max-width:1200px){.grid-2,.grid-3{grid-template-columns:1fr;}}
-@media(max-width:900px){.grid-2,.grid-3,.grid-60-40{grid-template-columns:1fr;}}
+@media(max-width:1000px){.grid-2,.grid-3,.grid-60-40{grid-template-columns:1fr;}}
 @media(max-width:768px){.grid-2{grid-template-columns:1fr;}}
 
 /* ══════════════════════════════════════════
@@ -1302,7 +1302,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 .qlinks-toggle:hover{border-color:var(--border-strong);color:var(--text2);background:rgba(41,128,185,.05);}
 .qlinks-toggle .qt-arrow{font-size:10px;transition:transform .3s;}
 .qlinks-toggle.open .qt-arrow{transform:rotate(90deg);}
-.qlinks-panel{overflow:hidden;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
+.qlinks-panel{overflow:scroll;max-height:0;opacity:0;transition:max-height .35s ease,opacity .25s ease;}
 .qlinks-panel.open{max-height:400px;opacity:1;}
 .auth-qlink{
   display:flex;align-items:center;gap:9px;
@@ -1672,9 +1672,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <span class="qt-arrow">›</span>
       </button>
       <div class="qlinks-panel" id="quick-links-panel">
-    <a href="./docs/CBC-Grading-System-Guide.docx" download="CBC-Grading-System-Guide.docx" class="auth-qlink auth-qlink-3">
-          <div class="auth-qlink-dot"></div>🏅 Grading System Guide (.docx)<span class="auth-qlink-arrow">⬇</span>
-        </a>
+   
 
     <a href="./Report-Cards/Active-Students-Database.html" target="_blank" rel="noopener" class="auth-qlink auth-qlink-1">
           <div class="auth-qlink-dot"></div>📄 Active students<span class="auth-qlink-arrow">→</span>
