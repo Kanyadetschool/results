@@ -3056,6 +3056,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div style="margin-top:10px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--blue-lt)">Preview: <span id="qe-ne-preview">—</span></div>
           </div>
           <div id="qe-draft-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(41,128,185,.08);border:1px solid rgba(41,128,185,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--blue-lt)"></div>
+          <div id="qe-lock-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--red)"></div>
         </div>
 
         <div class="card" id="qe-table-card" style="display:none">
@@ -9040,7 +9041,7 @@ async function addExtraSubject(){
       // Quick Entry roster is already loaded for this grade — add the column live
       if(!_qeSubjects.includes(subject)){
         _qeSubjects = [..._qeSubjects, subject].sort();
-        renderQuickEntryTable(_qeCollectScores());
+        renderQuickEntryTable(_qeCollectScores(), _qeLocked);
       }
     }
 
@@ -9072,7 +9073,7 @@ async function deleteExtraSubject(key, subject, grade){
     const stillHasRealData = allData.some(r => gShort(r['Grade'])===grade && getSubjects(r).includes(subject));
     if(!stillHasRealData && _qeGrade === grade && document.getElementById('view-quickentry')?.classList.contains('active') && _qeStudents.length){
       _qeSubjects = _qeSubjects.filter(s => s !== subject);
-      renderQuickEntryTable(_qeCollectScores());
+      renderQuickEntryTable(_qeCollectScores(), _qeLocked);
     }
 
     await remove(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`));
@@ -11787,16 +11788,20 @@ window.downloadResultsTemplate = function(){
   const targetGrade = selGrade || (myGrades ? myGrades[0] : null);
 
   // ── Build student list — RAW extraction from database, no aggressive dedup ──
-  // Dedup only by true unique identities: UPI or Assessment No. Name is only
-  // used as a last-resort fallback identity for the rare record with NEITHER
-  // a UPI nor an Assessment No — it must never cause a student who DOES have
+  // Dedup only by true unique identities: Assessment No or UPI. Assessment No
+  // is the real unique identifier at this school (most students have no UPI
+  // at all), so it takes priority. Placeholder junk values ("N/A", "-", "0",
+  // etc.) are treated as blank via _qeRealId so a shared placeholder can't
+  // collapse many different students into one. Name is only used as a
+  // last-resort fallback identity for the rare record with NEITHER a
+  // UPI nor an Assessment No — it must never cause a student who DOES have
   // a UPI/Assessment No to be dropped just because another student shares
   // the same name (e.g. siblings, common names in the same grade).
   let students = [];
 
   {
-    const seenUPI      = new Set();
     const seenAsmNo    = new Set();
+    const seenUPI      = new Set();
     const seenNoIdName = new Set();
     allData.forEach(r => {
       if(targetGrade){
@@ -11804,18 +11809,18 @@ window.downloadResultsTemplate = function(){
       } else if(myGrades){
         if(!myGrades.includes(gShort(r['Grade'])) && !myGrades.includes(r['Grade'])) return;
       }
-      const upi   = String(r['UPI']||'').trim();
-      const asmNo = String(r['Assessment No']||'').trim();
+      const asmNo = _qeRealId(r['Assessment No']);
+      const upi   = _qeRealId(r['UPI']);
       const name  = String(r['Official Student Name']||'').trim().toLowerCase();
       if(!name) return;
-      if(upi){
-        if(seenUPI.has(upi)) return;
-        seenUPI.add(upi);
-      } else if(asmNo){
+      if(asmNo){
         if(seenAsmNo.has(asmNo)) return;
         seenAsmNo.add(asmNo);
+      } else if(upi){
+        if(seenUPI.has(upi)) return;
+        seenUPI.add(upi);
       } else {
-        // Neither UPI nor Assessment No — fall back to name as the only identity we have
+        // Neither Assessment No nor UPI — fall back to name as the only identity we have
         if(seenNoIdName.has(name)) return;
         seenNoIdName.add(name);
       }
@@ -11973,6 +11978,7 @@ let _qeSubjects = [];      // subject columns for the current grade
 let _qeCompound  = '';     // the full compound Grade string (exam identity)
 let _qeGrade     = '';     // plain grade label
 let _qeSaveTimer = null;
+let _qeLocked    = false;  // true when the currently loaded exam is term-locked (view-only)
 
 /** Populate the Grade / Exam selects, scoped to the teacher's own assigned grades.
  *  Only Advanced Admin sees the "Create New Exam" option; regular teachers only
@@ -12124,6 +12130,18 @@ window._qeUseNewExam = _qeUseNewExam;
 
 /** Load the student roster + subject columns for the chosen grade/exam,
  *  then check for and restore any existing draft before rendering the table. */
+// Returns a trimmed ID string only if it's a "real" identifier — filters out
+// common data-entry placeholders (N/A, -, 0, NIL, etc.) so that many students
+// sharing the same placeholder value in UPI/Assessment No don't get collapsed
+// into a single roster entry during dedup.
+function _qeRealId(v){
+  const s = String(v||'').trim();
+  if(!s) return '';
+  const junk = new Set(['n/a','na','nil','none','-','--','0','00','000','0000','null','undefined','x','xx','tbd','n\\a']);
+  if(junk.has(s.toLowerCase())) return '';
+  return s;
+}
+
 async function loadQuickEntry(){
   const gradeEl = document.getElementById('qe-grade');
   const termEl  = document.getElementById('qe-term');
@@ -12131,26 +12149,29 @@ async function loadQuickEntry(){
   const selCompound = termEl ? termEl.value.trim() : '';
   if(!selCompound){ notify('⚠️ Please select an exam/term first.','warn'); return; }
 
-  // ── Lock guard — block the whole entry screen for a locked exam ──────────
-  if(_lockedTerms[encodeURIComponent(selCompound)] && _lockedTerms[encodeURIComponent(selCompound)].locked){
-    notify(`🔒 "${selCompound}" is locked. Ask an Advanced Admin to unlock it before entering scores.`,'error',6000);
-    return;
-  }
+  // ── Lock check — locked exams still load, but in view-only mode ──────────
+  const lockData = _lockedTerms[encodeURIComponent(selCompound)];
+  const locked = !!(lockData && lockData.locked);
+  _qeLocked = locked;
 
   _qeGrade = selGrade;
   _qeCompound = selCompound;
 
-  // ── Build raw student roster (same safe UPI/AssessmentNo dedup as the template) ──
-  const seenUPI = new Set(), seenAsmNo = new Set(), seenNoIdName = new Set();
+  // ── Build raw student roster ──────────────────────────────────────────────
+  // Assessment No is the true unique identifier at this school (most students
+  // have no UPI at all). Priority: Assessment No → UPI → Name. Placeholder
+  // junk values ("N/A", "-", "0", etc.) are treated as blank so a shared
+  // placeholder can't collapse many different students into one record.
+  const seenAsmNo = new Set(), seenUPI = new Set(), seenNoIdName = new Set();
   const students = [];
   allData.forEach(r => {
     if(selGrade){ if(gShort(r['Grade']) !== selGrade && r['Grade'] !== selGrade) return; }
-    const upi = String(r['UPI']||'').trim();
-    const asmNo = String(r['Assessment No']||'').trim();
+    const asmNo = _qeRealId(r['Assessment No']);
+    const upi = _qeRealId(r['UPI']);
     const name = String(r['Official Student Name']||'').trim().toLowerCase();
     if(!name) return;
-    if(upi){ if(seenUPI.has(upi)) return; seenUPI.add(upi); }
-    else if(asmNo){ if(seenAsmNo.has(asmNo)) return; seenAsmNo.add(asmNo); }
+    if(asmNo){ if(seenAsmNo.has(asmNo)) return; seenAsmNo.add(asmNo); }
+    else if(upi){ if(seenUPI.has(upi)) return; seenUPI.add(upi); }
     else { if(seenNoIdName.has(name)) return; seenNoIdName.add(name); }
     students.push(r);
   });
@@ -12171,41 +12192,98 @@ async function loadQuickEntry(){
   _qeSubjects = [...subjSet].sort();
   _qeStudents = students;
 
-  // ── Check for an existing record for this student+exam (to know if we'd be updating) ──
-  // and check for a saved draft to restore in-progress scores.
+  // ── Pull in any scores already submitted to the database for this exam ────
+  // so teachers see (and, if unlocked, can correct) what's already there
+  // instead of a blank sheet.
+  const existingScores = _qeGetExistingScores();
+
+  // ── Check for a saved draft to restore in-progress scores (unlocked only —
+  // a locked exam is view-only, so there's nothing to resume editing). ──────
   let draftScores = {};
   let draftTime = null;
-  try{
-    const {ref, get} = window._fb;
-    const myUid = window._currentUser?.uid || 'anon';
-    const draftKey = encodeURIComponent(selCompound);
-    const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`));
-    if(snap.exists()){
-      const d = snap.val();
-      draftScores = d.scores || {};
-      draftTime = d.updatedAt || null;
-    }
-  }catch(e){ /* no draft — fine */ }
+  if(!locked){
+    try{
+      const {ref, get} = window._fb;
+      const myUid = window._currentUser?.uid || 'anon';
+      const draftKey = encodeURIComponent(selCompound);
+      const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`));
+      if(snap.exists()){
+        const d = snap.val();
+        draftScores = d.scores || {};
+        draftTime = d.updatedAt || null;
+      }
+    }catch(e){ /* no draft — fine */ }
+  }
 
-  renderQuickEntryTable(draftScores);
+  // Merge: already-submitted scores are the base, an in-progress draft
+  // (more recent edits) takes priority per-cell where present.
+  const mergedScores = {};
+  Object.keys(existingScores).forEach(k => mergedScores[k] = {...existingScores[k]});
+  Object.keys(draftScores).forEach(k => mergedScores[k] = {...(mergedScores[k]||{}), ...draftScores[k]});
+
+  renderQuickEntryTable(mergedScores, locked);
 
   const banner = document.getElementById('qe-draft-banner');
-  if(draftTime){
-    banner.style.display='block';
-    banner.innerHTML = `📝 Restored your unsaved draft from <strong>${new Date(draftTime).toLocaleString()}</strong> — keep entering scores below.`;
+  const lockBanner = document.getElementById('qe-lock-banner');
+  const submitBtn = document.getElementById('qe-submit-btn');
+  const statusEl = document.getElementById('qe-save-status');
+
+  if(locked){
+    lockBanner.style.display = 'block';
+    lockBanner.innerHTML = `🔒 "${selCompound}" is locked. Scores are shown for viewing only — ask an Advanced Admin to unlock it before editing.`;
+    banner.style.display = 'none';
+    if(submitBtn) submitBtn.style.display = 'none';
+    if(statusEl) statusEl.textContent = '';
   } else {
-    banner.style.display='none';
+    lockBanner.style.display = 'none';
+    if(submitBtn) submitBtn.style.display = '';
+    if(draftTime){
+      banner.style.display='block';
+      banner.innerHTML = `📝 Restored your unsaved draft from <strong>${new Date(draftTime).toLocaleString()}</strong> — keep entering scores below.`;
+    } else {
+      banner.style.display='none';
+    }
   }
 
   document.getElementById('qe-table-card').style.display='block';
 }
 window.loadQuickEntry = loadQuickEntry;
 
-function _qeStudentKey(rec){
-  return (String(rec['UPI']||'').trim()) || (String(rec['Assessment No']||'').trim()) || rec.id;
+/** Looks up already-submitted final scores in allData for the current exam
+ *  identity, keyed the same way as draft/render data: {studentKey:{subj:val}}.
+ *  Used to pre-fill Quick Entry with real data instead of a blank sheet, and
+ *  to show read-only values when the exam is locked. */
+function _qeGetExistingScores(){
+  const out = {};
+  const rAsm = r => _qeRealId(r['Assessment No']);
+  const rUpi = r => _qeRealId(r['UPI']);
+  _qeStudents.forEach(r=>{
+    const key = _qeStudentKey(r);
+    const asmNo = rAsm(r), upi = rUpi(r);
+    const existing = allData.find(x =>
+      getRecordTerm(x) === _qeCompound &&
+      (
+        (asmNo && rAsm(x) === asmNo) ||
+        (!asmNo && upi && rUpi(x) === upi) ||
+        (!asmNo && !upi && x['Official Student Name'] === r['Official Student Name'])
+      )
+    );
+    if(!existing) return;
+    const subjMap = {};
+    _qeSubjects.forEach(s=>{
+      const v = existing[s];
+      if(v !== undefined && v !== null && v !== '') subjMap[s] = v;
+    });
+    if(Object.keys(subjMap).length) out[key] = subjMap;
+  });
+  return out;
 }
 
-function renderQuickEntryTable(draftScores){
+function _qeStudentKey(rec){
+  return _qeRealId(rec['Assessment No']) || _qeRealId(rec['UPI']) || rec.id;
+}
+
+function renderQuickEntryTable(draftScores, locked){
   const thead = document.getElementById('qe-thead-row');
   const tbody = document.getElementById('qe-tbody');
   thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>`<th style="min-width:90px">${s}</th>`).join('')}`;
@@ -12218,7 +12296,9 @@ function renderQuickEntryTable(draftScores){
       <td style="font-size:11px;color:var(--text3)">${r['UPI']||'—'}</td>
       ${_qeSubjects.map(s=>{
         const val = draft[s]!==undefined ? draft[s] : '';
-        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
+        return locked
+          ? `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.75;cursor:not-allowed"></td>`
+          : `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
       }).join('')}
     </tr>`;
   }).join('');
