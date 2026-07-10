@@ -797,6 +797,25 @@ body::before{
 .toggle-sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .3s cubic-bezier(.34,1.56,.64,1);}
 .toggle-sw.on::after{transform:translateX(20px);}
 
+/* ── Settings menu tiles (open items in the universal modal) ── */
+.settings-menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
+.settings-tile{
+  display:flex;align-items:center;gap:12px;text-align:left;
+  padding:14px 16px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-md);cursor:pointer;font-family:inherit;color:inherit;
+  transition:var(--transition);width:100%;
+}
+.settings-tile:hover{border-color:var(--blue);box-shadow:0 4px 14px rgba(0,0,0,.12);transform:translateY(-1px);}
+.settings-tile-icon{font-size:20px;flex-shrink:0;width:34px;height:34px;border-radius:10px;
+  background:var(--surface3);display:flex;align-items:center;justify-content:center;}
+.settings-tile-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.settings-tile-title{font-size:13px;font-weight:700;color:var(--text);}
+.settings-tile-desc{font-size:11px;color:var(--text3);}
+.settings-tile-arrow{font-size:16px;color:var(--text3);flex-shrink:0;}
+/* Inner h3 titles are redundant once shown inside the modal header */
+#settings-item-modal-body>.settings-section:first-child{margin-bottom:0;}
+#settings-item-modal-body .settings-section-title{display:none;}
+
 /* ══════════════════════════════════════════
    PRINT MODE
 ══════════════════════════════════════════ */
@@ -2432,8 +2451,87 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       <div class="view" id="view-settings">
         <div class="sec-hdr"><h2>Settings</h2></div>
         <div class="card">
-          <div class="settings-section">
-            <h3>Firebase Configuration</h3>
+          <div class="settings-menu-grid" id="settings-menu-grid">
+            <button class="settings-tile" onclick="openSettingsModal('firebase-config-section','⚙️ Firebase Configuration')">
+              <span class="settings-tile-icon">⚙️</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Firebase Configuration</span>
+                <span class="settings-tile-desc">Database URL &amp; data path</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" onclick="openSettingsModal('portal-settings-section','🎨 Portal Settings')">
+              <span class="settings-tile-icon">🎨</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Portal Settings</span>
+                <span class="settings-tile-desc">Theme, auto-refresh, photos</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" id="tile-term-lock" style="display:none" onclick="openSettingsModal('term-lock-section','🔒 Term Lock / Freeze')">
+              <span class="settings-tile-icon">🔒</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Term Lock / Freeze</span>
+                <span class="settings-tile-desc">Make a term's records read-only</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" id="tile-pending-exams" style="display:none" onclick="openSettingsModal('pending-exams-section','🕒 Pending Exams (Quick Entry)')">
+              <span class="settings-tile-icon">🕒</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Pending Exams</span>
+                <span class="settings-tile-desc">Fix or delete exams awaiting scores</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" id="tile-extra-subjects" style="display:none" onclick="openSettingsModal('extra-subjects-section','📚 Extra Subjects')">
+              <span class="settings-tile-icon">📚</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Extra Subjects</span>
+                <span class="settings-tile-desc">Pre-add a subject before scores exist</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" onclick="openSettingsModal('admin-account-section','👤 Admin Account')">
+              <span class="settings-tile-icon">👤</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Admin Account</span>
+                <span class="settings-tile-desc">Display name &amp; password</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" id="tile-add-teacher" style="display:none" onclick="openSettingsModal('add-teacher-panel','👤 Add New Teacher Account')">
+              <span class="settings-tile-icon">👤</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Add Teacher Account</span>
+                <span class="settings-tile-desc">Create logins for teachers</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" id="tile-grade-assignment" style="display:none" onclick="openSettingsModal('grade-assignment-panel','🎓 Teacher Grade Assignments')">
+              <span class="settings-tile-icon">🎓</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Grade Assignments</span>
+                <span class="settings-tile-desc">Which grades each teacher sees</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+            <button class="settings-tile" id="tile-adv-role" style="display:none" onclick="openSettingsModal('adv-role-panel','🛡️ Advanced Admin Role Management')">
+              <span class="settings-tile-icon">🛡️</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Advanced Admin Roles</span>
+                <span class="settings-tile-desc">Grant/revoke Advanced Admin</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Hidden home for settings content — moved into the universal modal on open,
+             and moved back here on close. Keeps every existing id/handler intact. -->
+        <div id="settings-content-store" style="display:none">
+          <div class="settings-section" id="firebase-config-section">
+            <h3 class="settings-section-title">Firebase Configuration</h3>
             <div class="setting-row">
               <div class="setting-info">
                 <h4>Database URL</h4>
@@ -2449,8 +2547,9 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <span class="bdg blue">Active</span>
             </div>
           </div>
-          <div class="settings-section">
-            <h3>Portal Settings</h3>
+
+          <div class="settings-section" id="portal-settings-section">
+            <h3 class="settings-section-title">Portal Settings</h3>
             <div class="setting-row">
               <div class="setting-info">
                 <h4>Dark Mode</h4>
@@ -2473,8 +2572,9 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <div class="toggle-sw on" id="toggle-photos" onclick="this.classList.toggle('on')"></div>
             </div>
           </div>
+
           <div class="settings-section" id="term-lock-section" style="display:none">
-            <h3>🔒 Term Lock / Freeze</h3>
+            <h3 class="settings-section-title">🔒 Term Lock / Freeze</h3>
             <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
               Lock a term to make all its records <strong>read-only</strong>. Locked terms cannot be edited or deleted by any user until an Advanced Admin unlocks them. Use this after sharing report cards with parents.
             </p>
@@ -2484,7 +2584,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           </div>
 
           <div class="settings-section" id="pending-exams-section" style="display:none">
-            <h3>🕒 Pending Exams (Quick Entry)</h3>
+            <h3 class="settings-section-title">🕒 Pending Exams (Quick Entry)</h3>
             <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
               Exams published via Quick Entry's "Create New Exam / Term" that have <strong>zero score records yet</strong>. Fix a typo directly, or delete one that was created by mistake — these exams don't exist in the results database yet, so nothing else is affected.
             </p>
@@ -2493,8 +2593,34 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
           </div>
 
-          <div class="settings-section">
-            <h3>Admin Account</h3>
+          <div class="settings-section" id="extra-subjects-section" style="display:none">
+            <h3 class="settings-section-title">📚 Extra Subjects</h3>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
+              Pre-register a subject title for a class before any scores for it exist — e.g. learners have sat a new exam that hasn't been marked/entered yet. Once added, the subject column appears immediately in <strong>Quick Entry</strong> and on the <strong>Results Template download</strong> for that grade, ready for teachers to fill in.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--border)">
+              <div style="flex:1;min-width:140px">
+                <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Grade / Class</label>
+                <select id="extra-subj-grade" style="width:100%;padding:8px 10px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:12px">
+                  <option value="">Select grade…</option>
+                  <option value="Grade 1">Grade 1</option><option value="Grade 2">Grade 2</option><option value="Grade 3">Grade 3</option>
+                  <option value="Grade 4">Grade 4</option><option value="Grade 5">Grade 5</option><option value="Grade 6">Grade 6</option>
+                  <option value="Grade 7">Grade 7</option><option value="Grade 8">Grade 8</option><option value="Grade 9">Grade 9</option>
+                </select>
+              </div>
+              <div style="flex:2;min-width:180px">
+                <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Subject Title</label>
+                <input type="text" id="extra-subj-name" placeholder="e.g. Agriculture" style="width:100%;padding:8px 10px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:12px" onkeydown="if(event.key==='Enter') addExtraSubject()">
+              </div>
+              <button class="btn btn-blue btn-sm" style="flex-shrink:0" onclick="addExtraSubject()">➕ Add Subject</button>
+            </div>
+            <div id="extra-subjects-list" style="display:grid;gap:8px">
+              <p style="font-size:12px;color:var(--text3)">Loading…</p>
+            </div>
+          </div>
+
+          <div class="settings-section" id="admin-account-section">
+            <h3 class="settings-section-title">Admin Account</h3>
             <div class="form-grid">
               <div class="form-group">
                 <label>Display Name</label>
@@ -2517,6 +2643,16 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <button class="btn btn-blue btn-sm" onclick="saveSettings()">💾 Save Settings</button>
             </div>
           </div>
+          <!-- add-teacher-panel, grade-assignment-panel, adv-role-panel are appended
+               here dynamically by their render functions -->
+        </div>
+      </div>
+
+      <!-- ══════ UNIVERSAL SETTINGS MODAL ══════ -->
+      <div class="modal-overlay" id="settings-item-modal" onclick="if(event.target===this)closeSettingsModal()">
+        <div class="modal-box modal-wide">
+          <div class="modal-hdr"><h3 id="settings-item-modal-title">Settings</h3><button class="modal-close" onclick="closeSettingsModal()">✕</button></div>
+          <div class="modal-body" id="settings-item-modal-body"></div>
         </div>
       </div>
 
@@ -3655,10 +3791,16 @@ const LOCK_PATH  = 'termLocks'; // {encodedTermKey: {locked:true, lockedBy, lock
 const PENDING_EXAMS_PATH = 'pendingExams'; // {encodedCompound: {compound, grade, createdBy, createdByUid, createdAt}}
                                             // Advanced Admin creates these; the assigned grade's teacher(s)
                                             // see them in Quick Entry as "pending" exams awaiting scores.
+const EXTRA_SUBJECTS_PATH = 'extraSubjects'; // {encodedKey: {grade, subject, addedBy, addedByUid, addedAt}}
+                                              // Advanced Admin pre-registers a subject title for a class
+                                              // before any scores for it exist (e.g. a new exam just sat).
+                                              // Makes the subject column appear in Quick Entry and on the
+                                              // Results Template download even though no records reference it yet.
 
 /* ── Term Lock state (loaded from Firebase on boot) ── */
 let _lockedTerms = {}; // key → {locked, lockedBy, lockedAt, label}
 let _pendingExams = {}; // key → {compound, grade, createdBy, createdByUid, createdAt}
+let _extraSubjects = {}; // key → {grade, subject, addedBy, addedByUid, addedAt}
 let currentAdminName = 'Admin';
 let currentAdminEmail = '';
 let isAdvancedAdmin = false;     // set to true after Firestore confirms Advancedadmin:true
@@ -3756,6 +3898,18 @@ function getDynamicSubjects(){
   allData.forEach(r => getSubjects(r).forEach(s => seen.add(s)));
   return [...seen].sort();
 }
+
+// Returns subject titles an Advanced Admin has pre-registered for a class
+// (via Settings → Extra Subjects) that don't have any score records yet —
+// e.g. a new exam learners have sat but which hasn't been tested/marked.
+// grade should be the short form, e.g. "Grade 9".
+function getExtraSubjectsForGrade(grade){
+  if(!grade) return [];
+  return Object.values(_extraSubjects||{})
+    .filter(es => es && es.grade === grade)
+    .map(es => es.subject);
+}
+window.getExtraSubjectsForGrade = getExtraSubjectsForGrade;
 
 function gradeInfo(score){
   const n = parseFloat(score);
@@ -4844,13 +4998,13 @@ function _dismissBanner(){
 
 /* ─── Add Teacher Panel (Advanced Admin only) ─────────── */
 function _renderAddTeacherPanel(){
-  const settingsView = document.getElementById('view-settings');
+  const settingsView = document.getElementById('settings-content-store');
   if(!settingsView || document.getElementById('add-teacher-panel')) return;
 
   const panel = document.createElement('div');
   panel.id = 'add-teacher-panel';
   panel.className = 'card';
-  panel.style.marginTop = '20px';
+  panel.style.marginTop = '0';
   panel.innerHTML = `
     <style>
       #add-teacher-panel .at-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:16px}
@@ -4954,6 +5108,8 @@ function _renderAddTeacherPanel(){
   `;
   settingsView.appendChild(panel);
   _atLoadTeachers();
+  const tile=document.getElementById('tile-add-teacher');
+  if(tile) tile.style.display='';
 }
 
 window._atTogglePwd  = ()=>{ const i=document.getElementById('at-password');  i.type=i.type==='password'?'text':'password'; };
@@ -5252,6 +5408,10 @@ window._atLoginAsTeacher = async function(uid, name){
       var el = document.getElementById(id);
       if(el) el.style.display = 'none';
     });
+    ['tile-grade-assignment','tile-add-teacher','tile-adv-role'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
 
     // ── Force grade globals to "unset" so _applyTeacherProfile
     //    always sees `changed = true` and calls renderAll() ──────────
@@ -5356,6 +5516,10 @@ window._atExitImpersonation = function(){
   // checkAdvancedAdmin re-attaches onSnapshot and re-applies admin profile.
   // Also restore any hidden advanced-admin panels.
   ['grade-assignment-panel','add-teacher-panel','adv-role-panel'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = '';
+  });
+  ['tile-grade-assignment','tile-add-teacher','tile-adv-role'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = '';
   });
@@ -5470,13 +5634,13 @@ let _advRoleUnsubscribe = null;
 let _arpInteracting     = false; // blocks onSnapshot re-render while confirm is open
 
 function _renderAdvancedAdminRolePanel(){
-  const settingsView = document.getElementById('view-settings');
+  const settingsView = document.getElementById('settings-content-store');
   if(!settingsView || document.getElementById('adv-role-panel')) return;
 
   const panel = document.createElement('div');
   panel.id = 'adv-role-panel';
   panel.className = 'card';
-  panel.style.marginTop = '20px';
+  panel.style.marginTop = '0';
 
   // Build HTML with a plain string — no template literals to avoid escaping issues
   panel.innerHTML = [
@@ -5531,6 +5695,7 @@ function _renderAdvancedAdminRolePanel(){
   ].join('');
 
   settingsView.appendChild(panel);
+  { const tile=document.getElementById('tile-adv-role'); if(tile) tile.style.display=''; }
 
   // Search input listener — attached via JS, not inline attribute
   var searchInput = document.getElementById('arp-search-input');
@@ -5702,13 +5867,13 @@ window._advRoleCleanup = function(){
 
 /* ─── Grade Assignment Panel (Advanced Admin only) ─── */
 function _renderGradeAssignmentPanel(){
-  const settingsView = document.getElementById('view-settings');
+  const settingsView = document.getElementById('settings-content-store');
   if(!settingsView || document.getElementById('grade-assignment-panel')) return;
 
   const panel = document.createElement('div');
   panel.id = 'grade-assignment-panel';
   panel.className = 'card';
-  panel.style.marginTop = '20px';
+  panel.style.marginTop = '0';
   panel.innerHTML = `
     <div class="sec-hdr" style="margin-bottom:14px">
       <h3 style="font-size:15px;font-weight:800">🎓 Teacher Grade Assignments</h3>
@@ -5722,6 +5887,8 @@ function _renderGradeAssignmentPanel(){
     </div>
   `;
   settingsView.appendChild(panel);
+  const tile=document.getElementById('tile-grade-assignment');
+  if(tile) tile.style.display='';
   loadGradeAssignments();
 }
 
@@ -6208,6 +6375,14 @@ function loadAllData(){
       if(document.getElementById('view-settings')?.classList.contains('active')) renderPendingExamsSettings();
     });
 
+    // ── Extra subjects listener: subject titles Advanced Admin has pre-
+    //    registered for a class ahead of any scores existing ────────────────
+    onValue(ref(db, EXTRA_SUBJECTS_PATH), (snap) => {
+      _extraSubjects = snap.val() || {};
+      if(document.getElementById('view-quickentry')?.classList.contains('active')) _populateQuickEntrySelectors();
+      if(document.getElementById('view-settings')?.classList.contains('active')) renderExtraSubjectsSettings();
+    });
+
   }catch(e){
     notify('Error setting up real-time listener: '+e.message,'error');
   }
@@ -6261,6 +6436,7 @@ function renderAll(){
   renderStreamAccountability();
   renderTermLockSettings();
   renderPendingExamsSettings();
+  renderExtraSubjectsSettings();
   // Nav count: show scoped count for teachers, total for advanced admins
   const visibleCount = (currentAssignedGrade === '__NONE__' && !currentAssignedGrades.length)
     ? 0
@@ -8520,6 +8696,8 @@ function renderTermLockSettings(){
   if(!section) return;
   // Only show to Advanced Admins
   section.style.display = isAdvancedAdmin ? '' : 'none';
+  const tile=document.getElementById('tile-term-lock');
+  if(tile) tile.style.display = isAdvancedAdmin ? '' : 'none';
   if(!isAdvancedAdmin) return;
 
   const terms=getUniqueTerms();
@@ -8600,6 +8778,8 @@ function renderPendingExamsSettings(){
   if(!section) return;
   // Only show to Advanced Admins
   section.style.display = isAdvancedAdmin ? '' : 'none';
+  const tile=document.getElementById('tile-pending-exams');
+  if(tile) tile.style.display = isAdvancedAdmin ? '' : 'none';
   if(!isAdvancedAdmin) return;
 
   const list=document.getElementById('pending-exams-list');
@@ -8690,6 +8870,142 @@ async function deletePendingExam(key, label){
 window.deletePendingExam=deletePendingExam;
 
 /* ══════════════════════════════════════════
+   EXTRA SUBJECTS MANAGEMENT (Settings)
+   Lets an Advanced Admin pre-register a subject title for a class
+   before any score records for it exist — e.g. learners have sat a
+   new exam that's yet to be tested/marked. The subject then shows up
+   in Quick Entry and on the Results Template download for that grade,
+   even though getSubjects()/getDynamicSubjects() (which only look at
+   real numeric fields in allData) don't know about it yet. Once real
+   scores are entered for it, it becomes a normal subject column and
+   the extra-subjects entry can be safely deleted (harmless either way
+   — real data takes precedence).
+══════════════════════════════════════════ */
+function _extraSubjKey(grade, subject){
+  return encodeURIComponent(`${grade}||${subject}`);
+}
+
+function renderExtraSubjectsSettings(){
+  const section=document.getElementById('extra-subjects-section');
+  if(!section) return;
+  // Only show to Advanced Admins
+  section.style.display = isAdvancedAdmin ? '' : 'none';
+  const tile=document.getElementById('tile-extra-subjects');
+  if(tile) tile.style.display = isAdvancedAdmin ? '' : 'none';
+  if(!isAdvancedAdmin) return;
+
+  const list=document.getElementById('extra-subjects-list');
+  if(!list) return;
+  const entries=Object.entries(_extraSubjects||{});
+  if(!entries.length){
+    list.innerHTML='<p style="font-size:12px;color:var(--text3)">No extra subjects registered yet. Use the form above to add one for a class ahead of scores existing.</p>';
+    return;
+  }
+  list.innerHTML=entries
+    .sort((a,b)=>(b[1]?.addedAt||0)-(a[1]?.addedAt||0))
+    .map(([key,es])=>{
+      const grade   = es?.grade || 'Unknown';
+      const subject = es?.subject || decodeURIComponent(key);
+      const who     = es?.addedBy || 'Unknown';
+      const when    = es?.addedAt ? new Date(es.addedAt).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}) : '';
+      const hasRealData = allData.some(r => gShort(r['Grade'])===grade && getSubjects(r).includes(subject));
+      return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--border);flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:12px;font-weight:700;color:var(--text)">${subject} <span class="bdg blue" style="margin-left:6px">${grade}</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">
+            ${hasRealData ? '✅ Now has real score records' : '🕒 Awaiting scores'} · added by ${who}${when?' on '+when:''}
+          </div>
+        </div>
+        <button class="btn btn-red btn-sm" style="flex-shrink:0" onclick="deleteExtraSubject('${key}','${subject.replace(/'/g,"\\'")}','${grade.replace(/'/g,"\\'")}')">🗑️ Remove</button>
+      </div>`;
+    }).join('');
+}
+window.renderExtraSubjectsSettings=renderExtraSubjectsSettings;
+
+async function addExtraSubject(){
+  if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
+  const gradeEl = document.getElementById('extra-subj-grade');
+  const nameEl  = document.getElementById('extra-subj-name');
+  const grade   = gradeEl ? gradeEl.value.trim() : '';
+  const subject = nameEl ? nameEl.value.trim() : '';
+
+  if(!grade){ notify('⚠️ Please select a grade/class.','warn'); return; }
+  if(!subject){ notify('⚠️ Please enter a subject title.','warn'); return; }
+  if(subject.length > 60){ notify('⚠️ Subject title is too long.','warn'); return; }
+
+  // Guard against duplicates (case-insensitive) — either already an extra
+  // subject, or already a real subject column with data for this grade
+  const dupExtra = Object.values(_extraSubjects||{}).some(es =>
+    es && es.grade===grade && (es.subject||'').toLowerCase()===subject.toLowerCase());
+  if(dupExtra){ notify(`⚠️ "${subject}" is already registered for ${grade}.`,'warn'); return; }
+  const dupReal = allData.some(r => gShort(r['Grade'])===grade &&
+    getSubjects(r).some(s => s.toLowerCase()===subject.toLowerCase()));
+  if(dupReal){ notify(`⚠️ "${subject}" already exists as a subject with data for ${grade}.`,'warn'); return; }
+
+  try{
+    const { ref, set } = window._fb;
+    const key = _extraSubjKey(grade, subject);
+    await set(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`), {
+      grade, subject,
+      addedBy: currentAdminName || 'Admin',
+      addedByUid: window._currentUser?.uid || '',
+      addedAt: Date.now()
+    });
+    notify(`✅ "${subject}" added for ${grade} — visible now in Quick Entry & Results Template.`,'success',6000);
+    logActivity(`📚 Added extra subject "${subject}" for ${grade}`,'act-green',currentAdminName,{category:'system'});
+    if(nameEl) nameEl.value='';
+  }catch(e){
+    notify('Error adding subject: '+e.message,'error');
+  }
+}
+window.addExtraSubject=addExtraSubject;
+
+async function deleteExtraSubject(key, subject, grade){
+  if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
+  const ok = await showConfirm(
+    '🗑️ Remove Extra Subject',
+    `Remove <strong>${subject}</strong> (${grade})? It will no longer appear in Quick Entry or the Results Template unless real scores have already been entered for it.`,
+    '🗑️','Remove','btn-red'
+  );
+  if(!ok) return;
+  try{
+    const { ref, remove } = window._fb;
+    await remove(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`));
+    notify(`🗑️ "${subject}" removed from ${grade}.`,'success');
+    logActivity(`🗑️ Removed extra subject "${subject}" for ${grade}`,'act-red',currentAdminName,{category:'system'});
+  }catch(e){
+    notify('Error removing subject: '+e.message,'error');
+  }
+}
+window.deleteExtraSubject=deleteExtraSubject;
+
+/* ══════════════════════════════════════════
+   UNIVERSAL SETTINGS MODAL
+   Moves the real DOM node for a settings item into the shared
+   modal (preserving every id/handler/populated content), and moves
+   it back to its hidden home in #settings-content-store on close.
+══════════════════════════════════════════ */
+function openSettingsModal(elId, title){
+  const el   = document.getElementById(elId);
+  const body = document.getElementById('settings-item-modal-body');
+  if(!el || !body) return;
+  document.getElementById('settings-item-modal-title').textContent = title;
+  body.appendChild(el);
+  el.style.display = '';
+  document.getElementById('settings-item-modal').classList.add('on');
+}
+window.openSettingsModal = openSettingsModal;
+
+function closeSettingsModal(){
+  const store = document.getElementById('settings-content-store');
+  const body  = document.getElementById('settings-item-modal-body');
+  const modal = document.getElementById('settings-item-modal');
+  if(store && body) while(body.firstChild) store.appendChild(body.firstChild);
+  if(modal) modal.classList.remove('on');
+}
+window.closeSettingsModal = closeSettingsModal;
+
+/* ══════════════════════════════════════════
    NAVIGATION
 ══════════════════════════════════════════ */
 const views={'dashboard':'Overview & Analytics','students':'Manage Students','results':'Results & Grades','analytics':'Deep Analytics','reports':'Report Cards & Export','announcements':'School Announcements','settings':'Portal Settings','auditlog':'Full Admin Audit Trail'};
@@ -8706,6 +9022,7 @@ function navTo(view,el){
 
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(view!=='settings' && document.getElementById('settings-item-modal')?.classList.contains('on')) closeSettingsModal();
   const viewEl=document.getElementById('view-'+view);
   if(viewEl)viewEl.classList.add('active');
   if(el)el.classList.add('active');
@@ -8722,7 +9039,7 @@ function navTo(view,el){
   if(view==='messages') msgInit();
   if(view==='dataquality') renderDataQuality();
   if(view==='duplicates') renderDuplicates();
-  if(view==='settings'){ renderTermLockSettings(); renderPendingExamsSettings(); }
+  if(view==='settings'){ renderTermLockSettings(); renderPendingExamsSettings(); renderExtraSubjectsSettings(); }
   if(window.innerWidth<768) closeSidebar();
 }
 window.navTo=navTo;
@@ -11393,6 +11710,9 @@ window.downloadResultsTemplate = function(){
   });
   // Fallback to all subjects if none found
   if(!subjectSet.size) allData.forEach(r => getSubjects(r).forEach(s => subjectSet.add(s)));
+  // Include Advanced-Admin-registered subjects awaiting their first score
+  // (Settings → Extra Subjects) — e.g. a newly-sat exam not yet marked.
+  getExtraSubjectsForGrade(gradeForSubjects).forEach(s => subjectSet.add(s));
   const subjects = [...subjectSet].sort();
 
   // ── Build rows ────────────────────────────────────────────────────────
@@ -11716,6 +12036,9 @@ async function loadQuickEntry(){
     getSubjects(r).forEach(s => subjSet.add(s));
   });
   if(!subjSet.size) allData.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
+  // Include Advanced-Admin-registered subjects awaiting their first score
+  // (Settings → Extra Subjects) so they're ready for teachers to fill in.
+  getExtraSubjectsForGrade(selGrade).forEach(s => subjSet.add(s));
   _qeSubjects = [...subjSet].sort();
   _qeStudents = students;
 
