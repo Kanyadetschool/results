@@ -2811,15 +2811,15 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
                 </select>
               </div>
               <div>
-                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Stream No.</label>
+                <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Assessment Period Index.</label>
                 <input type="number" id="qe-ne-stream" class="sel" style="width:70px" value="1" min="1">
               </div>
               <div>
                 <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam Type</label>
                 <select id="qe-ne-examtype" class="sel" style="width:150px" onchange="_qeUpdateNewExamPreview()">
                   <option value="Opener">Opener</option>
-                  <option value="Mid Term">Mid Term</option>
-                  <option value="End Term">End Term</option>
+                  <option value="Mid">Mid Term</option>
+                  <option value="End">End Term</option>
                   <option value="CAT">CAT</option>
                   <option value="Holiday Assignment">Holiday Assignment</option>
                 </select>
