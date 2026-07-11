@@ -4865,6 +4865,7 @@ async function _checkDisabledAndLogin(userData, auth, ui){
       if(snap.exists() && snap.data().disabled === true){
         // Sign them back out immediately
         await window._fb.signOut(auth);
+        if (typeof _clearCache === 'function') _clearCache();
         const msg = '🚫 Your account has been disabled. Please contact the administrator.';
         if(ui && ui.err){
           ui.err.textContent = msg;
@@ -14861,10 +14862,20 @@ async function signInWithGoogle() {
 }
 
 async function signOutUser() {
-    const { signOut } = firebaseImports;
     try {
-        await signOut(auth);
-        NotificationManager.info('Signed out successfully. See you next time!');
+        // Route through the main portal's doSignOut() so the student data
+        // cache gets cleared and the real-time/profile listeners get
+        // detached — this button shares the same Firebase auth session as
+        // the main portal, so it must go through the same cleanup path.
+        // doSignOut() already shows its own "Signed out" toast, so we don't
+        // show a second one here.
+        if (typeof doSignOut === 'function') {
+            await doSignOut();
+        } else {
+            const { signOut } = firebaseImports;
+            await signOut(auth);
+            NotificationManager.info('Signed out successfully. See you next time!');
+        }
     } catch (error) {
         console.error("Sign-Out Error:", error);
         NotificationManager.error('Sign-out failed. Please try again.');
