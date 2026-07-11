@@ -5078,6 +5078,38 @@ function showApp(userData){
 /* ─── Real-time listener unsubscribe handle for teacher's own profile ─── */
 let _teacherProfileUnsubscribe = null;
 
+/* ── Offline cache for role/grade profile ─────────────────────────────────
+   Advanced-admin status and assigned grade(s) normally come from a live
+   Firestore listener, which has nothing to show the moment the device is
+   offline (no persistence layer is enabled). Without a cache, going offline
+   silently demotes everyone to "basic access" / no grade, hiding nav items
+   and data the person should still see. We mirror every successful profile
+   read into localStorage, keyed per uid, and re-apply it immediately
+   (before Firestore even answers) and again if the live listener errors
+   out — so the last known role/grade sticks across reloads while offline. */
+const TEACHER_PROFILE_CACHE_PREFIX = 'kss_teacher_profile_';
+function _teacherProfileCacheKey(uid){ return TEACHER_PROFILE_CACHE_PREFIX + uid; }
+
+function _cacheTeacherProfile(uid, data){
+  if(!uid) return;
+  try{
+    localStorage.setItem(_teacherProfileCacheKey(uid), JSON.stringify({
+      Advancedadmin: data.Advancedadmin === true,
+      assignedGrades: Array.isArray(data.assignedGrades) ? data.assignedGrades : [],
+      assignedGrade: data.assignedGrade || '',
+      cachedAt: Date.now()
+    }));
+  }catch(e){ /* localStorage full/blocked — silently ignore, not critical */ }
+}
+
+function _loadCachedTeacherProfile(uid){
+  if(!uid) return null;
+  try{
+    const raw = localStorage.getItem(_teacherProfileCacheKey(uid));
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
 function checkAdvancedAdmin(uid){
   // Hide gated sections by default
   const importNav = document.querySelector('.nav-item[data-label="Import Data"]');
@@ -5090,6 +5122,15 @@ function checkAdvancedAdmin(uid){
     if(importNav) importNav.style.display = 'flex';
     return;
   }
+
+  // ── Apply last-known cached role/grade RIGHT AWAY ────────────────────
+  // This runs before Firestore has answered at all, so a page reload while
+  // offline immediately restores the correct nav items / grade scope
+  // instead of flashing "basic access" while the (doomed) listener spins.
+  // If we're actually online, the onSnapshot callback below fires almost
+  // immediately after and overwrites this with fresh data anyway.
+  const cached = _loadCachedTeacherProfile(uid);
+  if(cached) _applyTeacherProfile(cached, uid);
 
   // Detach any previous listener (e.g. on re-login)
   if(_teacherProfileUnsubscribe){
@@ -5106,10 +5147,18 @@ function checkAdvancedAdmin(uid){
     doc(firestoreDb, 'users', uid),
     (snap) => {
       const data = snap.exists() ? snap.data() : {};
+      _cacheTeacherProfile(uid, data);
       _applyTeacherProfile(data, uid);
     },
     (err) => {
       console.warn('[AdvancedAdmin] Real-time profile listener error:', err.message);
+      // Offline (or blocked) — fall back to whatever we last cached rather
+      // than leaving the UI in the default "basic access" state.
+      const fallback = _loadCachedTeacherProfile(uid);
+      if(fallback){
+        _applyTeacherProfile(fallback, uid);
+        console.log('[AdvancedAdmin] Applied cached role/grade profile (offline).');
+      }
     }
   );
 }
