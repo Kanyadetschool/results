@@ -573,7 +573,7 @@ body::before{
 ══════════════════════════════════════════ */
 .modal-overlay{
   display:none;position:fixed;inset:0;z-index:8000;
-  background:rgba(0,0,0,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   align-items:center;justify-content:center;
   padding:16px;overflow-y:auto;
 }
@@ -1170,7 +1170,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 ══════════════════════════════════════════ */
 #confirm-modal{
   display:none;position:fixed;inset:0;z-index:9500;
-  background:rgba(0,0,0,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   align-items:center;justify-content:center;padding:16px;
 }
 #confirm-modal.on{display:flex;}
@@ -3807,7 +3807,7 @@ function _ensurePhotoLightbox(){
   if(lb) return lb;
   lb = document.createElement('div');
   lb.id = 'student-photo-lightbox';
-  lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:30px;cursor:zoom-out';
+  lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:30px;cursor:zoom-out';
   lb.innerHTML = `
     <div style="position:relative;max-width:min(90vw,560px);max-height:90vh;display:flex;flex-direction:column;align-items:center;gap:12px" onclick="event.stopPropagation()">
       <button onclick="closeStudentPhotoLightbox()" title="Close" style="position:absolute;top:-16px;right:-16px;width:34px;height:34px;border-radius:50%;border:none;background:#fff;color:#111;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)">✕</button>
@@ -12917,9 +12917,21 @@ function _qeSearchExistingStudent(){
 
   box.innerHTML = matches.map(m => {
     const _av = makePhotoAvatar(m.name, m.grade, 'stu-av-sm', 'flex-shrink:0');
-    return `<div style="cursor:pointer;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px" onmousedown="_qeSelectExistingStudentMatch('${m.name.replace(/'/g,"\\'")}','${m.upi.replace(/'/g,"\\'")}','${m.asm.replace(/'/g,"\\'")}','${m.grade.replace(/'/g,"\\'")}')">
+    const onSheet = _qeStudents.some(r =>
+      (m.asm && _qeRealId(r['Assessment No'])===_qeRealId(m.asm)) ||
+      (m.upi && _qeRealId(r['UPI'])===_qeRealId(m.upi))
+    );
+    const badge = onSheet
+      ? `<span style="flex-shrink:0;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.15);color:var(--orange);font-size:10px;font-weight:700">already on sheet</span>`
+      : '';
+    const clickAttr = onSheet ? '' : `onmousedown="_qeSelectExistingStudentMatch('${m.name.replace(/'/g,"\\'")}','${m.upi.replace(/'/g,"\\'")}','${m.asm.replace(/'/g,"\\'")}','${m.grade.replace(/'/g,"\\'")}')"`;
+    const rowStyle = onSheet
+      ? 'cursor:not-allowed;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px;opacity:.5'
+      : 'cursor:pointer;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px';
+    return `<div style="${rowStyle}" ${clickAttr}>
       ${_av}
-      <span><strong>${m.name}</strong> <span style="color:var(--text3)">· ${m.grade||'Grade N/A'} · UPI: ${m.upi||'N/A'} · Adm: ${m.asm||'N/A'}</span></span>
+      <span style="flex:1;min-width:0"><strong>${m.name}</strong> <span style="color:var(--text3)">· ${m.grade||'Grade N/A'} · UPI: ${m.upi||'N/A'} · Adm: ${m.asm||'N/A'}</span></span>
+      ${badge}
     </div>`;
   }).join('');
   box.style.display = 'block';
@@ -16763,7 +16775,7 @@ function detectDuplicates() {
 
     const modal = document.createElement('div');
     modal.id = 'dupe-modal';
-    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center`;
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center`;
     let rows = dupes.map(d => `
         <tr style="background:#fff3cd">
             <td style="padding:6px 10px;font-weight:bold;color:#856404">${d.type}</td>
@@ -16862,7 +16874,7 @@ function showGradeDashboard() {
 
     const modal = document.createElement('div');
     modal.id = 'dashboard-modal';
-    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px`;
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px`;
     modal.innerHTML = `
         <div style="background:#fff;border-radius:16px;padding:28px;max-width:760px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.35)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -16999,7 +17011,7 @@ async function previewReportCard(studentId) {
 
     const modal = document.createElement('div');
     modal.id = 'preview-modal';
-    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px`;
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px`;
     modal.innerHTML = `
         <div style="background:#fff;border-radius:12px;width:100%;max-width:820px;height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.4)">
             <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid #eee">
@@ -17055,7 +17067,7 @@ function showWhatsAppShare(studentId) {
 
     const modal = document.createElement('div');
     modal.id = 'whatsapp-modal';
-    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px`;
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px`;
     modal.innerHTML = `
         <div style="background:#fff;border-radius:14px;padding:24px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
