@@ -311,6 +311,16 @@ body::before{
   font-size:12px;color:var(--text);cursor:pointer;transition:var(--transition);
 }
 .sel:focus{outline:none;border-color:var(--blue);}
+.sel.qe-loading{
+  cursor:wait;color:var(--text2);
+  background-image:linear-gradient(90deg,var(--surface2) 0%,rgba(41,128,185,.14) 50%,var(--surface2) 100%);
+  background-size:200% 100%;
+  animation:qe-sel-pulse 1.3s ease-in-out infinite;
+}
+@keyframes qe-sel-pulse{
+  0%{background-position:0% 0;}
+  100%{background-position:-200% 0;}
+}
 
 /* ══════════════════════════════════════════
    PROGRESS BARS
@@ -3023,13 +3033,12 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding:4px 0">
             <div>
               <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Grade</label>
-              <select class="sel" id="qe-grade" style="min-width:160px"><option value="">Select grade…</option></select>
+              <select class="sel qe-loading" id="qe-grade" style="min-width:160px" disabled><option value="">⏳ Loading grades…</option></select>
             </div>
             <div>
               <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam / Term</label>
-              <select class="sel" id="qe-term" style="min-width:260px" onchange="_qeToggleNewExamBuilder()">
-                <option value="">Select exam…</option>
-                <option value="__new__" id="qe-term-new-opt">➕ Create New Exam / Term (Advanced Admin)…</option>
+              <select class="sel qe-loading" id="qe-term" style="min-width:260px" onchange="_qeToggleNewExamBuilder()" disabled>
+                <option value="">⏳ Loading exams…</option>
               </select>
             </div>
             <button class="btn btn-blue btn-sm" onclick="loadQuickEntry()">📋 Load Students</button>
@@ -3777,7 +3786,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 ══════════════════════════════════════════ */
 const _imgCache={};
 
-function _applyPhotoToAvatar(el, src, name) {
+function _applyPhotoToAvatar(el, src, name, grade, gender) {
     if (!el || !src) return;
     let img = el.querySelector('img');
     if (!img) {
@@ -3797,7 +3806,7 @@ function _applyPhotoToAvatar(el, src, name) {
     if (el.dataset.clickManaged !== '1') {
       el.style.cursor = 'pointer';
       el.title = (name ? name+' — ' : '') + 'click to view photo';
-      el.onclick = (e) => { e.stopPropagation(); openStudentPhotoLightbox(src, name); };
+      el.onclick = (e) => { e.stopPropagation(); openStudentPhotoLightbox(src, name, grade, gender); };
     }
 }
 
@@ -3813,18 +3822,27 @@ function _ensurePhotoLightbox(){
       <button onclick="closeStudentPhotoLightbox()" title="Close" style="position:absolute;top:-16px;right:-16px;width:34px;height:34px;border-radius:50%;border:none;background:#fff;color:#111;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)">✕</button>
       <img id="student-photo-lightbox-img" src="" alt="" style="max-width:100%;max-height:78vh;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);object-fit:contain;background:#fff">
       <div id="student-photo-lightbox-name" style="color:#fff;font-size:14px;font-weight:700;text-align:center"></div>
+      <div id="student-photo-lightbox-meta" style="display:none;color:rgba(255,255,255,.75);font-size:12px;font-weight:600;text-align:center;letter-spacing:.3px"></div>
     </div>`;
   lb.addEventListener('click', closeStudentPhotoLightbox);
   document.body.appendChild(lb);
   return lb;
 }
 
-function openStudentPhotoLightbox(src, name){
+function openStudentPhotoLightbox(src, name, grade, gender){
   if(!src) return;
   const lb = _ensurePhotoLightbox();
   document.getElementById('student-photo-lightbox-img').src = src;
   document.getElementById('student-photo-lightbox-img').alt = name || '';
   document.getElementById('student-photo-lightbox-name').textContent = name || '';
+  const metaEl = document.getElementById('student-photo-lightbox-meta');
+  if(metaEl){
+    const parts = [];
+    if(grade) parts.push('📚 '+grade);
+    if(gender) parts.push(gender==='M'?'♂ Male':gender==='F'?'♀ Female':gender);
+    metaEl.textContent = parts.join('  ·  ');
+    metaEl.style.display = parts.length ? '' : 'none';
+  }
   lb.style.display = 'flex';
   document.addEventListener('keydown', _photoLightboxEscHandler);
 }
@@ -3978,7 +3996,13 @@ function injectPhoto(elemId, name, grade, studentId=''){
     if(!src) return;
     const el2=document.getElementById(elemId); // re-query in case DOM changed
     if(!el2) return;
-    _applyPhotoToAvatar(el2, src, name);
+    // Look up the student's most recent record so the pop-up shows their
+    // CURRENT class/grade rather than whatever record this avatar happens
+    // to represent (which may be an older term).
+    const latest = (typeof getLatestStudentRecord === 'function') ? getLatestStudentRecord(name, studentId) : null;
+    const latestGrade  = latest ? gShort(latest['Grade']||latest['Term']||'') : (grade ? gShort(grade) : '');
+    const latestGender = latest ? (latest['Gender']||'') : '';
+    _applyPhotoToAvatar(el2, src, name, latestGrade, latestGender);
   });
 }
 
@@ -4307,6 +4331,27 @@ function _qeCompoundOrderKey(compound){
   const term = (c.match(/Term\s*(\d+)/i)||['','0'])[1];
   return `${year}_${letter}_${String(num).padStart(2,'0')}_${String(term).padStart(2,'0')}`;
 }
+/** Finds a student's most recent exam record across the whole database
+ *  (matched by Assessment No, falling back to name), using the same
+ *  chronological ordering as the Quick Entry exam picker. Used so that
+ *  "Grade" shown for a student (e.g. in the photo pop-up) always reflects
+ *  their CURRENT class rather than whatever record happened to be clicked
+ *  — a student's grade can change term to term, so an older record's
+ *  Grade field can be stale. Pass either the student's own record/id or
+ *  their name; returns null if no match is found. */
+function getLatestStudentRecord(name, studentId){
+  const self = studentId ? allData.find(r=>r.id===studentId) : null;
+  const key = String((self && self['Assessment No']) || name || '').trim().toLowerCase();
+  if(!key) return self || null;
+  const candidates = allData.filter(r=>
+    String(r['Assessment No']||r['Official Student Name']||'').trim().toLowerCase() === key
+  );
+  if(!candidates.length) return self || null;
+  return candidates.reduce((latest, r) =>
+    (!latest || _qeCompoundOrderKey(getRecordTerm(r)).localeCompare(_qeCompoundOrderKey(getRecordTerm(latest))) > 0) ? r : latest
+  , null);
+}
+
 /** Finds the single most recent exam identity that already has real records
  *  for the given short grade (e.g. "Grade 3"), or null if that grade has no
  *  results on file at all yet. Used to seed a brand-new/pending exam's roster
@@ -7996,7 +8041,10 @@ function viewStudent(id){
       _avEl.onclick=(e)=>{
         e.stopPropagation();
         const img=_avEl.querySelector('img');
-        if(img && img.src) openStudentPhotoLightbox(img.src, _name);
+        if(img && img.src){
+          const _latest = getLatestStudentRecord(_name, rec.id) || rec;
+          openStudentPhotoLightbox(img.src, _name, gShort(_latest['Grade']||_latest['Term']||''), _latest['Gender']||'');
+        }
         else _copyHandler();
       };
     }
@@ -10497,7 +10545,10 @@ function openRecordsModal(masterId){
       recAvEl.onclick=(e)=>{
         e.stopPropagation();
         const img=recAvEl.querySelector('img');
-        if(img && img.src) openStudentPhotoLightbox(img.src, name);
+        if(img && img.src){
+          const _latest = getLatestStudentRecord(name, masterId) || entry;
+          openStudentPhotoLightbox(img.src, name, gShort(_latest['Grade']||_latest['Term']||''), _latest['Gender']||'');
+        }
         else _copyHandler();
       };
     }
@@ -11238,7 +11289,10 @@ function openProgressModal(masterId){
       pmAv.onclick=(e)=>{
         e.stopPropagation();
         const img=pmAv.querySelector('img');
-        if(img && img.src) openStudentPhotoLightbox(img.src, name);
+        if(img && img.src){
+          const _latest = getLatestStudentRecord(name, masterId) || entry;
+          openStudentPhotoLightbox(img.src, name, gShort(_latest['Grade']||_latest['Term']||''), _latest['Gender']||'');
+        }
         else _copyHandler();
       };
     }
@@ -12392,10 +12446,48 @@ if(navigator.onLine) setTimeout(_qeSyncPendingLocalDrafts, 3000);
  *  Only Advanced Admin sees the "Create New Exam" option; regular teachers only
  *  ever see exams that already have records OR that Admin published as pending
  *  for their own assigned grade — never another teacher's pending exams. */
+/** Toggles the "⏳ Loading…" disabled state on the Quick Entry Grade/Exam
+ *  dropdowns. Shown on page load and whenever data hasn't arrived from
+ *  Firebase yet, so the user sees a clear "still loading" signal instead of
+ *  a dropdown that merely looks empty. Cleared automatically the moment
+ *  _populateQuickEntrySelectors runs again with data ready (see the
+ *  onValue listener, which re-calls it on every load — including the
+ *  first one). */
+function _qeSetSelectorsLoading(isLoading){
+  const gradeEl = document.getElementById('qe-grade');
+  const termEl  = document.getElementById('qe-term');
+  if(!gradeEl || !termEl) return;
+  gradeEl.disabled = isLoading;
+  termEl.disabled  = isLoading;
+  gradeEl.classList.toggle('qe-loading', isLoading);
+  termEl.classList.toggle('qe-loading', isLoading);
+  if(isLoading){
+    gradeEl.innerHTML = '<option value="">⏳ Loading grades…</option>';
+    termEl.innerHTML  = '<option value="">⏳ Loading exams…</option>';
+  } else if(gradeEl.options.length && /Loading/.test(gradeEl.options[0].textContent)){
+    // Data just became ready — restore the normal placeholder options so
+    // the rest of _populateQuickEntrySelectors can rebuild them as usual.
+    gradeEl.innerHTML = '<option value="">Select grade…</option>';
+    termEl.innerHTML  = '<option value="">Select exam…</option><option value="__new__" id="qe-term-new-opt">➕ Create New Exam / Term (Advanced Admin)…</option>';
+  }
+}
+window._qeSetSelectorsLoading = _qeSetSelectorsLoading;
+
 function _populateQuickEntrySelectors(){
   const gradeEl = document.getElementById('qe-grade');
   const termEl  = document.getElementById('qe-term');
   if(!gradeEl || !termEl) return;
+
+  // ── Data hasn't arrived from Firebase yet — show a loading state instead
+  //    of silently leaving the dropdowns looking empty. The onValue listener
+  //    re-invokes this function once the first load (or a live update)
+  //    completes, which will fall through past this guard and populate
+  //    normally. ─────────────────────────────────────────────────────────
+  if(typeof _firstLoad !== 'undefined' && _firstLoad){
+    _qeSetSelectorsLoading(true);
+    return;
+  }
+  _qeSetSelectorsLoading(false);
 
   // ── "Create New Exam" is Advanced Admin only ──────────────────────────────
   const newOpt = document.getElementById('qe-term-new-opt');
