@@ -4185,12 +4185,18 @@ function getTermShort(r){
 function createIndexTracker(){
   const counters = {};
   allData.forEach(r=>{
-    const raw = r['Grade']||r['Term']||'';
-    const m = String(raw).match(/-IND(\d+)\s*$/i);
-    if(!m) return;
-    const base = stripIndexSuffix(raw);
-    const n = parseInt(m[1],10);
-    if(!counters[base] || n>counters[base]) counters[base]=n;
+    // Check BOTH fields — older records carry the suffix on 'Grade', newer
+    // ones (Quick Entry, bulk import) carry it on 'Term'. A "Grade || Term"
+    // fallback would never reach Term once Grade is populated, so both must
+    // be checked independently.
+    [r['Term'], r['Grade']].forEach(raw=>{
+      if(!raw) return;
+      const m = String(raw).match(/-IND(\d+)\s*$/i);
+      if(!m) return;
+      const base = stripIndexSuffix(raw);
+      const n = parseInt(m[1],10);
+      if(!counters[base] || n>counters[base]) counters[base]=n;
+    });
   });
   return {
     next(base){
@@ -11736,12 +11742,14 @@ async function commitImport(){
         // ─────────────────────────────────────────────────────────────────
 
         // ── Build the new record ──────────────────────────────────────────
-        // Grade = the compound exam identity plus a fresh, unique -INDxx suffix
+        // Grade = plain compound exam identity, no suffix.
+        // Term  = same compound WITH the unique per-student -INDxx suffix.
         const rec = {
           'Official Student Name': name,
           'UPI':          upi,
           'Assessment No':asmNo,
-          'Grade':        `${compound}-${idxTracker.next(compound)}`,
+          'Grade':        compound,
+          'Term':         `${compound}-${idxTracker.next(compound)}`,
           ...scores
         };
 
@@ -12816,13 +12824,18 @@ async function submitQuickEntry(){
       await update(ref(db, `${DB_PATH}/${existing.id}`), parsed);
       updated++;
     } else {
-      // New record — assign the next available -INDxx for this exam identity
-      const gradeVal = `${_qeCompound}-${idxTracker.next(_qeCompound)}`;
+      // New record — assign the next available -INDxx for this exam identity.
+      // Grade = plain compound exam identity, NO suffix — this is what every
+      // record for this exam should show consistently in the Grade column.
+      // Term  = same compound WITH the unique per-student suffix, matching
+      // the convention already used by the bulk-template import path.
+      const suffixedVal = `${_qeCompound}-${idxTracker.next(_qeCompound)}`;
       await push(ref(db, DB_PATH), {
         'Official Student Name': r['Official Student Name']||'',
         'UPI': r['UPI']||'',
         'Assessment No': r['Assessment No']||'',
-        'Grade': gradeVal,
+        'Grade': _qeCompound,
+        'Term': suffixedVal,
         ...parsed
       });
       created++;
