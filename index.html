@@ -3833,10 +3833,10 @@ function _ensurePhotoLightbox(){
   if(lb) return lb;
   lb = document.createElement('div');
   lb.id = 'student-photo-lightbox';
-  lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:30px;cursor:zoom-out';
+  lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;padding:30px;overflow-y:auto;cursor:zoom-out';
   lb.innerHTML = `
-    <div style="position:relative;max-width:min(90vw,560px);max-height:90vh;display:flex;flex-direction:column;align-items:center;gap:12px" onclick="event.stopPropagation()">
-      <button onclick="closeStudentPhotoLightbox()" title="Close" style="position:absolute;top:-16px;right:-16px;width:34px;height:34px;border-radius:50%;border:none;background:#fff;color:#111;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)">✕</button>
+    <div style="position:relative;max-width:min(90vw,560px);width:100%;margin:auto 0;display:flex;flex-direction:column;align-items:center;gap:12px" onclick="event.stopPropagation()">
+      <button onclick="closeStudentPhotoLightbox()" title="Close" style="position:absolute;top:-16px;right:-16px;width:34px;height:34px;border-radius:50%;border:none;background:#fff;color:#111;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);z-index:1">✕</button>
       <img id="student-photo-lightbox-img" src="" alt="" style="max-width:100%;max-height:78vh;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);object-fit:contain;background:#fff">
       <div id="student-photo-lightbox-name" style="color:#fff;font-size:14px;font-weight:700;text-align:center"></div>
       <div id="student-photo-lightbox-meta" style="display:none;color:rgba(255,255,255,.75);font-size:12px;font-weight:600;text-align:center;letter-spacing:.3px"></div>
@@ -3944,7 +3944,13 @@ function makePhotoAvatar(name, grade, wrapClass, extraStyle='', studentId=''){
       if(!src) return;
       const el=document.getElementById(uid);
       if(!el) return;
-      _applyPhotoToAvatar(el, src, name);
+      // Look up the student's most recent record so the enlarged pop-up shows
+      // their CURRENT class/gender rather than nothing — matches injectPhoto's
+      // behavior so every avatar's photo pop-up displays grade + gender.
+      const latest = (typeof getLatestStudentRecord === 'function') ? getLatestStudentRecord(name, studentId) : null;
+      const latestGrade  = latest ? gShort(latest['Grade']||latest['Term']||'') : (grade ? gShort(grade) : '');
+      const latestGender = latest ? (latest['Gender']||'') : '';
+      _applyPhotoToAvatar(el, src, name, latestGrade, latestGender);
     });
   });
   return html;
