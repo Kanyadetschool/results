@@ -6522,6 +6522,12 @@ function loadAllData(){
         if(changed) _showLiveUpdatePulse();
       }
       renderAll();
+      // Score records just changed — an exam that was "pending" may now have
+      // real records (e.g. another teacher/device just submitted, or this
+      // session's own earlier submit hasn't been reflected in the picker
+      // yet). Re-check so the "🕒 pending — awaiting scores" label never
+      // goes stale while the sheet is open.
+      if(document.getElementById('view-quickentry')?.classList.contains('active')) _populateQuickEntrySelectors();
     }, (err) => {
       notify('Real-time listener error: '+err.message,'error');
     });
@@ -12538,7 +12544,25 @@ function _qeGetExistingScores(){
 }
 
 function _qeStudentKey(rec){
-  return _qeRealId(rec['Assessment No']) || _qeRealId(rec['UPI']) || rec.id;
+  return _qeRealId(rec['Assessment No']) || _qeRealId(rec['UPI']) || rec.id
+    || ('name:'+String(rec['Official Student Name']||'').trim().toLowerCase());
+}
+
+/** Does a record already exist in the database for this roster student under
+ *  the currently-selected exam? Shared by the row badge (renderQuickEntryTable)
+ *  and the actual submit logic (submitQuickEntry) so both agree exactly.
+ *  Match priority: Assessment No (universal at this school) → UPI → name
+ *  (last resort only). */
+function _qeFindExisting(r){
+  const asm = _qeRealId(r['Assessment No']);
+  const upi = _qeRealId(r['UPI']);
+  const name = String(r['Official Student Name']||'').trim().toLowerCase();
+  return allData.find(x => {
+    if(getRecordTerm(x) !== _qeCompound) return false;
+    if(asm) return _qeRealId(x['Assessment No']) === asm;
+    if(upi) return _qeRealId(x['UPI']) === upi;
+    return String(x['Official Student Name']||'').trim().toLowerCase() === name;
+  });
 }
 
 function renderQuickEntryTable(draftScores, locked){
@@ -12557,9 +12581,13 @@ function renderQuickEntryTable(draftScores, locked){
   tbody.innerHTML = _qeStudents.map((r,i)=>{
     const key = _qeStudentKey(r);
     const draft = draftScores[key] || {};
+    const already = _qeFindExisting(r);
+    const badge = already
+      ? `<span title="Already has a submitted record for this exam — Submit will update it" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(39,174,96,.12);color:var(--green);font-size:10px;font-weight:700;vertical-align:middle">✓ submitted</span>`
+      : `<span title="No record yet for this exam — Submit will create one" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.12);color:var(--orange);font-size:10px;font-weight:700;vertical-align:middle">new</span>`;
     return `<tr>
       <td>${i+1}</td>
-      <td style="font-size:12px;font-weight:600">${r['Official Student Name']||'—'}</td>
+      <td style="font-size:12px;font-weight:600">${r['Official Student Name']||'—'}${badge}</td>
       <td style="font-size:11px;color:var(--text3)">${r['UPI']||'—'}</td>
       ${_qeSubjects.map(s=>{
         const val = draft[s]!==undefined ? draft[s] : '';
@@ -12570,6 +12598,15 @@ function renderQuickEntryTable(draftScores, locked){
       ${locked ? '' : `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>`}
     </tr>`;
   }).join('');
+
+  // Flag any out-of-range values already on the sheet (e.g. restored from a
+  // draft saved before this validation existed) — don't wait for the user
+  // to retype them to notice.
+  if(!locked){
+    document.querySelectorAll('#qe-tbody input[data-student]').forEach(inp=>{
+      if(inp.value !== '') _qeValidateScoreInput(inp);
+    });
+  }
 }
 
 /** Advanced Admin only, pending exams only — drops a subject column that was
@@ -12689,8 +12726,27 @@ async function _qeRemoveStudentRow(key){
 }
 window._qeRemoveStudentRow = _qeRemoveStudentRow;
 
+/** Cleans and visually flags a single score input — used both live (as the
+ *  teacher types) and right after render (to catch bad values already on
+ *  the sheet, e.g. restored from an older draft). Does NOT touch autosave. */
+function _qeValidateScoreInput(inputEl){
+  let raw = inputEl.value;
+  let cleaned = raw.replace(/[^0-9.]/g,'');
+  const firstDot = cleaned.indexOf('.');
+  if(firstDot !== -1) cleaned = cleaned.slice(0,firstDot+1) + cleaned.slice(firstDot+1).replace(/\./g,'');
+  if(cleaned !== raw) inputEl.value = cleaned;
+
+  const v = parseFloat(cleaned);
+  const invalid = cleaned !== '' && (isNaN(v) || v < 0 || v > 100);
+  inputEl.style.borderColor = invalid ? 'var(--red)' : '';
+  inputEl.style.background  = invalid ? 'rgba(220,53,69,0.1)' : '';
+  inputEl.title = invalid ? '⚠️ Score must be between 0 and 100' : '';
+  inputEl.classList.toggle('qe-invalid-score', invalid);
+}
+
 /** Debounced autosave — fires ~1.2s after the user stops typing. */
-function _qeOnScoreInput(){
+function _qeOnScoreInput(inputEl){
+  if(inputEl) _qeValidateScoreInput(inputEl);
   clearTimeout(_qeSaveTimer);
   const statusEl = document.getElementById('qe-save-status');
   if(statusEl) statusEl.textContent = '✏️ Editing…';
@@ -12753,6 +12809,16 @@ function _qeCollectScores(){
 async function submitQuickEntry(){
   if(!_qeStudents.length){ notify('Load students first.','warn'); return; }
 
+  // ── Hard block: any score currently flagged out-of-range must be fixed
+  // before submitting — no more silently dropping bad values at write time.
+  const flagged = document.querySelectorAll('#qe-tbody input.qe-invalid-score');
+  if(flagged.length){
+    notify(`⚠️ ${flagged.length} score(s) are out of the 0–100 range (shown in red) — fix them before submitting.`,'error',6000);
+    flagged[0].focus();
+    flagged[0].scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+
   // ── Final submission needs a connection — offline work is never lost, ────
   // it's just kept queued as a local draft (synced automatically once back
   // online) until the teacher can actually submit it for real.
@@ -12814,11 +12880,7 @@ async function submitQuickEntry(){
     // Does a record already exist for this exact student + exam?
     // (compare against the index-stripped exam identity, since the raw Grade
     // field on stored records now carries a unique -INDxx suffix per record)
-    const existing = allData.find(x =>
-      getRecordTerm(x) === _qeCompound &&
-      ((r['UPI'] && x['UPI'] === r['UPI']) ||
-       (!r['UPI'] && x['Official Student Name'] === r['Official Student Name']))
-    );
+    const existing = _qeFindExisting(r);
 
     if(existing){
       await update(ref(db, `${DB_PATH}/${existing.id}`), parsed);
@@ -12865,9 +12927,43 @@ async function submitQuickEntry(){
 
   btn.disabled=false; btn.textContent='✅ Submit Final to Database';
   document.getElementById('qe-draft-banner').style.display='none';
+  _qeResetToDefault();
   setTimeout(refreshData, 1200);
 }
 window.submitQuickEntry = submitQuickEntry;
+
+/** Returns the Quick Entry section to its pre-load state after a successful
+ *  submit — clears the score sheet, resets the grade/term pickers, and hides
+ *  the table card, instead of leaving the just-submitted (now stale) sheet
+ *  on screen. */
+function _qeResetToDefault(){
+  _qeStudents = [];
+  _qeSubjects = [];
+  _qeGrade = '';
+  _qeCompound = '';
+  _qeWasPending = false;
+  _qeLocked = false;
+  const gradeEl = document.getElementById('qe-grade');
+  const termEl = document.getElementById('qe-term');
+  if(gradeEl) gradeEl.value = '';
+  if(termEl) termEl.value = '';
+  const thead = document.getElementById('qe-thead-row');
+  const tbody = document.getElementById('qe-tbody');
+  if(thead) thead.innerHTML = '';
+  if(tbody) tbody.innerHTML = '';
+  const tableCard = document.getElementById('qe-table-card');
+  if(tableCard) tableCard.style.display = 'none';
+  const statusEl = document.getElementById('qe-save-status');
+  if(statusEl) statusEl.textContent = '';
+  ['qe-offline-banner','qe-draft-banner','qe-lock-banner'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  // Re-populate the dropdowns fresh so the just-submitted exam no longer
+  // shows as "pending" and reflects current record counts immediately.
+  if(typeof _populateQuickEntrySelectors === 'function') _populateQuickEntrySelectors();
+}
+window._qeResetToDefault = _qeResetToDefault;
 
 
 /* ══════════════════════════════════════════
