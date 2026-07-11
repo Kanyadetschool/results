@@ -13222,7 +13222,19 @@ const NotificationManager = {
     
     show(message, type = 'success', duration = 4000) {
         this.init();
-        
+
+        // De-dupe: if this exact message/type is already showing (or was shown
+        // in the last few seconds), don't stack a second identical toast —
+        // this is what caused "Loaded N records..." to visibly appear twice.
+        const now = Date.now();
+        if (this._lastMessage === message && this._lastType === type &&
+            this._lastTime && (now - this._lastTime) < 4000) {
+            return this._lastId;
+        }
+        this._lastMessage = message;
+        this._lastType = type;
+        this._lastTime = now;
+
         const notification = document.createElement('div');
         const id = `notif-${Date.now()}`;
         notification.id = id;
@@ -13299,6 +13311,7 @@ const NotificationManager = {
             }, duration);
         }
         
+        this._lastId = id;
         return id;
     },
     
@@ -14859,6 +14872,13 @@ async function signOutUser() {
 }
 
 function handleSignIn(user) {
+    // Guard against double-invocation: this can be called both by the
+    // onAuthStateChanged listener (real Firebase auth state) AND manually
+    // by the RC bridge patch further down the page, which previously caused
+    // fetchStudentsData() — and its "Loaded N records" toast — to fire twice.
+    if (window._rcSignInHandled) return;
+    window._rcSignInHandled = true;
+
     userInfo.textContent = `Welcome, ${user.displayName || user.email}!`;
     signInBtn.style.display = 'none';
     signOutBtn.style.display = 'inline-block';
@@ -14872,6 +14892,8 @@ function handleSignIn(user) {
 }
 
 function handleSignOut() {
+    window._rcSignInHandled = false;
+    window._rcPortalDataLoaded = false;
     userInfo.textContent = "Please sign in to view the student data.";
     signInBtn.style.display = 'inline-block';
     signOutBtn.style.display = 'none';
@@ -16855,8 +16877,13 @@ document.addEventListener('click', function(e) {
       // This is called from handleSignIn inside the RC module.
       const _origFetch = fetchStudentsData;
       window.fetchStudentsData = function() {
+        // Hard guard: no matter how many times/paths this gets invoked
+        // (handleSignIn, retries, etc.), only load + toast once per sign-in.
+        if (window._rcPortalDataLoaded) return;
+
         // Copy from the main portal's allData — scoped to teacher's assigned grades
         if (typeof allData !== 'undefined' && allData.length) {
+          window._rcPortalDataLoaded = true;
           studentsData = (typeof _getScopedData === 'function') ? _getScopedData() : allData.map(r => ({...r}));
           populateFilters_rc(studentsData);
           buildTermSelector();
