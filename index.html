@@ -2585,8 +2585,25 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
               Lock a term to make all its records <strong>read-only</strong>. Locked terms cannot be edited or deleted by any user until an Advanced Admin unlocks them. Use this after sharing report cards with parents.
             </p>
+            <div id="term-lock-bulkbar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;user-select:none">
+                <input type="checkbox" id="term-lock-selectall" onchange="_termLockToggleAll(this.checked)">
+                Select all
+              </label>
+              <span id="term-lock-selcount" style="font-size:11px;color:var(--text3)">0 selected</span>
+              <div style="flex:1"></div>
+              <button class="btn btn-sm btn-red" id="term-lock-bulklock" disabled onclick="bulkToggleTermLock(true)">🔒 Lock Selected</button>
+              <button class="btn btn-sm btn-outline" id="term-lock-bulkunlock" disabled onclick="bulkToggleTermLock(false)">🔓 Unlock Selected</button>
+            </div>
             <div id="term-lock-list" style="display:grid;gap:8px;max-height:360px;overflow-y:auto;padding-right:4px">
               <p style="font-size:12px;color:var(--text3)">Loading terms…</p>
+            </div>
+            <div id="term-lock-orphan-wrap" style="display:none;margin-top:16px">
+              <h4 style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">⚠️ Orphaned Locks</h4>
+              <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.6">
+                These lock entries don't match any term currently in the results database (e.g. the term was renamed, or all its records were deleted/never entered while it was locked). They can still block Quick Entry for anyone typing that exact term again — unlock them here to clear that.
+              </p>
+              <div id="term-lock-orphan-list" style="display:grid;gap:8px"></div>
             </div>
           </div>
 
@@ -4284,6 +4301,15 @@ function getExamType(r){ return parseGradeField(r['Grade']||r['Term']||'').examT
 // Short label: same stripped value (used in other places)
 function getTermShort(r){
   return stripIndexSuffix(r['Grade']||r['Term']||'')||'N/A';
+}
+/** Normalizes an exam/term identity string for CASE- and WHITESPACE-
+ *  insensitive matching — e.g. so "Grade 9-2026-B2-End-Term 2" and a
+ *  "Grade 9-2026-b2-end-term  2" typed elsewhere (a pending-exam entry, a
+ *  lock entry, etc.) are recognized as the same exam instead of silently
+ *  being treated as two different ones. Used for MATCHING/lookups only —
+ *  never for display, where the original casing/spacing is kept as typed. */
+function _normTermStr(s){
+  return String(s||'').trim().replace(/\s+/g,' ').toLowerCase();
 }
 /** Builds a per-exam-identity index counter, seeded from the highest -INDxx
  *  already present in allData for each base identity. Call once per
@@ -9050,13 +9076,48 @@ window.recalcPositions=recalcPositions;
 /* ══════════════════════════════════════════
    TERM LOCK / FREEZE
    Stored at RTDB: termLocks/{key}
-   key = encodeURIComponent(termLabel)
+   key = _lockKeyFor(termLabelOrRecord)  — see below
    value = {locked:true, lockedBy, lockedAt, label}
 ══════════════════════════════════════════ */
 
+/** THE single source of truth for resolving a term-lock key. Every place
+ *  that reads or writes termLocks/{key} MUST go through this function, or a
+ *  term can end up "locked" in one screen and "unlocked" in another — which
+ *  is exactly the bug this fixes:
+ *    - Settings' term-lock list and Quick Entry's roster/dropdown both
+ *      derive their term names via getRecordTerm(), which strips each
+ *      record's unique "-IND01/-IND02…" dedup suffix. But the OLD
+ *      _termLockKey() used the record's raw, un-stripped Grade field —
+ *      so a locked term's key (stripped) never matched the key this
+ *      function produced for an individual record (still carrying its
+ *      -INDxx suffix), and isTermLocked() silently returned the wrong
+ *      answer for every real per-student record.
+ *    - Separately, the exact same exam can get typed with slightly
+ *      different case/spacing across different records (e.g. "End-Term 2"
+ *      vs "End-term  2"). Those should resolve to the same lock, instead
+ *      of silently being treated as two different terms.
+ *  To avoid orphaning locks that already exist in the database under the
+ *  OLD key format (case-sensitive, whitespace as-typed), this checks for an
+ *  existing entry under the new normalized key first, then falls back to
+ *  the legacy key format — returning whichever one actually holds the lock.
+ *  If neither exists yet, it returns the new normalized key, so any lock
+ *  created from here on is written in the normalized format. Locks get
+ *  migrated to the new format naturally the next time they're toggled.
+ *  Accepts either a full record object or a raw compound/term string. */
+function _lockKeyFor(recOrCompound){
+  const raw = (recOrCompound && typeof recOrCompound === 'object')
+    ? getRecordTerm(recOrCompound)
+    : String(recOrCompound || '');
+  const trimmed = raw.trim();
+  const normKey = encodeURIComponent(_normTermStr(trimmed));
+  if(_lockedTerms[normKey]) return normKey;
+  const legacyKey = encodeURIComponent(trimmed);
+  if(_lockedTerms[legacyKey]) return legacyKey;
+  return normKey;
+}
+
 function _termLockKey(rec){
-  // Use the raw Grade field as the unique term identifier
-  return encodeURIComponent((rec['Grade']||rec['Term']||'').trim());
+  return _lockKeyFor(rec);
 }
 
 function _termLockLabel(rec){
@@ -9076,6 +9137,79 @@ function _applyLockBadges(){
   if(document.getElementById('view-settings')?.classList.contains('active')){ renderTermLockSettings(); renderPendingExamsSettings(); }
 }
 
+// Keys the user has ticked in the Term Lock settings list, for bulk lock/unlock.
+let _termLockSelected = new Set();
+
+function _termLockUpdateBulkBar(){
+  const count = _termLockSelected.size;
+  const cEl = document.getElementById('term-lock-selcount');
+  if(cEl) cEl.textContent = `${count} selected`;
+  const lockBtn = document.getElementById('term-lock-bulklock');
+  const unlockBtn = document.getElementById('term-lock-bulkunlock');
+  if(lockBtn) lockBtn.disabled = count===0;
+  if(unlockBtn) unlockBtn.disabled = count===0;
+  const allCb = document.getElementById('term-lock-selectall');
+  const total = document.querySelectorAll('#term-lock-list input.term-lock-cb').length;
+  if(allCb) allCb.checked = total>0 && count===total;
+}
+window._termLockUpdateBulkBar=_termLockUpdateBulkBar;
+
+function _termLockToggleOne(key, checked){
+  if(checked) _termLockSelected.add(key); else _termLockSelected.delete(key);
+  _termLockUpdateBulkBar();
+}
+window._termLockToggleOne=_termLockToggleOne;
+
+function _termLockToggleAll(checked){
+  const boxes = document.querySelectorAll('#term-lock-list input.term-lock-cb');
+  _termLockSelected = new Set();
+  boxes.forEach(cb=>{ cb.checked=checked; if(checked) _termLockSelected.add(cb.dataset.key); });
+  _termLockUpdateBulkBar();
+}
+window._termLockToggleAll=_termLockToggleAll;
+
+/** Bulk lock or unlock every currently-selected term in one shot, via a
+ *  single multi-path RTDB update rather than N separate writes. */
+async function bulkToggleTermLock(lockThem){
+  if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
+  if(!_termLockSelected.size){notify('⚠️ No terms selected.','warn');return;}
+  const boxes = [...document.querySelectorAll('#term-lock-list input.term-lock-cb, #term-lock-orphan-list input.term-lock-cb')]
+    .filter(cb=>_termLockSelected.has(cb.dataset.key));
+  const entries = boxes.map(cb=>({key:cb.dataset.key, label:cb.dataset.label||decodeURIComponent(cb.dataset.key)}));
+  if(!entries.length){notify('⚠️ No terms selected.','warn');return;}
+
+  const names = entries.map(e=>e.label).join(', ');
+  const ok=await showConfirm(
+    lockThem?'🔒 Lock Selected Terms':'🔓 Unlock Selected Terms',
+    lockThem
+      ? `Lock <strong>${entries.length}</strong> term(s)? All records in these terms will become <strong>read-only</strong> until unlocked:<br><br>${names}`
+      : `Unlock <strong>${entries.length}</strong> term(s)? Edits and deletes will be allowed again in:<br><br>${names}`,
+    lockThem?'🔒':'🔓',
+    lockThem?'Lock All':'Unlock All',
+    lockThem?'btn-red':'btn-blue'
+  );
+  if(!ok) return;
+
+  const { ref, update: fbUpdate } = window._fb;
+  const updates = {};
+  entries.forEach(({key,label})=>{
+    updates[`${LOCK_PATH}/${key}`] = lockThem
+      ? { locked:true, label, lockedBy: currentAdminName||'Admin', lockedAt: Date.now() }
+      : null; // null deletes the path in a multi-path update
+  });
+  try{
+    await fbUpdate(ref(db), updates);
+    notify(`${lockThem?'🔒':'🔓'} ${entries.length} term(s) ${lockThem?'locked':'unlocked'}.`,'success');
+    logActivity(`${lockThem?'🔒 Bulk locked':'🔓 Bulk unlocked'} ${entries.length} term(s): ${names}`,'act-blue',currentAdminName,{
+      category:'system', extra:`Bulk term ${lockThem?'lock':'unlock'}`
+    });
+    _termLockSelected = new Set();
+  }catch(e){
+    notify('Error applying bulk lock change: '+e.message,'error');
+  }
+}
+window.bulkToggleTermLock=bulkToggleTermLock;
+
 function renderTermLockSettings(){
   const section=document.getElementById('term-lock-section');
   if(!section) return;
@@ -9087,30 +9221,80 @@ function renderTermLockSettings(){
 
   const terms=getUniqueTerms();
   const list=document.getElementById('term-lock-list');
+
+  // Keys explained by either a real term (has records) or a legitimately
+  // pending exam (Quick Entry "Create New Exam", zero records yet). Anything
+  // else present in _lockedTerms is an orphan — see below.
+  const explainedKeys = new Set();
+  terms.forEach(t=>explainedKeys.add(_lockKeyFor(t)));
+  Object.values(_pendingExams||{}).forEach(pe=>{ if(pe?.compound) explainedKeys.add(_lockKeyFor(pe.compound)); });
+
   if(!terms.length){
     list.innerHTML='<p style="font-size:12px;color:var(--text3)">No terms found. Load data first.</p>';
-    return;
+  } else {
+    list.innerHTML=terms.map(t=>{
+      const key=_lockKeyFor(t);
+      const lockData=_lockedTerms[key];
+      const locked=!!(lockData&&lockData.locked);
+      const byWho=lockData?.lockedBy||'';
+      const when=lockData?.lockedAt?new Date(lockData.lockedAt).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):'';
+      const checked=_termLockSelected.has(key)?'checked':'';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid ${locked?'rgba(231,76,60,.3)':'var(--border)'}">
+        <label style="flex-shrink:0;display:flex;align-items:center;cursor:pointer">
+          <input type="checkbox" class="term-lock-cb" data-key="${key}" data-label="${t.replace(/"/g,'&quot;')}" ${checked} onchange="_termLockToggleOne('${key}',this.checked)">
+        </label>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${t}</div>
+          ${locked
+            ? `<div style="font-size:10px;color:var(--red)">🔒 Locked by ${byWho||'Admin'} on ${when}</div>`
+            : `<div style="font-size:10px;color:var(--green)">🔓 Unlocked — edits allowed</div>`
+          }
+        </div>
+        <button class="btn btn-sm ${locked?'btn-outline':'btn-red'}" style="flex-shrink:0;min-width:90px"
+          onclick="toggleTermLock('${key}','${t.replace(/'/g,"\\'")}',${locked})">
+          ${locked?'🔓 Unlock':'🔒 Lock'}
+        </button>
+      </div>`;
+    }).join('');
   }
-  list.innerHTML=terms.map(t=>{
-    const key=encodeURIComponent(t.trim());
-    const lockData=_lockedTerms[key];
-    const locked=!!(lockData&&lockData.locked);
-    const byWho=lockData?.lockedBy||'';
-    const when=lockData?.lockedAt?new Date(lockData.lockedAt).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):'';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid ${locked?'rgba(231,76,60,.3)':'var(--border)'}">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${t}</div>
-        ${locked
-          ? `<div style="font-size:10px;color:var(--red)">🔒 Locked by ${byWho||'Admin'} on ${when}</div>`
-          : `<div style="font-size:10px;color:var(--green)">🔓 Unlocked — edits allowed</div>`
-        }
-      </div>
-      <button class="btn btn-sm ${locked?'btn-outline':'btn-red'}" style="flex-shrink:0;min-width:90px"
-        onclick="toggleTermLock('${key}','${t.replace(/'/g,"\\'")}',${locked})">
-        ${locked?'🔓 Unlock':'🔒 Lock'}
-      </button>
-    </div>`;
-  }).join('');
+
+  // ── Orphaned locks: entries under termLocks that don't correspond to any
+  // term currently in the data (or a pending exam). These are invisible in
+  // the list above yet still make isTermLocked() return true for anyone who
+  // selects that exact exam string in Quick Entry — the root cause of a
+  // "this term is locked" message for a term that shows unlocked, or
+  // doesn't even appear, in Settings. Surfacing them here is the only way
+  // to find and clear that kind of stale lock.
+  const orphanWrap=document.getElementById('term-lock-orphan-wrap');
+  const orphanList=document.getElementById('term-lock-orphan-list');
+  const orphanKeys=Object.keys(_lockedTerms||{}).filter(k=>_lockedTerms[k]?.locked && !explainedKeys.has(k));
+  if(orphanWrap && orphanList){
+    if(!orphanKeys.length){
+      orphanWrap.style.display='none';
+      orphanList.innerHTML='';
+    } else {
+      orphanWrap.style.display='';
+      orphanList.innerHTML=orphanKeys.map(key=>{
+        const lockData=_lockedTerms[key];
+        const label=lockData?.label || decodeURIComponent(key);
+        const byWho=lockData?.lockedBy||'';
+        const when=lockData?.lockedAt?new Date(lockData.lockedAt).toLocaleString('en-KE',{dateStyle:'medium',timeStyle:'short'}):'';
+        const checked=_termLockSelected.has(key)?'checked':'';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px dashed rgba(231,76,60,.5)">
+          <label style="flex-shrink:0;display:flex;align-items:center;cursor:pointer">
+            <input type="checkbox" class="term-lock-cb" data-key="${key}" data-label="${label.replace(/"/g,'&quot;')}" ${checked} onchange="_termLockToggleOne('${key}',this.checked)">
+          </label>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">${label}</div>
+            <div style="font-size:10px;color:var(--red)">🔒 Locked by ${byWho||'Admin'} on ${when} — no matching term in the database</div>
+          </div>
+          <button class="btn btn-sm btn-outline" style="flex-shrink:0;min-width:90px" onclick="toggleTermLock('${key}','${label.replace(/'/g,"\\'")}',true)">🔓 Unlock</button>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  _termLockUpdateBulkBar();
 }
 window.renderTermLockSettings=renderTermLockSettings;
 
@@ -11982,7 +12166,7 @@ async function commitImport(){
         if(!Object.keys(scores).length) continue; // no scores entered — skip blank rows
 
         // ── Lock guard ────────────────────────────────────────────────────
-        const _lk=encodeURIComponent((compound||'').trim());
+        const _lk=_lockKeyFor(compound);
         if(_lockedTerms[_lk]&&_lockedTerms[_lk].locked){
           skipped++;
           continue;
@@ -12095,14 +12279,18 @@ function _populateTemplateSelectors(){
       : (currentAssignedGrade && currentAssignedGrade !== '__NONE__' ? [currentAssignedGrade] : null);
     const inScope = g => !myGrades || myGrades.includes(g);
 
-    // Exams that already have at least one real record
+    // Exams that already have at least one real record. Also track a
+    // normalized (case/whitespace-insensitive) form so a pending exam typed
+    // with slightly different spacing/case isn't mistaken for a different
+    // exam from the real one below (same fix as Quick Entry's selector).
     const fromRecords = new Set();
+    const fromRecordsNorm = new Set();
     allData.forEach(r => {
       const g = gShort(r['Grade']);
       if(!inScope(g)) return;
       // Use the index-suffix-stripped exam identity as the term identifier
       const raw = getRecordTerm(r);
-      if(raw && raw !== 'Unknown') fromRecords.add(raw);
+      if(raw && raw !== 'Unknown'){ fromRecords.add(raw); fromRecordsNorm.add(_normTermStr(raw)); }
     });
 
     // Exams published but still awaiting scores — zero records so far
@@ -12111,7 +12299,7 @@ function _populateTemplateSelectors(){
       if(!pe || !pe.compound) return;
       const g = gShort(pe.grade || pe.compound);
       if(!inScope(g)) return;
-      if(!fromRecords.has(pe.compound)) pendingOnly.add(pe.compound);
+      if(!fromRecordsNorm.has(_normTermStr(pe.compound))) pendingOnly.add(pe.compound);
     });
 
     [...fromRecords, ...pendingOnly].sort((a,b)=>a.localeCompare(b)).forEach(t => {
@@ -12509,28 +12697,40 @@ function _populateQuickEntrySelectors(){
   if(myGrades.length === 1) gradeEl.value = myGrades[0];
 
   const rebuildTerms = () => {
+    const _prevVal = termEl.value; // preserve selection across a later reload (e.g. pending exams arriving after allData)
     while(termEl.options.length > 2) termEl.remove(2); // keep "Select exam…" and "➕ Create New Exam…"
     const selGrade = gradeEl.value;
     const inScope = g => selGrade ? (g === selGrade) : (!myGrades.length || myGrades.includes(g));
 
-    // Exams that already have at least one real record
+    // Exams that already have at least one real record. Also track a
+    // normalized (case/whitespace-insensitive) form of each so a pending
+    // exam typed with slightly different spacing/case doesn't get treated
+    // as a different exam from the real one below.
     const fromRecords = new Set();
+    const fromRecordsNorm = new Set();
     allData.forEach(r => {
       const g = gShort(r['Grade']);
       if(!inScope(g)) return;
       const raw = getRecordTerm(r); // index-suffix stripped exam identity
-      if(raw && raw !== 'Unknown') fromRecords.add(raw);
+      if(raw && raw !== 'Unknown'){ fromRecords.add(raw); fromRecordsNorm.add(_normTermStr(raw)); }
     });
 
     // Exams Admin has published but no one has entered scores for yet —
     // scoped to the same grade rules, so a teacher only ever sees pending
     // exams for their OWN assigned grade(s), never another teacher's.
+    // Matched against fromRecords using the SAME normalization as above —
+    // otherwise an exam that already has real records, but was typed with
+    // slightly different case/spacing when the pending entry was created,
+    // shows up TWICE: once as the real entry and once mislabeled
+    // "🕒 …pending", and picking that "pending" copy loads the roster as if
+    // the exam were brand new even though it's the same (possibly locked)
+    // exam that already has records.
     const pendingOnly = new Set();
     Object.values(_pendingExams||{}).forEach(pe => {
       if(!pe || !pe.compound) return;
       const g = gShort(pe.grade || pe.compound);
       if(!inScope(g)) return;
-      if(!fromRecords.has(pe.compound)) pendingOnly.add(pe.compound);
+      if(!fromRecordsNorm.has(_normTermStr(pe.compound))) pendingOnly.add(pe.compound);
     });
 
     [...fromRecords, ...pendingOnly].sort((a,b)=>a.localeCompare(b)).forEach(t => {
@@ -12539,6 +12739,12 @@ function _populateQuickEntrySelectors(){
       o.textContent = pendingOnly.has(t) ? `🕒 ${t} (pending — awaiting scores)` : t;
       termEl.appendChild(o);
     });
+
+    // Restore the teacher's already-made selection if it still exists after
+    // this rebuild — e.g. the pending-exams listener firing shortly after
+    // the main data load re-runs this function, and shouldn't silently
+    // reset an exam the teacher already picked back to "Select exam…".
+    if(_prevVal && [...termEl.options].some(o => o.value === _prevVal)) termEl.value = _prevVal;
   };
   gradeEl.onchange = rebuildTerms;
   rebuildTerms();
@@ -12650,7 +12856,7 @@ async function loadQuickEntry(){
   if(!selCompound){ notify('⚠️ Please select an exam/term first.','warn'); return; }
 
   // ── Lock check — locked exams still load, but in view-only mode ──────────
-  const lockData = _lockedTerms[encodeURIComponent(selCompound)];
+  const lockData = _lockedTerms[_lockKeyFor(selCompound)];
   const locked = !!(lockData && lockData.locked);
   _qeLocked = locked;
 
@@ -13221,7 +13427,7 @@ async function submitQuickEntry(){
   }
 
   // ── Lock guard (re-check at submit time too — lock state can change) ─────
-  if(_lockedTerms[encodeURIComponent(_qeCompound)] && _lockedTerms[encodeURIComponent(_qeCompound)].locked){
+  if(_lockedTerms[_lockKeyFor(_qeCompound)] && _lockedTerms[_lockKeyFor(_qeCompound)].locked){
     notify(`🔒 "${_qeCompound}" is locked. Ask an Advanced Admin to unlock it before submitting.`,'error',6000);
     return;
   }
