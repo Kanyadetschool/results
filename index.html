@@ -3788,7 +3788,56 @@ function _applyPhotoToAvatar(el, src, name) {
         el.appendChild(img);
     }
     if (img.src !== src) img.src = src;
+    // Real photo loaded (not just initials) — make it clickable to view large.
+    // stopPropagation so clicking a photo inside a table row doesn't also
+    // trigger that row's own onclick (e.g. opening a records modal).
+    // Callers that need custom click behavior (e.g. "copy name if no photo
+    // yet, else enlarge") set data-click-managed="1" on the wrapper and wire
+    // their own onclick — skip overwriting it here.
+    if (el.dataset.clickManaged !== '1') {
+      el.style.cursor = 'pointer';
+      el.title = (name ? name+' — ' : '') + 'click to view photo';
+      el.onclick = (e) => { e.stopPropagation(); openStudentPhotoLightbox(src, name); };
+    }
 }
+
+/* ── Student photo lightbox — click any student avatar to view it large ── */
+function _ensurePhotoLightbox(){
+  let lb = document.getElementById('student-photo-lightbox');
+  if(lb) return lb;
+  lb = document.createElement('div');
+  lb.id = 'student-photo-lightbox';
+  lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);align-items:center;justify-content:center;padding:30px;cursor:zoom-out';
+  lb.innerHTML = `
+    <div style="position:relative;max-width:min(90vw,560px);max-height:90vh;display:flex;flex-direction:column;align-items:center;gap:12px" onclick="event.stopPropagation()">
+      <button onclick="closeStudentPhotoLightbox()" title="Close" style="position:absolute;top:-16px;right:-16px;width:34px;height:34px;border-radius:50%;border:none;background:#fff;color:#111;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)">✕</button>
+      <img id="student-photo-lightbox-img" src="" alt="" style="max-width:100%;max-height:78vh;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);object-fit:contain;background:#fff">
+      <div id="student-photo-lightbox-name" style="color:#fff;font-size:14px;font-weight:700;text-align:center"></div>
+    </div>`;
+  lb.addEventListener('click', closeStudentPhotoLightbox);
+  document.body.appendChild(lb);
+  return lb;
+}
+
+function openStudentPhotoLightbox(src, name){
+  if(!src) return;
+  const lb = _ensurePhotoLightbox();
+  document.getElementById('student-photo-lightbox-img').src = src;
+  document.getElementById('student-photo-lightbox-img').alt = name || '';
+  document.getElementById('student-photo-lightbox-name').textContent = name || '';
+  lb.style.display = 'flex';
+  document.addEventListener('keydown', _photoLightboxEscHandler);
+}
+window.openStudentPhotoLightbox = openStudentPhotoLightbox;
+
+function closeStudentPhotoLightbox(){
+  const lb = document.getElementById('student-photo-lightbox');
+  if(lb) lb.style.display = 'none';
+  document.removeEventListener('keydown', _photoLightboxEscHandler);
+}
+window.closeStudentPhotoLightbox = closeStudentPhotoLightbox;
+
+function _photoLightboxEscHandler(e){ if(e.key==='Escape') closeStudentPhotoLightbox(); }
 
 function _loadImg(src){
   return new Promise(resolve=>{
@@ -7933,12 +7982,24 @@ function viewStudent(id){
   document.getElementById('modal-pdf-btn').onclick=()=>dlStudentPDF(id);
   document.getElementById('student-modal').classList.add('on');
   injectPhoto(_modalAvId, rec['Official Student Name']||'', rec['Grade']||'', rec.id||'');
-  // Click the photo or the name to copy the student's name to the clipboard.
+  // Click the photo to view it large (once loaded); click the name to copy
+  // the student's name to the clipboard. If no photo is on file, clicking
+  // the avatar falls back to copying the name too.
   {
     const _name = rec['Official Student Name']||'';
     const _copyHandler = ()=>copyStudentName(_name);
     const _avEl = document.getElementById(_modalAvId);
-    if(_avEl){ _avEl.style.cursor='pointer'; _avEl.title='Click to copy name'; _avEl.onclick=_copyHandler; }
+    if(_avEl){
+      _avEl.dataset.clickManaged = '1';
+      _avEl.style.cursor='pointer';
+      _avEl.title='Click to view photo';
+      _avEl.onclick=(e)=>{
+        e.stopPropagation();
+        const img=_avEl.querySelector('img');
+        if(img && img.src) openStudentPhotoLightbox(img.src, _name);
+        else _copyHandler();
+      };
+    }
     const _nameEl = document.querySelector('#student-modal-body .s-name');
     if(_nameEl){ _nameEl.style.cursor='pointer'; _nameEl.title='Click to copy name'; _nameEl.onclick=_copyHandler; }
     const _admVal = rec['Assessment No']||'';
@@ -10423,12 +10484,23 @@ function openRecordsModal(masterId){
   renderRecordTabs(allRecs, 0);
   renderRecordContent(allRecs, 0);
   document.getElementById('records-modal').classList.add('on');
-  // Click the photo or the name to copy the student's name to the clipboard.
+  // Click the photo to view it large (once loaded), or copy the name if
+  // no photo is on file; click the name to always copy it.
   {
     const _copyHandler = ()=>copyStudentName(name);
     const _nameEl = document.getElementById('rec-modal-name');
     if(_nameEl){ _nameEl.style.cursor='pointer'; _nameEl.title='Click to copy name'; _nameEl.onclick=_copyHandler; }
-    if(recAvEl){ recAvEl.style.cursor='pointer'; recAvEl.title='Click to copy name'; recAvEl.onclick=_copyHandler; }
+    if(recAvEl){
+      recAvEl.dataset.clickManaged = '1';
+      recAvEl.style.cursor='pointer';
+      recAvEl.title='Click to view photo';
+      recAvEl.onclick=(e)=>{
+        e.stopPropagation();
+        const img=recAvEl.querySelector('img');
+        if(img && img.src) openStudentPhotoLightbox(img.src, name);
+        else _copyHandler();
+      };
+    }
     const _admEl = document.getElementById('rec-modal-adm');
     if(_admEl && adm && adm!=='N/A'){ _admEl.style.cursor='pointer'; _admEl.style.textDecoration='underline dotted'; _admEl.title='Click to copy Assessment No'; _admEl.onclick=(e)=>{ e.stopPropagation(); copyAssessmentNo(adm); }; }
   }
@@ -11153,12 +11225,23 @@ function openProgressModal(masterId){
     </table></div>`;
 
   document.getElementById('progress-modal').classList.add('on');
-  // Click the photo or the name to copy the student's name to the clipboard.
+  // Click the photo to view it large (once loaded), or copy the name if
+  // no photo is on file; click the name to always copy it.
   {
     const _copyHandler = ()=>copyStudentName(name);
     const _pmNameEl = document.getElementById('progress-modal-name');
     if(_pmNameEl){ _pmNameEl.style.cursor='pointer'; _pmNameEl.title='Click to copy name'; _pmNameEl.onclick=_copyHandler; }
-    if(pmAv){ pmAv.style.cursor='pointer'; pmAv.title='Click to copy name'; pmAv.onclick=_copyHandler; }
+    if(pmAv){
+      pmAv.dataset.clickManaged = '1';
+      pmAv.style.cursor='pointer';
+      pmAv.title='Click to view photo';
+      pmAv.onclick=(e)=>{
+        e.stopPropagation();
+        const img=pmAv.querySelector('img');
+        if(img && img.src) openStudentPhotoLightbox(img.src, name);
+        else _copyHandler();
+      };
+    }
     const _admEl = document.getElementById('progress-modal-adm');
     if(_admEl && adm){ _admEl.style.cursor='pointer'; _admEl.style.textDecoration='underline dotted'; _admEl.title='Click to copy Assessment No'; _admEl.onclick=(e)=>{ e.stopPropagation(); copyAssessmentNo(adm); }; }
   }
