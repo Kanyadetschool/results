@@ -1948,6 +1948,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           <div class="actions-row">
             <button class="btn btn-green btn-sm" onclick="openAddStudentModal()">➕ Add Student</button>
             <button class="btn btn-outline btn-sm" onclick="exportStudentsCSV()">📥 Export CSV</button>
+            <button class="btn btn-outline btn-sm" id="missing-photo-btn" onclick="toggleMissingPhotoFilter()" title="Scan the directory for students without a photo on file">📷 Check Photos</button>
           </div>
         </div>
         <div class="filter-row">
@@ -3213,9 +3214,17 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
     <div class="modal-body">
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Adds a student to this Quick Entry sheet only — e.g. a transfer-in who isn't on the class list yet. All fields are required. They're saved to the database once you enter their scores and submit.</div>
       <div class="form-grid">
-        <div class="form-group form-full">
+        <div class="form-group form-full" style="position:relative">
           <label>STUDENT NAME</label>
-          <input type="text" id="qe-add-name" placeholder="Full legal name">
+          <input type="text" id="qe-add-name" placeholder="Full legal name" oninput="_qeSearchExistingStudent()" onblur="_qeHideNameMatchesDelayed()" autocomplete="off">
+          <div id="qe-add-name-matches" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:20;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+          <div id="qe-add-match-badge" style="display:none;font-size:11px;color:var(--green,#2e7d32);margin-top:6px;align-items:center;gap:8px;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0">
+              <div id="qe-add-match-badge-av" style="flex-shrink:0"></div>
+              <span id="qe-add-match-badge-text"></span>
+            </div>
+            <a href="#" onclick="_qeClearExistingMatch();return false;" style="color:var(--text3);text-decoration:underline;flex-shrink:0">clear match</a>
+          </div>
         </div>
         <div class="form-group">
           <label>ASSESSMENT NO</label>
@@ -3812,6 +3821,30 @@ async function loadStudentPhoto(name, grade, studentId){
   }
   // Fallback: default avatar
   return await _loadImg('./Report-Cards/student_images/default.jpg');
+}
+
+// Checks whether a student has their OWN photo on file — unlike
+// loadStudentPhoto(), this does NOT fall back to default.jpg, so it can be
+// used to flag students who are still missing a real photo. Shares the same
+// _loadImg cache, so it costs nothing extra for students whose photo (or
+// lack thereof) has already been resolved elsewhere on screen.
+async function _studentHasOwnPhoto(name, grade){
+  const g=(grade||'').match(/Grade\s*\d+/i)?.[0]||grade||'';
+  const cleanName=(name||'').trim();
+  const encGrade=encodeURIComponent(g);
+  const encName=encodeURIComponent(cleanName);
+  const paths=[
+    `./Report-Cards/student_images/${g}/${cleanName}.jpg`,
+    `./Report-Cards/student_images/${encGrade}/${encName}.jpg`,
+    `./Report-Cards/student_images/${g}/${encName}.jpg`,
+    `./student_images/${g}/${cleanName}.jpg`,
+    `./student_images/${encGrade}/${encName}.jpg`,
+  ];
+  for(const p of paths){
+    const src=await _loadImg(p);
+    if(src) return true;
+  }
+  return false;
 }
 
 // Build a photo avatar element and async-load the image
@@ -7607,6 +7640,73 @@ function timeAgo(d){
 ══════════════════════════════════════════ */
 let studentSortField='avg', studentSortDir=-1;
 
+// ── Missing-photo directory filter ──────────────────────────────────────
+// Scans the (teacher-scoped) student directory once for who has no photo
+// on file, then lets Check Photos toggle the directory to show only those
+// students — handy before printing report cards or a batch photo upload.
+let _photoMissingKeys = null;   // Set of dedupe keys with no own photo, filled on first scan
+let _photoScanBusy = false;
+let _missingPhotoFilterActive = false;
+
+async function toggleMissingPhotoFilter(){
+  const btn = document.getElementById('missing-photo-btn');
+  if(!btn || _photoScanBusy) return;
+
+  if(_missingPhotoFilterActive){
+    _missingPhotoFilterActive = false;
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+    filterStudents();
+    return;
+  }
+
+  if(!_photoMissingKeys){
+    _photoScanBusy = true;
+    const origLabel = btn.innerHTML;
+    btn.innerHTML = '⏳ Scanning…';
+    btn.disabled = true;
+    try{
+      const seen = new Set();
+      const uniques = [];
+      for(const r of allData){
+        if(!_teacherCanSeeGrade(r['Grade'])) continue;
+        const key = String(r['Assessment No']||r['Official Student Name']||'').trim()||r.id;
+        if(seen.has(key)) continue;
+        seen.add(key);
+        uniques.push({ key, name:r['Official Student Name']||'', grade:r['Grade']||'' });
+      }
+      const missing = new Set();
+      const BATCH = 15; // keep concurrent local file lookups modest
+      for(let i=0;i<uniques.length;i+=BATCH){
+        const batch = uniques.slice(i, i+BATCH);
+        await Promise.all(batch.map(async u=>{
+          const has = await _studentHasOwnPhoto(u.name, u.grade);
+          if(!has) missing.add(u.key);
+        }));
+      }
+      _photoMissingKeys = missing;
+    }catch(e){
+      notify('⚠️ Could not finish scanning for photos.','warn');
+      btn.innerHTML = origLabel;
+      btn.disabled = false;
+      _photoScanBusy = false;
+      return;
+    }
+    btn.disabled = false;
+    _photoScanBusy = false;
+  }
+
+  _missingPhotoFilterActive = true;
+  btn.innerHTML = `📷 Missing Photos (${_photoMissingKeys.size})`;
+  btn.style.background = 'var(--orange)';
+  btn.style.color = '#fff';
+  btn.style.borderColor = 'var(--orange)';
+  if(_photoMissingKeys.size === 0) notify('✅ Every student in view has a photo on file.','success');
+  filterStudents();
+}
+window.toggleMissingPhotoFilter = toggleMissingPhotoFilter;
+
 function filterStudents(){
   let q=(document.getElementById('student-search')?.value||'').trim();
   const g=document.getElementById('filter-grade')?.value||'';
@@ -7632,6 +7732,10 @@ function filterStudents(){
       const grade=(String(r['Grade']||'')).toLowerCase();
       const gender=(String(r['Gender']||'')).toLowerCase();
       if(!name.includes(ql)&&!asm.includes(ql)&&!upi.includes(ql)&&!grade.includes(ql)&&!gender.includes(ql)) return false;
+    }
+    if(_missingPhotoFilterActive && _photoMissingKeys){
+      const pkey=String(r['Assessment No']||r['Official Student Name']||'').trim()||r.id;
+      if(!_photoMissingKeys.has(pkey)) return false;
     }
     if(scoreFilter){
       const avg=parseFloat(calcStats(r).avg);
@@ -12586,9 +12690,15 @@ function renderQuickEntryTable(draftScores, locked){
     const badge = already
       ? `<span title="Already has a submitted record for this exam — Submit will update it" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(39,174,96,.12);color:var(--green);font-size:10px;font-weight:700;vertical-align:middle">✓ submitted</span>`
       : `<span title="No record yet for this exam — Submit will create one" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.12);color:var(--orange);font-size:10px;font-weight:700;vertical-align:middle">new</span>`;
+    const _qeAv = makePhotoAvatar(r['Official Student Name']||'', r['Grade']||_qeGrade||'', 'stu-av-sm', 'flex-shrink:0', r.id||'');
     return `<tr>
       <td>${i+1}</td>
-      <td style="font-size:12px;font-weight:600">${r['Official Student Name']||'—'}${badge}</td>
+      <td style="font-size:12px;font-weight:600">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${_qeAv}
+          <span>${r['Official Student Name']||'—'}${badge}</span>
+        </div>
+      </td>
       <td style="font-size:11px;color:var(--text3)">${r['UPI']||'—'}</td>
       ${_qeSubjects.map(s=>{
         const val = draft[s]!==undefined ? draft[s] : '';
@@ -12668,6 +12778,13 @@ function _qeOpenAddStudentModal(){
   document.getElementById('qe-add-name').value = '';
   document.getElementById('qe-add-asm').value = '';
   document.getElementById('qe-add-upi').value = '';
+  document.getElementById('qe-add-asm').readOnly = false;
+  document.getElementById('qe-add-upi').readOnly = false;
+  document.getElementById('qe-add-name-matches').style.display = 'none';
+  document.getElementById('qe-add-name-matches').innerHTML = '';
+  document.getElementById('qe-add-match-badge').style.display = 'none';
+  const _avBox = document.getElementById('qe-add-match-badge-av');
+  if(_avBox) _avBox.innerHTML = '';
   document.getElementById('qe-add-student-modal').classList.add('on');
   setTimeout(()=>document.getElementById('qe-add-name')?.focus(), 50);
 }
@@ -12677,6 +12794,94 @@ function _qeCloseAddStudentModal(){
   document.getElementById('qe-add-student-modal').classList.remove('on');
 }
 window._qeCloseAddStudentModal = _qeCloseAddStudentModal;
+
+// ── Quick Entry: live search of the ENTIRE database (all grades/terms) as the
+// teacher types a student's name, so an already-registered student gets
+// auto-filled (Assessment No + UPI) instead of being entered twice. If no
+// match exists anywhere in the database, the teacher proceeds with a plain
+// fresh registration exactly as before. ─────────────────────────────────────
+function _qeSearchExistingStudent(){
+  const q = document.getElementById('qe-add-name').value.trim().toLowerCase();
+  const box = document.getElementById('qe-add-name-matches');
+
+  // If they'd already picked a match and are now editing the name again,
+  // drop the stale auto-fill so it can't be submitted against the wrong name.
+  if(document.getElementById('qe-add-match-badge').style.display !== 'none'){
+    _qeClearExistingMatch();
+  }
+
+  if(q.length < 2){ box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const seen = new Set();
+  const matches = [];
+  for(const r of allData){
+    const name = (r['Official Student Name']||'').trim();
+    if(!name || !name.toLowerCase().includes(q)) continue;
+    const upi = (r['UPI']||'').trim();
+    const asm = (r['Assessment No']||'').trim();
+    const key = upi || (name.toLowerCase()+'|'+asm);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    matches.push({ name, upi, asm, grade: r['Grade']||'' });
+    if(matches.length >= 8) break;
+  }
+
+  if(!matches.length){
+    box.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:var(--text3)">No existing student found — this will be a fresh registration.</div>';
+    box.style.display = 'block';
+    return;
+  }
+
+  box.innerHTML = matches.map(m => {
+    const _av = makePhotoAvatar(m.name, m.grade, 'stu-av-sm', 'flex-shrink:0');
+    return `<div style="cursor:pointer;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px" onmousedown="_qeSelectExistingStudentMatch('${m.name.replace(/'/g,"\\'")}','${m.upi.replace(/'/g,"\\'")}','${m.asm.replace(/'/g,"\\'")}','${m.grade.replace(/'/g,"\\'")}')">
+      ${_av}
+      <span><strong>${m.name}</strong> <span style="color:var(--text3)">· ${m.grade||'Grade N/A'} · UPI: ${m.upi||'N/A'} · Adm: ${m.asm||'N/A'}</span></span>
+    </div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+window._qeSearchExistingStudent = _qeSearchExistingStudent;
+
+function _qeHideNameMatchesDelayed(){
+  // Delayed so a click (mousedown) on a match row still registers before the
+  // dropdown disappears.
+  setTimeout(() => { const box = document.getElementById('qe-add-name-matches'); if(box) box.style.display = 'none'; }, 150);
+}
+window._qeHideNameMatchesDelayed = _qeHideNameMatchesDelayed;
+
+function _qeSelectExistingStudentMatch(name, upi, asm, grade){
+  document.getElementById('qe-add-name').value = name;
+  document.getElementById('qe-add-asm').value = asm;
+  document.getElementById('qe-add-upi').value = upi;
+  // Lock these — they came from the existing record, so they shouldn't be
+  // hand-edited into a mismatch. "clear match" below undoes this.
+  document.getElementById('qe-add-asm').readOnly = true;
+  document.getElementById('qe-add-upi').readOnly = true;
+  document.getElementById('qe-add-name-matches').style.display = 'none';
+  document.getElementById('qe-add-name-matches').innerHTML = '';
+  document.getElementById('qe-add-match-badge-text').textContent = '✓ Matched existing student — Assessment No & UPI auto-filled.';
+  // Bigger photo next to the badge so it's easy to eyeball this is the right
+  // "Jane Mwangi" out of several before submitting.
+  const avBox = document.getElementById('qe-add-match-badge-av');
+  if(avBox){
+    avBox.innerHTML = `<div class="stu-av-wrap stu-av-md" id="qe-add-match-badge-av-inner">${(name||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?'}</div>`;
+    injectPhoto('qe-add-match-badge-av-inner', name, grade||'', '');
+  }
+  document.getElementById('qe-add-match-badge').style.display = 'flex';
+}
+window._qeSelectExistingStudentMatch = _qeSelectExistingStudentMatch;
+
+function _qeClearExistingMatch(){
+  document.getElementById('qe-add-asm').readOnly = false;
+  document.getElementById('qe-add-upi').readOnly = false;
+  document.getElementById('qe-add-asm').value = '';
+  document.getElementById('qe-add-upi').value = '';
+  document.getElementById('qe-add-match-badge').style.display = 'none';
+  const avBox = document.getElementById('qe-add-match-badge-av');
+  if(avBox) avBox.innerHTML = '';
+}
+window._qeClearExistingMatch = _qeClearExistingMatch;
 
 function _qeConfirmAddStudent(){
   const name = document.getElementById('qe-add-name').value.trim();
