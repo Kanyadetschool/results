@@ -3849,8 +3849,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
   import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
   import { getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-  import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-  window._fb = { initializeApp, getApps, getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc };
+  import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  window._fb = { initializeApp, getApps, getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc };
 </script>
 
 <script>
@@ -4707,11 +4707,30 @@ window.addEventListener('load',()=>{
   waitFB(()=>{
     try{
       SetupProgress.step(1,'active','Initializing Firebase app…','…');
-      const{initializeApp,getApps,getDatabase,getAuth,onAuthStateChanged,getFirestore}=window._fb;
+      const{initializeApp,getApps,getDatabase,getAuth,onAuthStateChanged,getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager}=window._fb;
       const app=getApps().length===0?initializeApp(FB_CONFIG):getApps()[0];
       db=getDatabase(app);
       auth=getAuth(app);
-      firestoreDb=getFirestore(app);
+      // ── Offline cache ─────────────────────────────────────────────────
+      // Plain getFirestore() has NO offline cache on the web SDK (unlike
+      // mobile), so any read/listener made while offline has nothing to
+      // fall back on. initializeFirestore(...persistentLocalCache) turns on
+      // IndexedDB-backed caching so onSnapshot/getDoc keep serving the last
+      // known data for EVERY collection (students, results, profile, etc.)
+      // the moment the network drops — not just the couple of fields we
+      // hand-mirror into localStorage. Must be called before any other
+      // Firestore call, and can only be called once per app instance, so
+      // guard against re-running it if this init code ever runs twice.
+      try{
+        firestoreDb = initializeFirestore(app, {
+          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        });
+      }catch(e){
+        // Already initialized (e.g. hot reload) or unsupported browser —
+        // fall back to a plain (memory-only) instance rather than crashing.
+        console.warn('[Firestore] Persistent cache unavailable, falling back:', e.message);
+        firestoreDb=getFirestore(app);
+      }
       SetupProgress.step(2,'active','Connecting to Realtime Database…','…');
       // Expose db/auth for the Report Card JS bridge
       window._rcDb = db;
