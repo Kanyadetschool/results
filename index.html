@@ -2533,6 +2533,14 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               </span>
               <span class="settings-tile-arrow">›</span>
             </button>
+            <button class="settings-tile" id="tile-import-permissions" style="display:none" onclick="openSettingsModal('import-permission-panel','📥 Import Data Permissions')">
+              <span class="settings-tile-icon">📥</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Import Data Permissions</span>
+                <span class="settings-tile-desc">Allow/block teachers from importing</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
           </div>
         </div>
 
@@ -4084,8 +4092,16 @@ let _extraSubjects = {}; // key → {grade, subject, addedBy, addedByUid, addedA
 let currentAdminName = 'Admin';
 let currentAdminEmail = '';
 let isAdvancedAdmin = false;     // set to true after Firestore confirms Advancedadmin:true
+let canImportData = true;        // per-teacher Import Data permission (Advanced Admins always true;
+                                  // for regular teachers, defaults true unless explicitly revoked
+                                  // via users/{uid}.canImportData === false in Firestore)
 let currentAssignedGrade = null; // null = see all; "__NONE__" = no grades assigned
 let currentAssignedGrades = []; // array of assigned grades for multi-class teachers
+let currentAssignedSubjects = {}; // { [grade]: [subject,...] } — which subjects this teacher
+                                   // may enter scores for, PER grade. A grade missing from this
+                                   // map (or an empty array) means "no subject restriction yet
+                                   // set for that grade" → full access to every subject in it,
+                                   // same permissive default as an unset assignedGrade.
 let firestoreDb = null;          // Firestore instance
 
 const META_KEYS = new Set([
@@ -4190,6 +4206,20 @@ function getExtraSubjectsForGrade(grade){
     .map(es => es.subject);
 }
 window.getExtraSubjectsForGrade = getExtraSubjectsForGrade;
+
+// Union of every subject column ever seen for this grade (short form, e.g.
+// "Grade 9") across all loaded records, plus any Extra Subjects an Advanced
+// Admin has pre-registered for it. Used both to build Quick Entry's subject
+// columns and to populate the subject checklist in the teacher-assignment
+// admin panel, so both always show the exact same subject list per grade.
+function getAllSubjectsForGrade(grade){
+  if(!grade) return [];
+  const set = new Set();
+  allData.filter(r => gShort(r['Grade']) === grade).forEach(r => getSubjects(r).forEach(s=>set.add(s)));
+  getExtraSubjectsForGrade(grade).forEach(s=>set.add(s));
+  return [...set].sort();
+}
+window.getAllSubjectsForGrade = getAllSubjectsForGrade;
 
 function gradeInfo(score){
   const n = parseFloat(score);
@@ -5119,8 +5149,10 @@ function _cacheTeacherProfile(uid, data){
   try{
     localStorage.setItem(_teacherProfileCacheKey(uid), JSON.stringify({
       Advancedadmin: data.Advancedadmin === true,
+      canImportData: data.canImportData !== false, // default true unless explicitly revoked
       assignedGrades: Array.isArray(data.assignedGrades) ? data.assignedGrades : [],
       assignedGrade: data.assignedGrade || '',
+      assignedSubjects: (data.assignedSubjects && typeof data.assignedSubjects === 'object') ? data.assignedSubjects : {},
       cachedAt: Date.now()
     }));
   }catch(e){ /* localStorage full/blocked — silently ignore, not critical */ }
@@ -5201,8 +5233,10 @@ function _applyTeacherProfile(data, uid){
 
   if(data.Advancedadmin === true){
     isAdvancedAdmin = true;
+    canImportData = true; // Advanced Admins always retain Import Data access
     currentAssignedGrade = null;
     currentAssignedGrades = [];
+    currentAssignedSubjects = {};
     // Restore every nav item and section label (teacher view hides them all)
     document.querySelectorAll('.nav-item').forEach(item => item.style.display = '');
     document.querySelectorAll('.s-label').forEach(el => el.style.display = '');
@@ -5217,11 +5251,16 @@ function _applyTeacherProfile(data, uid){
     _renderGradeAssignmentPanel();
     _renderAddTeacherPanel();
     _renderAdvancedAdminRolePanel();
+    _renderImportPermissionPanel();
     renderAll();
 
   } else {
     isAdvancedAdmin = false;
-    if(importNav) importNav.style.display = 'flex';
+    // Import Data access for regular teachers: defaults to true (existing
+    // behavior) unless an Advanced Admin has explicitly revoked it by
+    // setting canImportData:false on this teacher's users/{uid} doc.
+    canImportData = data.canImportData !== false;
+    if(importNav) importNav.style.display = canImportData ? 'flex' : 'none';
 
     // Support both legacy assignedGrade (string) and new assignedGrades (array)
     let grades = [];
@@ -5230,6 +5269,7 @@ function _applyTeacherProfile(data, uid){
     } else if(data.assignedGrade && data.assignedGrade.trim()){
       grades = [data.assignedGrade.trim()];
     }
+    currentAssignedSubjects = (data.assignedSubjects && typeof data.assignedSubjects === 'object') ? data.assignedSubjects : {};
 
     const prevGrade  = currentAssignedGrade;
     const prevGrades = currentAssignedGrades.join(',');
@@ -5244,8 +5284,9 @@ function _applyTeacherProfile(data, uid){
       // Re-show every nav item and section label that the "no grade" block hid
       document.querySelectorAll('.nav-item').forEach(item => item.style.display = '');
       document.querySelectorAll('.s-label').forEach(el => el.style.display = '');
-      // Import Data and Quick Links are controlled separately (advanced admin only) — re-hide them
-      if(importNav)    importNav.style.display = 'flex'; // always visible to non-advanced-admins
+      // Import Data is gated by the per-teacher canImportData permission;
+      // Quick Links stays advanced-admin-only.
+      if(importNav)    importNav.style.display = canImportData ? 'flex' : 'none';
       if(qlinksSection) qlinksSection.style.display = 'none'; // advanced admin only
       if(reportsNav)  reportsNav.style.display = '';
       if(atriskNav)   atriskNav.style.display = '';
@@ -5312,6 +5353,20 @@ function _teacherCanSeeGrade(grade){
   const g = gShort ? gShort(grade) : grade;
   if(currentAssignedGrades.length) return currentAssignedGrades.includes(g);
   return g === currentAssignedGrade; // legacy single-grade fallback
+}
+
+/* ─── Helper: can the current teacher enter/edit scores for this SUBJECT
+ *  within this GRADE? Advanced Admins always can. A grade with no subject
+ *  list configured yet (assignedSubjects[grade] missing or empty) is fully
+ *  open, same permissive default the grade-level gate already uses — this
+ *  only actually restricts once an admin has explicitly picked subjects for
+ *  that teacher in that grade via the assignment panel. ─────── */
+function _teacherCanEnterSubject(grade, subject){
+  if(isAdvancedAdmin) return true;
+  const g = gShort ? gShort(grade) : grade;
+  const list = currentAssignedSubjects && currentAssignedSubjects[g];
+  if(!Array.isArray(list) || !list.length) return true; // not locked down for this grade
+  return list.includes(subject);
 }
 
 /* ─── Banner telling teacher which grade(s) they see (auto-dismisses) ────── */
@@ -5802,11 +5857,11 @@ window._atLoginAsTeacher = async function(uid, name){
     _showImpersonationBanner(tName, name);
 
     // ── Hide advanced-admin-only panels so teacher view is clean ──
-    ['grade-assignment-panel','add-teacher-panel','adv-role-panel'].forEach(function(id){
+    ['grade-assignment-panel','add-teacher-panel','adv-role-panel','import-permission-panel'].forEach(function(id){
       var el = document.getElementById(id);
       if(el) el.style.display = 'none';
     });
-    ['tile-grade-assignment','tile-add-teacher','tile-adv-role'].forEach(function(id){
+    ['tile-grade-assignment','tile-add-teacher','tile-adv-role','tile-import-permissions'].forEach(function(id){
       var el = document.getElementById(id);
       if(el) el.style.display = 'none';
     });
@@ -5815,6 +5870,7 @@ window._atLoginAsTeacher = async function(uid, name){
     //    always sees `changed = true` and calls renderAll() ──────────
     currentAssignedGrade  = null;
     currentAssignedGrades = [];
+    currentAssignedSubjects = {};
     isAdvancedAdmin       = false;
 
     // ── Apply teacher's nav & grade scope via existing logic ───────
@@ -5882,6 +5938,7 @@ window._atExitImpersonation = function(){
   isAdvancedAdmin       = s.isAdvancedAdmin;
   currentAssignedGrade  = null;   // force "changed" in _applyTeacherProfile
   currentAssignedGrades = [];
+  currentAssignedSubjects = {};
   currentAdminName      = s.name;
   currentAdminEmail     = s.email;
   window._currentUser   = { uid: s.uid, name: s.name };
@@ -5913,11 +5970,11 @@ window._atExitImpersonation = function(){
   // ── Restore real-time admin profile listener ───────────────────
   // checkAdvancedAdmin re-attaches onSnapshot and re-applies admin profile.
   // Also restore any hidden advanced-admin panels.
-  ['grade-assignment-panel','add-teacher-panel','adv-role-panel'].forEach(function(id){
+  ['grade-assignment-panel','add-teacher-panel','adv-role-panel','import-permission-panel'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = '';
   });
-  ['tile-grade-assignment','tile-add-teacher','tile-adv-role'].forEach(function(id){
+  ['tile-grade-assignment','tile-add-teacher','tile-adv-role','tile-import-permissions'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = '';
   });
@@ -6262,6 +6319,239 @@ window._advRoleCleanup = function(){
   window._arpPendingSnapshot = null;
 };
 
+/* ─── Import Data Permission Panel (Advanced Admin only) ───────────────────
+   Lets an Advanced Admin grant or revoke a specific teacher's ability to
+   see and use the Import Data section, independent of full Advanced Admin
+   status. Stored as users/{uid}.canImportData (true/absent = allowed,
+   false = blocked). Advanced Admins are excluded from this list since they
+   always retain full import access regardless of this flag. ─────────────── */
+
+let _importPermUnsubscribe = null;
+let _iprInteracting        = false; // blocks onSnapshot re-render while confirm is open
+
+function _renderImportPermissionPanel(){
+  const settingsView = document.getElementById('settings-content-store');
+  if(!settingsView || document.getElementById('import-permission-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'import-permission-panel';
+  panel.className = 'card';
+  panel.style.marginTop = '0';
+
+  panel.innerHTML = [
+    '<style>',
+    '#import-permission-panel .ipr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:4px}',
+    '.ipr-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .2s,border-color .2s;position:relative}',
+    '.ipr-card:hover{box-shadow:0 4px 18px rgba(0,0,0,.12)}',
+    '.ipr-card.is-blocked{border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.06)}',
+    '.ipr-card-header{display:flex;align-items:center;gap:12px}',
+    '.ipr-avatar{width:46px;height:46px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;border:2px solid var(--blue)}',
+    '.ipr-avatar img{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid var(--blue)}',
+    '.ipr-avatar.blocked{background:linear-gradient(135deg,#e74c3c,#c0392b);border-color:#e74c3c}',
+    '.ipr-name{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ipr-email{font-size:11px;color:var(--text3);word-break:break-all}',
+    '.ipr-badge{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:10px;margin-top:4px}',
+    '.ipr-badge.allowed{background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.3)}',
+    '.ipr-badge.blocked{background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.3)}',
+    '.ipr-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--border)}',
+    '.ipr-toggle-label{font-size:12px;font-weight:700;color:var(--text2)}',
+    '.ipr-toggle-sub{font-size:10px;color:var(--text3);margin-top:2px}',
+    '.ipr-switch{position:relative;width:44px;height:24px;flex-shrink:0}',
+    '.ipr-switch input{opacity:0;width:0;height:0;position:absolute}',
+    '.ipr-slider{position:absolute;inset:0;border-radius:12px;background:var(--surface3);border:1px solid var(--border);cursor:pointer;transition:.25s}',
+    '.ipr-slider::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.3)}',
+    '.ipr-switch input:checked + .ipr-slider{background:linear-gradient(135deg,#27ae60,#1d8a4e);border-color:#27ae60}',
+    '.ipr-switch input:checked + .ipr-slider::after{transform:translateX(20px)}',
+    '.ipr-switch input:disabled + .ipr-slider{opacity:.5;cursor:not-allowed}',
+    '.ipr-saving{position:absolute;top:8px;right:8px;font-size:10px;color:var(--blue);font-weight:700;display:none}',
+    '.ipr-rt-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}',
+    '.ipr-empty{font-size:12px;color:var(--text3);text-align:center;padding:20px 0}',
+    '.ipr-search-wrap{position:relative;flex:1;min-width:140px}',
+    '.ipr-search-wrap input{width:100%;padding:8px 12px 8px 30px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;outline:none;transition:border-color .15s}',
+    '.ipr-search-wrap input:focus{border-color:var(--blue)}',
+    '.ipr-count{font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap}',
+    '.ipr-info-box{font-size:12px;color:var(--text2);line-height:1.8;padding:10px 14px;background:rgba(41,128,185,.06);border-radius:var(--radius-md);border:1px solid rgba(41,128,185,.2);margin-bottom:16px}',
+    '</style>',
+    '<div class="sec-hdr" style="margin-bottom:14px">',
+      '<h3 style="font-size:15px;font-weight:800">Import Data Permissions</h3>',
+      '<div style="display:flex;align-items:center;gap:8px">',
+        '<span class="ipr-rt-dot"></span>',
+        '<span style="font-size:11px;color:var(--text3);font-weight:600">Real-time</span>',
+      '</div>',
+    '</div>',
+    '<div class="ipr-info-box">Control whether individual teachers can access the <strong>Import Data</strong> section (bulk CSV/Excel upload). Advanced Admins always retain full access regardless of this setting. Changes take effect immediately.</div>',
+    '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">',
+      '<div class="ipr-search-wrap">',
+        '<input type="text" id="ipr-search-input" placeholder="Search teachers...">',
+      '</div>',
+      '<span class="ipr-count" id="ipr-count-label"></span>',
+    '</div>',
+    '<div id="import-perm-list"><p class="ipr-empty">Connecting...</p></div>'
+  ].join('');
+
+  settingsView.appendChild(panel);
+  { const tile=document.getElementById('tile-import-permissions'); if(tile) tile.style.display=''; }
+
+  var searchInput = document.getElementById('ipr-search-input');
+  if(searchInput) searchInput.addEventListener('input', function(){ _iprFilterCards(); });
+
+  var listEl = document.getElementById('import-perm-list');
+  if(listEl){
+    listEl.addEventListener('change', function(e){
+      var inp = e.target;
+      if(inp.type !== 'checkbox' || inp.disabled) return;
+      var card = inp.closest('.ipr-card');
+      if(!card) return;
+      var uid  = card.dataset.uid;
+      var name = card.dataset.name;
+      if(!uid) return;
+      _iprToggleAccess(uid, name, inp.checked);
+    });
+  }
+
+  _startImportPermListener();
+}
+
+function _startImportPermListener(){
+  if(!firestoreDb){
+    var c = document.getElementById('import-perm-list');
+    if(c) c.innerHTML = '<p class="ipr-empty">Firestore not ready.</p>';
+    return;
+  }
+  if(_importPermUnsubscribe){ try{ _importPermUnsubscribe(); }catch(e){} }
+  var col = window._fb.collection(firestoreDb, 'users');
+  _importPermUnsubscribe = window._fb.onSnapshot(col,
+    function(snap){
+      var users = [];
+      snap.forEach(function(d){ users.push(Object.assign({ uid: d.id }, d.data())); });
+      if(_iprInteracting){ window._iprPendingSnapshot = users; return; }
+      _iprRenderCards(users);
+    },
+    function(err){
+      var c = document.getElementById('import-perm-list');
+      if(c) c.innerHTML = '<p class="ipr-empty" style="color:var(--red)">Real-time error: ' + err.message + '</p>';
+    }
+  );
+}
+
+function _iprRenderCards(allUsers){
+  var container = document.getElementById('import-perm-list');
+  if(!container) return;
+  // Only regular teachers are shown here — Advanced Admins always have
+  // import access and are not subject to this per-teacher toggle.
+  var users = allUsers.filter(function(u){
+    var role = (u.role || '').trim().toLowerCase();
+    return (role === 'teacher' || role === 'admin') && u.Advancedadmin !== true;
+  });
+  users.sort(function(a,b){
+    return (a.name || a.displayName || '').localeCompare(b.name || b.displayName || '');
+  });
+  window._iprAllCards = users;
+  _iprFilterCards(users);
+  var countEl = document.getElementById('ipr-count-label');
+  if(countEl) countEl.textContent = users.length + ' teacher' + (users.length !== 1 ? 's' : '');
+}
+
+window._iprFilterCards = function(users){
+  var container = document.getElementById('import-perm-list');
+  if(!container) return;
+  var src = users || window._iprAllCards || [];
+  var sinp = document.getElementById('ipr-search-input');
+  var q = sinp ? sinp.value.toLowerCase().trim() : '';
+  var filtered = q ? src.filter(function(u){
+    return (u.name||u.displayName||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q);
+  }) : src;
+
+  if(!filtered.length){
+    container.innerHTML = '<p class="ipr-empty">' + (q ? 'No teachers match "' + q + '"' : 'No teacher accounts found.') + '</p>';
+    return;
+  }
+
+  var html = '<div class="ipr-grid">';
+  filtered.forEach(function(u){
+    var dn      = u.name || u.displayName || '';
+    var em      = u.email || '';
+    var allowed = u.canImportData !== false; // default true unless explicitly revoked
+    var ini     = dn.split(' ').map(function(w){ return w[0]||''; }).slice(0,2).join('').toUpperCase() || '?';
+    var purl    = u.photoURL || '';
+
+    var avatarHtml = purl
+      ? '<img src="' + purl.replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '" alt="" style="width:46px;height:46px;border-radius:50%;object-fit:cover">'
+      : ini;
+
+    html += '<div class="ipr-card' + (allowed ? '' : ' is-blocked') + '"'
+          + ' data-uid="' + u.uid + '"'
+          + ' data-name="' + dn.replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '"'
+          + ' id="ipr-card-' + u.uid + '">';
+    html += '<span class="ipr-saving" id="ipr-saving-' + u.uid + '">Saving...</span>';
+    html += '<div class="ipr-card-header">';
+    html += '<div class="ipr-avatar' + (allowed ? '' : ' blocked') + '">' + avatarHtml + '</div>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div class="ipr-name">' + dn.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+    html += '<div class="ipr-email">' + em.replace(/</g,'&lt;') + '</div>';
+    html += '<span class="ipr-badge ' + (allowed ? 'allowed' : 'blocked') + '">' + (allowed ? 'Import Allowed' : 'Import Blocked') + '</span>';
+    html += '</div></div>';
+    html += '<div class="ipr-toggle-row">';
+    html += '<div><div class="ipr-toggle-label">Import Data Access</div>';
+    html += '<div class="ipr-toggle-sub">' + (allowed ? 'Can bulk-upload via CSV/Excel' : 'Import Data section is hidden') + '</div></div>';
+    html += '<label class="ipr-switch"><input type="checkbox"' + (allowed ? ' checked' : '') + '>';
+    html += '<span class="ipr-slider"></span></label>';
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+};
+
+window._iprToggleAccess = async function(uid, name, allow){
+  _iprInteracting = true;
+  window._iprPendingSnapshot = null;
+
+  var savingEl = document.getElementById('ipr-saving-' + uid);
+  var toggle   = document.querySelector('#ipr-card-' + uid + ' input[type=checkbox]');
+  if(savingEl) savingEl.style.display = 'block';
+  if(toggle)   toggle.disabled = true;
+
+  var confirmTitle = allow ? 'Allow Import Data Access' : 'Block Import Data Access';
+  var confirmMsg   = allow
+    ? 'Allow ' + name + ' to access the Import Data section again?'
+    : 'Block ' + name + ' from accessing the Import Data section? The nav item will be hidden and any bulk upload will be rejected.';
+  var confirmIcon  = allow ? 'Allow' : 'Block';
+  var confirmLabel = allow ? 'Allow Access' : 'Block Access';
+  var confirmClass = allow ? 'btn-green' : 'btn-red';
+  var confirmed    = await showConfirm(confirmTitle, confirmMsg, confirmIcon, confirmLabel, confirmClass);
+
+  if(!confirmed){
+    if(toggle){ toggle.checked = !allow; toggle.disabled = false; }
+    if(savingEl) savingEl.style.display = 'none';
+    _iprInteracting = false;
+    if(window._iprPendingSnapshot){ _iprRenderCards(window._iprPendingSnapshot); window._iprPendingSnapshot = null; }
+    return;
+  }
+
+  try{
+    var payload = { canImportData: allow, canImportDataUpdatedAt: new Date().toISOString(), canImportDataUpdatedBy: currentAdminName || 'Admin' };
+    await window._fb.updateDoc(window._fb.doc(firestoreDb, 'users', uid), payload);
+    var action = allow ? 'allowed' : 'blocked';
+    notify('Import Data access ' + action + ' for <strong>' + name + '</strong>.', 'success', 6000);
+    logActivity('Import Data access ' + action + ': ' + name, allow ? 'act-green' : 'act-orange', currentAdminName, { category: 'system' });
+  } catch(e){
+    notify('Error updating permission: ' + e.message, 'error');
+    if(toggle){ toggle.checked = !allow; toggle.disabled = false; }
+  } finally {
+    if(savingEl) savingEl.style.display = 'none';
+    if(toggle)   toggle.disabled = false;
+    _iprInteracting = false;
+    if(window._iprPendingSnapshot){ _iprRenderCards(window._iprPendingSnapshot); window._iprPendingSnapshot = null; }
+  }
+};
+
+window._importPermCleanup = function(){
+  if(_importPermUnsubscribe){ try{ _importPermUnsubscribe(); }catch(e){} _importPermUnsubscribe = null; }
+  _iprInteracting = false;
+  window._iprPendingSnapshot = null;
+};
+
 
 /* ─── Grade Assignment Panel (Advanced Admin only) ─── */
 function _renderGradeAssignmentPanel(){
@@ -6278,7 +6568,7 @@ function _renderGradeAssignmentPanel(){
       <button class="btn btn-outline btn-sm" onclick="loadGradeAssignments()">🔄 Refresh</button>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8;padding:10px 14px;background:rgba(41,128,185,.06);border-radius:var(--radius-md);border:1px solid var(--border)">
-      Assign each teacher to one or more grades. Teachers will only see students from their assigned grades across the entire portal. Only Advanced Admins can change these assignments.
+      Assign each teacher to one or more grades. Teachers will only see students from their assigned grades across the entire portal. Optionally, tick specific subjects under a grade to limit that teacher to entering scores only for those subjects in that class (leave none ticked for full access to every subject in that grade). Only Advanced Admins can change these assignments.
     </p>
     <div id="grade-assignments-list">
       <p style="font-size:12px;color:var(--text3)">Loading accounts…</p>
@@ -6332,6 +6622,9 @@ window.loadGradeAssignments = async function(){
           transition:background .15s,border-color .15s;user-select:none}
         .tac-chk-label:has(input:checked){background:rgba(41,128,185,.15);border-color:var(--blue);color:var(--blue);font-weight:700}
         .tac-chk-label input{accent-color:var(--blue);width:13px;height:13px}
+        .tac-subj-label:has(input:checked){background:rgba(39,174,96,.15);border-color:var(--green);color:var(--green)}
+        .tac-subj-label input{accent-color:var(--green)}
+        .tac-subj-panel{border-left:2px solid var(--border);padding-left:10px;margin:2px 0 10px}
         .teacher-assign-card .tac-summary{font-size:10px;color:var(--text3);min-height:14px;margin-bottom:10px}
         .teacher-assign-card .tac-save{width:100%}
       </style>
@@ -6340,14 +6633,32 @@ window.loadGradeAssignments = async function(){
           let currentGrades = [];
           if(Array.isArray(u.assignedGrades) && u.assignedGrades.length) currentGrades = u.assignedGrades;
           else if(u.assignedGrade) currentGrades = [u.assignedGrade];
+          const currentSubjects = (u.assignedSubjects && typeof u.assignedSubjects === 'object') ? u.assignedSubjects : {};
 
-          const checkboxes = allGrades.map(g=>`
+          const checkboxes = allGrades.map((g,gi)=>`
             <label class="tac-chk-label">
               <input type="checkbox" class="grade-chk-${u.uid}"
                 value="${g}" ${currentGrades.includes(g)?'checked':''}
-                onchange="_updateGradeSummary('${u.uid}')">
+                onchange="_updateGradeSummary('${u.uid}');_toggleSubjectPanel('${u.uid}',${gi})">
               ${g}
             </label>`).join('');
+
+          const subjectPanels = allGrades.map((g,gi)=>{
+            const subjectsForGrade = getAllSubjectsForGrade(g);
+            const assignedForGrade = Array.isArray(currentSubjects[g]) ? currentSubjects[g] : [];
+            const subjChecks = subjectsForGrade.length
+              ? subjectsForGrade.map(s=>`
+                  <label class="tac-chk-label tac-subj-label">
+                    <input type="checkbox" class="subj-chk-${u.uid}-${gi}" value="${s.replace(/"/g,'&quot;')}" ${assignedForGrade.includes(s)?'checked':''}>
+                    ${s}
+                  </label>`).join('')
+              : `<span style="font-size:11px;color:var(--text3)">No subjects found yet for ${g}.</span>`;
+            return `
+              <div class="tac-subj-panel" id="subj-panel-${u.uid}-${gi}" style="display:${currentGrades.includes(g)?'block':'none'}">
+                <div class="tac-label" style="margin-top:6px">${g} subjects (none ticked = full access)</div>
+                <div class="tac-grades">${subjChecks}</div>
+              </div>`;
+          }).join('');
 
           const summaryText = currentGrades.length ? currentGrades.join(', ') : '— No grades assigned yet —';
 
@@ -6358,6 +6669,7 @@ window.loadGradeAssignments = async function(){
             <div class="tac-label">Assigned Grades</div>
             <div class="tac-grades">${checkboxes}</div>
             <div class="tac-summary" id="sel-summary-${u.uid}">${summaryText}</div>
+            ${subjectPanels}
             <button class="btn btn-sm tac-save" style="background:var(--blue);color:#fff;font-size:12px"
               onclick="saveGradeAssignment('${u.uid}')">💾 Save Assignment</button>
           </div>`;
@@ -6379,12 +6691,33 @@ window._updateGradeSummary = function(uid){
   if(summary) summary.textContent = selected.length ? selected.join(', ') : '— No grades assigned yet —';
 };
 
-/* ─── Save multi-grade assignment for one teacher ─────── */
+/* ─── Show/hide a grade's subject checklist as its grade checkbox toggles ── */
+window._toggleSubjectPanel = function(uid, gradeIndex){
+  const panel = document.getElementById(`subj-panel-${uid}-${gradeIndex}`);
+  if(!panel) return;
+  const gradeChk = [...document.querySelectorAll(`.grade-chk-${uid}`)][gradeIndex];
+  panel.style.display = (gradeChk && gradeChk.checked) ? 'block' : 'none';
+};
+
+/* ─── Save multi-grade + per-grade subject assignment for one teacher ─── */
 window.saveGradeAssignment = async function(uid){
-  const checked = [...document.querySelectorAll(`.grade-chk-${uid}:checked`)].map(c=>c.value);
+  const gradeCheckboxes = [...document.querySelectorAll(`.grade-chk-${uid}`)];
+  const checked = gradeCheckboxes.filter(c=>c.checked).map(c=>c.value);
+
+  // Build { grade: [subjects] } ONLY for grades that are actually assigned —
+  // and only if the teacher has at least one subject ticked for it (an
+  // assigned grade with nothing ticked stays fully open, same permissive
+  // default as before this feature existed).
+  const assignedSubjects = {};
+  gradeCheckboxes.forEach((gc, gi)=>{
+    if(!gc.checked) return;
+    const subjSel = [...document.querySelectorAll(`.subj-chk-${uid}-${gi}:checked`)].map(c=>c.value);
+    if(subjSel.length) assignedSubjects[gc.value] = subjSel;
+  });
+
   try{
     const {doc, getDoc, updateDoc} = window._fb;
-    const updatePayload = { assignedGrades: checked, assignedGrade: checked[0] || '' };
+    const updatePayload = { assignedGrades: checked, assignedGrade: checked[0] || '', assignedSubjects };
     if(typeof updateDoc === 'function'){
       await updateDoc(doc(firestoreDb,'users',uid), updatePayload);
     } else {
@@ -6394,14 +6727,17 @@ window.saveGradeAssignment = async function(uid){
       await set(doc(firestoreDb,'users',uid), {...existing, ...updatePayload});
     }
     const label = checked.length ? checked.join(', ') : 'Unassigned';
-    notify(`✅ Grades saved: ${label}`,'success');
+    const subjLabel = Object.keys(assignedSubjects).length
+      ? Object.entries(assignedSubjects).map(([g,ss])=>`${g}: ${ss.join('/')}`).join('; ')
+      : 'full subject access on every assigned grade';
+    notify(`✅ Grades saved: ${label} (${subjLabel})`,'success');
     // Fetch email from Firestore doc for readable audit log
     try{
       const snap2 = await window._fb.getDoc(window._fb.doc(firestoreDb,'users',uid));
       const teacherEmail = snap2.exists() ? (snap2.data().email || uid) : uid;
       const teacherName  = snap2.exists() ? (snap2.data().name  || uid) : uid;
-      logActivity(`⚙️ Assigned grades [${label}] to ${teacherName} (${teacherEmail})`,'act-orange',currentAdminName,{
-        category:'system', extra:`${teacherEmail} → assignedGrades: [${label}]`
+      logActivity(`⚙️ Assigned grades [${label}] (${subjLabel}) to ${teacherName} (${teacherEmail})`,'act-orange',currentAdminName,{
+        category:'system', extra:`${teacherEmail} → assignedGrades: [${label}], assignedSubjects: ${JSON.stringify(assignedSubjects)}`
       });
     }catch(_){ 
       logActivity(`⚙️ Assigned grades [${label}] to teacher (${uid})`,'act-orange',currentAdminName,{ category:'system' });
@@ -6630,9 +6966,12 @@ async function doSignOut(){
   if(typeof _qeStopPresence === 'function') _qeStopPresence();
   if(typeof _qeStopWatchingSharedDraft === 'function') _qeStopWatchingSharedDraft();
   isAdvancedAdmin = false;
+  canImportData = true;
   currentAssignedGrade = null;
   currentAssignedGrades = [];
+  currentAssignedSubjects = {};
   if(typeof window._advRoleCleanup === 'function') window._advRoleCleanup();
+  if(typeof window._importPermCleanup === 'function') window._importPermCleanup();
   // Detach real-time teacher profile listener
   if(_teacherProfileUnsubscribe){
     try{ _teacherProfileUnsubscribe(); }catch(e){}
@@ -9739,6 +10078,12 @@ function navTo(view,el){
     view = 'profile';
     el = document.querySelector('.nav-item[data-label="My Profile"]');
   }
+  // ── Security: Import Data is gated by the per-teacher canImportData flag ─
+  if(!isAdvancedAdmin && !canImportData && view === 'import'){
+    notify('⛔ An Advanced Admin has disabled Import Data access for your account.','error',5000);
+    view = 'dashboard';
+    el = document.querySelector('.nav-item[data-label="Dashboard"]');
+  }
   // ───────────────────────────────────────────────────────────────────────
 
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -12071,6 +12416,10 @@ function _setImportStatus(html){
 
 async function handleImportFile(file){
   if(!file)return;
+  if(!isAdvancedAdmin && !canImportData){
+    notify('⛔ An Advanced Admin has disabled Import Data access for your account.','error',5000);
+    return;
+  }
   window._lastImportFilename = file.name;
   _setImportStatus(`<div style="font-size:12px;color:var(--text2)">⏳ Reading ${file.name}…</div>`);
   document.getElementById('import-preview-card').style.display='none';
@@ -12199,6 +12548,10 @@ function showImportPreview(rows,dupes){
 }
 
 async function commitImport(){
+  if(!isAdvancedAdmin && !canImportData){
+    notify('⛔ An Advanced Admin has disabled Import Data access for your account.','error',5000);
+    return;
+  }
   if(!_importData.length){notify('No data to import.','warn');return;}
   const{ref,push,update}=window._fb;
   if(!db){notify('Database not connected.','error');return;}
@@ -13495,11 +13848,21 @@ function renderQuickEntryTable(draftScores, locked){
   // Advanced Admins can prune ones that don't apply to this new exam right
   // from the header, no need to go through Settings → Extra Subjects.
   const canEditSubjects = isAdvancedAdmin && _qeWasPending && !locked;
-  thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>
-    canEditSubjects
-      ? `<th style="min-width:90px">${s} <button onclick="_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
-      : `<th style="min-width:90px">${s}</th>`
-  ).join('')}${locked?'':'<th style="width:44px"></th>'}`;
+  // Which subjects THIS teacher may actually enter scores for, in this grade —
+  // an Advanced Admin can enter every subject; a regular teacher only sees an
+  // editable box for subjects an admin has assigned them in this class (via
+  // Teacher Grade Assignments → per-grade subject checklist). A grade with no
+  // subjects configured for this teacher yet stays fully open.
+  const gradeForPerms = _qeGrade || gShort(_qeCompound);
+  const canEnterSubject = s => !locked && _teacherCanEnterSubject(gradeForPerms, s);
+  thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>{
+    const mine = canEnterSubject(s);
+    const lockNote = (!locked && !mine) ? ' 🔒' : '';
+    const title = (!locked && !mine) ? ` title="You're not assigned this subject for ${gradeForPerms} — view only"` : '';
+    return canEditSubjects
+      ? `<th style="min-width:90px"${title}>${s}${lockNote} <button onclick="_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
+      : `<th style="min-width:90px"${title}>${s}${lockNote}</th>`;
+  }).join('')}${locked?'':'<th style="width:44px"></th>'}`;
   tbody.innerHTML = _qeStudents.map((r,i)=>{
     const key = _qeStudentKey(r);
     const draft = draftScores[key] || {};
@@ -13519,9 +13882,13 @@ function renderQuickEntryTable(draftScores, locked){
       <td style="font-size:11px;color:var(--text3)">${r['UPI']||'—'}</td>
       ${_qeSubjects.map(s=>{
         const val = draft[s]!==undefined ? draft[s] : '';
-        return locked
-          ? `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.75;cursor:not-allowed"></td>`
-          : `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
+        if(locked){
+          return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.75;cursor:not-allowed"></td>`;
+        }
+        if(!canEnterSubject(s)){
+          return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly title="🔒 You're not assigned ${s} for ${gradeForPerms}" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.6;cursor:not-allowed"></td>`;
+        }
+        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
       }).join('')}
       ${locked ? '' : `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>`}
     </tr>`;
@@ -13895,7 +14262,22 @@ async function submitQuickEntry(){
   }
 
   const scores = _qeCollectScores();
-  const studentsWithScores = Object.keys(scores);
+  // ── Subject-permission safeguard: even though disallowed subject cells are
+  // rendered disabled (so a teacher can never type into them), strip any
+  // such subject out here too before anything gets written — belt-and-braces
+  // in case a cell was enabled earlier in the session and permissions since
+  // tightened. Advanced Admins are never restricted.
+  if(!isAdvancedAdmin){
+    const gradeForPerms = _qeGrade || gShort(_qeCompound);
+    let stripped = 0;
+    Object.values(scores).forEach(subjMap=>{
+      Object.keys(subjMap).forEach(s=>{
+        if(!_teacherCanEnterSubject(gradeForPerms, s)){ delete subjMap[s]; stripped++; }
+      });
+    });
+    if(stripped) notify(`⚠️ ${stripped} score(s) for a subject you're not assigned were not submitted.`,'warn',6000);
+  }
+  const studentsWithScores = Object.keys(scores).filter(k => scores[k] && Object.keys(scores[k]).length);
   if(!studentsWithScores.length){ notify('No scores entered yet.','warn'); return; }
 
   // ── Validate range before writing ─────────────────────────────────────────
