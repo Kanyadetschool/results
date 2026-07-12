@@ -13495,7 +13495,11 @@ function _esaStartPresence(rec){
     recordId: rec.id || '',
     studentName: rec['Official Student Name'] || 'a student',
     grade: rec['Grade'] || '',
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    action: 'viewing',       // 'viewing' → just opened, no field touched yet.
+    currentField: '',        // last field the editor focused/typed in (subject name or 'Remarks' etc.)
+    currentValue: '',        // current value in that field, truncated for display
+    lastActivity: Date.now() // bumped on every field-level change so listeners can show "typing 2s ago"
   };
   try{
     const nodeRef = fref(db, path);
@@ -13509,6 +13513,8 @@ function _esaStartPresence(rec){
 /** Remove this device's presence entry — called when the Edit Score modal
  *  closes, whether by saving, cancelling, or clicking outside it. */
 function _esaStopPresence(){
+  clearTimeout(_esaFieldDebounce);
+  _esaFieldDebounce = null;
   if(!window._currentUser?.uid){ _esaMyRecordId = null; return; }
   try{
     const { ref: fref, remove: fremove } = window._fb;
@@ -13517,6 +13523,55 @@ function _esaStopPresence(){
   _esaMyRecordId = null;
 }
 window._esaStopPresence = _esaStopPresence;
+
+/* ── Live field-level activity reporting ──────────────────────────────────
+   While an Edit Score session is active (_esaMyRecordId set), every field
+   the editor focuses/types into is reported (debounced) so other connected
+   users see exactly what's being changed, in real time — not just that the
+   record is "open". Best-effort: never blocks typing, never throws. */
+let _esaFieldDebounce = null;
+function _esaReportFieldActivity(fieldLabel, value){
+  if(!window._currentUser?.uid || !_esaMyRecordId) return; // no active edit-score session
+  clearTimeout(_esaFieldDebounce);
+  _esaFieldDebounce = setTimeout(()=>{
+    try{
+      const { ref: fref, update: fupdate } = window._fb;
+      const uid = window._currentUser.uid;
+      fupdate(fref(db, `${EDIT_SCORE_ACTIVE_PATH}/${uid}`), {
+        action: 'editing',
+        currentField: String(fieldLabel||'').slice(0,60),
+        currentValue: (value===undefined||value===null||value==='') ? '' : String(value).slice(0,40),
+        lastActivity: Date.now()
+      }).catch(()=>{});
+    }catch(e){ /* best-effort */ }
+  }, 500); // debounce so we don't write on every single keystroke
+}
+window._esaReportFieldActivity = _esaReportFieldActivity;
+
+/** Delegated listener — attached once, covers every current AND future
+ *  input/select/textarea inside the Edit Score/Add Student modal, including
+ *  the dynamically-rebuilt subject grid. Only reports while a presence
+ *  session is active (i.e. not for the blank Add-Student form). */
+function _esaAttachFieldTracking(){
+  const modalEl = document.getElementById('edit-modal');
+  if(!modalEl || modalEl._esaTrackingAttached) return;
+  modalEl._esaTrackingAttached = true;
+  modalEl.addEventListener('input', (e)=>{
+    const t = e.target;
+    if(!t || !['INPUT','SELECT','TEXTAREA'].includes(t.tagName)) return;
+    let label = t.getAttribute('data-subject');
+    if(!label){
+      const lbl = t.closest('.form-group')?.querySelector('label');
+      label = lbl ? lbl.textContent.trim() : (t.id || 'a field');
+    }
+    _esaReportFieldActivity(label, t.value);
+  });
+}
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', _esaAttachFieldTracking);
+}else{
+  _esaAttachFieldTracking();
+}
 
 let _esaUnsub = null;           // broadcast listener unsubscribe
 let _esaKnownKeys = null;       // null until the first snapshot arrives (baseline, no popups yet)
@@ -13552,18 +13607,44 @@ function _esaWatchBroadcast(){
       return;
     }
     keys.forEach(k=>{
-      if(_esaKnownKeys.has(k)) return; // already known, not a new session
       const sess = raw[k];
-      if(!sess || sess.uid === myUid) return; // never notify yourself
-      const who      = sess.name || 'A user';
-      const student  = sess.studentName || 'a student';
-      const gradeTxt = sess.grade ? ` in <strong>${sess.grade}</strong>` : '';
-      _esaQueueBroadcast(`<strong>${who}</strong> just opened Edit Score for <strong>${student}</strong>${gradeTxt}.`);
+      if(!sess || sess.uid === myUid) return; // never notify/update on yourself
+      if(!_esaKnownKeys.has(k)){
+        // Brand-new session → queue a fresh popup.
+        _esaQueueBroadcast(k);
+      }else if(k === _esaBroadcastActiveUid){
+        // A session that's already the one currently on-screen just changed
+        // field/value — refresh the popup IN PLACE instead of spawning a
+        // new one, so it reads as a live activity feed, not a toast spam.
+        const msgEl = document.getElementById('esa-broadcast-message');
+        if(msgEl) msgEl.innerHTML = _esaBuildBroadcastMessage(sess);
+      }
     });
+    // If the session currently on-screen just ended (modal closed elsewhere),
+    // let the popup say so briefly, then auto-dismiss.
+    if(_esaBroadcastActiveUid && !raw[_esaBroadcastActiveUid] && _esaKnownKeys.has(_esaBroadcastActiveUid)){
+      const msgEl = document.getElementById('esa-broadcast-message');
+      if(msgEl) msgEl.innerHTML += '<br><span style="color:var(--green);font-size:12px">✅ Finished editing.</span>';
+      setTimeout(()=>{ if(_esaBroadcastActiveUid === null) return; _esaDismissBroadcast(); }, 2000);
+    }
     _esaKnownKeys = new Set(keys);
   }, ()=>{ /* offline — broadcast just stops updating, non-critical */ });
 }
 window._esaWatchBroadcast = _esaWatchBroadcast;
+
+/** Builds the popup message body for a given session, including live
+ *  field-level detail when available (not just "opened Edit Score for X"). */
+function _esaBuildBroadcastMessage(sess){
+  const who      = sess.name || 'A user';
+  const student  = sess.studentName || 'a student';
+  const gradeTxt = sess.grade ? ` in <strong>${sess.grade}</strong>` : '';
+  let html = `<strong>${who}</strong> opened Edit Score for <strong>${student}</strong>${gradeTxt}.`;
+  if(sess.currentField){
+    const valTxt = sess.currentValue ? ` — entering <strong>${sess.currentValue}</strong>` : '';
+    html += `<br><span style="color:var(--orange);font-size:12px">🖊️ Currently editing <strong>${sess.currentField}</strong>${valTxt}</span>`;
+  }
+  return html;
+}
 
 /** Update the badge on the standalone "Live Editing" sidebar item with the
  *  current count of active edit-score sessions, portal-wide. */
@@ -13575,21 +13656,28 @@ function _esaUpdateLiveBadge(){
   badge.style.display = count ? '' : 'none';
 }
 
-/** Queue a popup alert and show it immediately if nothing else is showing.
- *  Popups display on top of WHATEVER screen/view the user is currently on —
- *  the modal overlay is fixed-position and independent of navTo() routing. */
-function _esaQueueBroadcast(html){
-  _esaBroadcastQueue.push(html);
+let _esaBroadcastActiveUid = null; // uid of the session whose popup is currently on-screen, if any
+
+/** Queue a popup alert (by session uid) and show it immediately if nothing
+ *  else is showing. Popups display on top of WHATEVER screen/view the user
+ *  is currently on — the modal overlay is fixed-position and independent
+ *  of navTo() routing. Storing the uid (not static html) lets the popup
+ *  live-refresh as that session's field/value activity changes. */
+function _esaQueueBroadcast(uid){
+  _esaBroadcastQueue.push(uid);
   _esaProcessBroadcastQueue();
 }
 
 function _esaProcessBroadcastQueue(){
   if(_esaBroadcastShowing) return;
-  const next = _esaBroadcastQueue.shift();
-  if(next === undefined) return;
+  const nextUid = _esaBroadcastQueue.shift();
+  if(nextUid === undefined) return;
+  const sess = _esaActiveSessions[nextUid];
+  if(!sess){ _esaProcessBroadcastQueue(); return; } // session already ended before its turn — skip it
   _esaBroadcastShowing = true;
+  _esaBroadcastActiveUid = nextUid;
   const msgEl = document.getElementById('esa-broadcast-message');
-  if(msgEl) msgEl.innerHTML = next;
+  if(msgEl) msgEl.innerHTML = _esaBuildBroadcastMessage(sess);
   const modal = document.getElementById('esa-broadcast-modal');
   if(modal) modal.classList.add('on');
 }
@@ -13600,6 +13688,7 @@ function _esaDismissBroadcast(){
   const modal = document.getElementById('esa-broadcast-modal');
   if(modal) modal.classList.remove('on');
   _esaBroadcastShowing = false;
+  _esaBroadcastActiveUid = null;
   setTimeout(_esaProcessBroadcastQueue, 250);
 }
 window._esaDismissBroadcast = _esaDismissBroadcast;
@@ -13607,14 +13696,21 @@ window._esaDismissBroadcast = _esaDismissBroadcast;
 /** Standalone "Live Editing" sidebar panel — lists every record currently
  *  being edited, portal-wide, updated in real time. Available to every user,
  *  not just Advanced Admins. */
+let _esaLiveListRefreshTimer = null;
 function _esaOpenLiveListModal(){
   _esaRenderLiveList();
   document.getElementById('esa-live-list-modal').classList.add('on');
+  // Typing→idle status is time-based (fades after 8s of no activity), so
+  // refresh on a timer while the panel is open, not just on data changes.
+  clearInterval(_esaLiveListRefreshTimer);
+  _esaLiveListRefreshTimer = setInterval(_esaRenderLiveList, 3000);
 }
 window._esaOpenLiveListModal = _esaOpenLiveListModal;
 
 function _esaCloseLiveListModal(){
   document.getElementById('esa-live-list-modal').classList.remove('on');
+  clearInterval(_esaLiveListRefreshTimer);
+  _esaLiveListRefreshTimer = null;
 }
 window._esaCloseLiveListModal = _esaCloseLiveListModal;
 
@@ -13630,13 +13726,20 @@ function _esaRenderLiveList(){
     const mins = Math.max(0, Math.round((Date.now() - (s.startedAt||Date.now())) / 60000));
     const since = mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : `${Math.round(mins/60)}h ago`;
     const _av = makePhotoAvatar(s.name||'User', s.grade||'', 'stu-av-sm', 'flex-shrink:0');
+    // Live activity line: "🖊️ Mathematics: 87" if a field is actively being
+    // typed into (fresh within 8s), else "👀 viewing" if just idling on the record.
+    const activeAgo = Math.round((Date.now() - (s.lastActivity||s.startedAt||Date.now())) / 1000);
+    const isTyping = s.currentField && activeAgo < 8;
+    const statusHtml = isTyping
+      ? `🟠 🖊️ ${s.currentField}${s.currentValue?': <strong>'+s.currentValue+'</strong>':''}`
+      : (s.currentField ? `⚪ last edited ${s.currentField}` : '⚪ 👀 viewing');
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md)">
       ${_av}
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:700;color:var(--text)">${s.name||'User'}</div>
         <div style="font-size:11px;color:var(--text3)">${s.studentName||'a student'}${s.grade?' · '+s.grade:''} · started ${since}</div>
+        <div style="font-size:11px;color:var(--orange);font-weight:600;margin-top:2px">${statusHtml}</div>
       </div>
-      <span style="flex-shrink:0;font-size:10px;font-weight:700;color:var(--orange);display:flex;align-items:center;gap:4px">🟠 editing</span>
     </div>`;
   }).join('');
 }
@@ -13648,6 +13751,7 @@ function _esaCleanup(){
   _esaActiveSessions = {};
   _esaBroadcastQueue = [];
   _esaBroadcastShowing = false;
+  _esaBroadcastActiveUid = null;
   const badge = document.getElementById('esa-nav-badge');
   if(badge) badge.style.display = 'none';
   const bModal = document.getElementById('esa-broadcast-modal');
