@@ -5199,6 +5199,26 @@ function _loadCachedTeacherProfile(uid){
   }catch(e){ return null; }
 }
 
+/* ── Full-document cache (used by the "My Profile" form) ──────────────────
+   The role/grade cache above only stores the fields _applyTeacherProfile
+   needs. The profile EDIT form needs the rest (name/phone/subject/staffId/
+   photoURL/role/email) too, so it can render normally while offline instead
+   of erroring. Mirrored on every successful online read. */
+const TEACHER_FULLDOC_CACHE_PREFIX = 'kss_teacher_fulldoc_';
+function _teacherFullDocCacheKey(uid){ return TEACHER_FULLDOC_CACHE_PREFIX + uid; }
+function _cacheFullProfileDoc(uid, data){
+  if(!uid) return;
+  try{ localStorage.setItem(_teacherFullDocCacheKey(uid), JSON.stringify({ ...data, _cachedAt: Date.now() })); }
+  catch(e){ /* localStorage full/blocked — non-critical */ }
+}
+function _loadFullProfileDoc(uid){
+  if(!uid) return null;
+  try{
+    const raw = localStorage.getItem(_teacherFullDocCacheKey(uid));
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
 function checkAdvancedAdmin(uid){
   // Hide gated sections by default
   const importNav = document.querySelector('.nav-item[data-label="Import Data"]');
@@ -5237,6 +5257,7 @@ function checkAdvancedAdmin(uid){
     (snap) => {
       const data = snap.exists() ? snap.data() : {};
       _cacheTeacherProfile(uid, data);
+      _cacheFullProfileDoc(uid, data);
       _applyTeacherProfile(data, uid);
     },
     (err) => {
@@ -6802,37 +6823,23 @@ async function profLoadInfo(){
   if(nameEl)  nameEl.textContent  = currentAdminName || '';
   if(emailEl) emailEl.textContent = currentAdminEmail || '';
 
+  // ── Offline: never attempt the live read — go straight to cache ────────
+  // Firestore's getDoc() throws "Failed to get document because the client
+  // is offline" when there's no persistence layer and no network, so we
+  // check navigator.onLine FIRST and skip the network call entirely rather
+  // than trying and catching that error every time.
+  if(!navigator.onLine){
+    _profApplyCachedDoc(uid, nameEl, roleEl, emailEl, avatarEl);
+    profSetStatus('prof-info-status','📴 Offline — showing your last saved profile. Changes will need an internet connection to save.','err');
+    return;
+  }
+
   // Pull fresh doc from Firestore
   try{
     var snap = await window._fb.getDoc(window._fb.doc(firestoreDb,'users',uid));
     var d    = snap.exists() ? snap.data() : {};
-
-    // Split stored name into first/last
-    var fullName = d.name || currentAdminName || '';
-    var parts    = fullName.trim().split(' ');
-    var fname    = parts[0] || '';
-    var lname    = parts.slice(1).join(' ') || '';
-
-    var setVal = function(id, val){ var el=document.getElementById(id); if(el) el.value = val||''; };
-    setVal('prof-fname',   fname);
-    setVal('prof-lname',   lname);
-    setVal('prof-phone',   d.phone   || '');
-    setVal('prof-subject', d.subject || '');
-    setVal('prof-staffid', d.staffId || '');
-
-    if(roleEl)   roleEl.textContent   = d.role || '';
-    if(emailEl)  emailEl.textContent  = d.email || currentAdminEmail || '';
-
-    // Avatar initials or photo
-    if(avatarEl){
-      var photo = d.photoURL || '';
-      if(photo){
-        avatarEl.innerHTML = '<img src="'+photo+'" style="width:56px;height:56px;object-fit:cover;border-radius:50%" referrerpolicy="no-referrer">';
-      } else {
-        avatarEl.innerHTML = '';
-        avatarEl.textContent = fullName[0] ? fullName[0].toUpperCase() : '?';
-      }
-    }
+    _cacheFullProfileDoc(uid, d); // keep the offline fallback fresh for next time
+    _profRenderDoc(d, nameEl, roleEl, emailEl, avatarEl);
 
     // Check if Google sign-in (no password provider)
     var auth  = window._fb.getAuth();
@@ -6854,9 +6861,69 @@ async function profLoadInfo(){
     profSetStatus('prof-info-status','','');
     profSetStatus('prof-pw-status','','');
   } catch(e){
-    profSetStatus('prof-info-status','Error loading profile: '+e.message,'err');
+    // Went offline mid-request (or Firestore is genuinely unreachable) —
+    // fall back to cache instead of surfacing the raw Firebase error text.
+    var isOfflineErr = e && (e.code === 'unavailable' || /client is offline/i.test(e.message||''));
+    if(isOfflineErr){
+      _profApplyCachedDoc(uid, nameEl, roleEl, emailEl, avatarEl);
+      profSetStatus('prof-info-status','📴 Offline — showing your last saved profile. Changes will need an internet connection to save.','err');
+    } else {
+      profSetStatus('prof-info-status','Error loading profile: '+e.message,'err');
+    }
   }
 }
+
+/** Populate the profile form fields from a Firestore doc object (used by
+ *  both the live path and the cached-fallback path, so they stay identical). */
+function _profRenderDoc(d, nameEl, roleEl, emailEl, avatarEl){
+  var fullName = d.name || currentAdminName || '';
+  var parts    = fullName.trim().split(' ');
+  var fname    = parts[0] || '';
+  var lname    = parts.slice(1).join(' ') || '';
+
+  var setVal = function(id, val){ var el=document.getElementById(id); if(el) el.value = val||''; };
+  setVal('prof-fname',   fname);
+  setVal('prof-lname',   lname);
+  setVal('prof-phone',   d.phone   || '');
+  setVal('prof-subject', d.subject || '');
+  setVal('prof-staffid', d.staffId || '');
+
+  if(roleEl)   roleEl.textContent   = d.role || '';
+  if(emailEl)  emailEl.textContent  = d.email || currentAdminEmail || '';
+
+  if(avatarEl){
+    var photo = d.photoURL || '';
+    if(photo){
+      avatarEl.innerHTML = '<img src="'+photo+'" style="width:56px;height:56px;object-fit:cover;border-radius:50%" referrerpolicy="no-referrer">';
+    } else {
+      avatarEl.innerHTML = '';
+      avatarEl.textContent = fullName[0] ? fullName[0].toUpperCase() : '?';
+    }
+  }
+}
+
+/** Offline fallback path — reads the locally cached doc (last mirrored by
+ *  either the real-time listener or a previous successful profLoadInfo
+ *  call). If nothing was ever cached, falls back to whatever's already in
+ *  the currentAdminName/currentAdminEmail globals so the form isn't blank. */
+function _profApplyCachedDoc(uid, nameEl, roleEl, emailEl, avatarEl){
+  var cached = _loadFullProfileDoc(uid) || {};
+  _profRenderDoc(cached, nameEl, roleEl, emailEl, avatarEl);
+  // Password change requires a live connection either way — disable it
+  // while offline rather than letting the user hit another offline error.
+  var pwBtn = document.getElementById('prof-pw-btn');
+  var pwInputs = ['prof-pw-current','prof-pw-new','prof-pw-confirm'];
+  if(pwBtn) pwBtn.disabled = true;
+  pwInputs.forEach(function(id){ var el=document.getElementById(id); if(el) el.disabled = true; });
+}
+
+/* Auto-reload the profile form the moment connectivity returns, so the
+ * offline banner clears itself instead of requiring a manual re-open. */
+window.addEventListener('online', function(){
+  var isProfileViewOpen = document.getElementById('prof-info-status') &&
+    document.getElementById('prof-info-status').offsetParent !== null;
+  if(isProfileViewOpen) profLoadInfo();
+});
 
 /* ── Save personal info to Firestore + Firebase Auth displayName ── */
 window.profSaveInfo = async function(){
