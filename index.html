@@ -6628,6 +6628,7 @@ function profSetStatus(elId, msg, type){
 
 async function doSignOut(){
   if(typeof _qeStopPresence === 'function') _qeStopPresence();
+  if(typeof _qeStopWatchingViewedDraft === 'function') _qeStopWatchingViewedDraft();
   isAdvancedAdmin = false;
   currentAssignedGrade = null;
   currentAssignedGrades = [];
@@ -9728,6 +9729,7 @@ function navTo(view,el){
   const _prevActiveView = document.querySelector('.view.active');
   if(_prevActiveView && _prevActiveView.id === 'view-quickentry' && view !== 'quickentry'){
     if(typeof _qeStopPresence === 'function') _qeStopPresence();
+    if(typeof _qeStopWatchingViewedDraft === 'function') _qeStopWatchingViewedDraft();
   }
   // ── Security: unassigned users may ONLY see their profile ──────────────
   const isUnassigned = !isAdvancedAdmin &&
@@ -12958,6 +12960,17 @@ let _qeHeartbeatTimer = null;
 let _qeActiveSessions = {};   // flattened: { "uid|compound": {name,uid,grade,compound,startedAt,lastActive} }
 let _qeActiveSessionsUnsub = null;
 
+// ── Advanced Admin "viewing someone else's live sheet" state ───────────────
+// Set by _qeJumpToSession when an admin opens another teacher's session from
+// the Live Editors modal. The sheet then loads read-only, populated from that
+// teacher's actual in-progress DRAFT (not just submitted records — this is
+// the fix for admin/teacher seeing different data on the same "synced" sheet:
+// drafts are stored per-uid, so without this the admin was always reading
+// their OWN empty draft instead of the teacher's).
+let _qeViewingSession = null;        // {uid, name, compound} or null
+let _qeViewingDraftUnsub = null;     // live listener on that teacher's draft
+let _qeLastViewedDraftScores = {};   // most recent snapshot from that listener
+
 /** Start (or move) this device's presence entry to the given exam. Advanced
  *  Admins don't announce themselves here — this tracks TEACHERS actually
  *  entering scores, which is what the admin-facing modal is for. */
@@ -13063,7 +13076,7 @@ function _qeRenderLiveSessionsList(){
     const mins = Math.max(0, Math.round((Date.now() - (s.startedAt||Date.now())) / 60000));
     const since = mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : `${Math.round(mins/60)}h ago`;
     const _av = makePhotoAvatar(s.name||'Teacher', s.grade||'', 'stu-av-sm', 'flex-shrink:0');
-    return `<div onclick="_qeJumpToSession('${(s.compound||'').replace(/'/g,"\\'")}','${(s.grade||'').replace(/'/g,"\\'")}')"
+    return `<div onclick="_qeJumpToSession('${(s.compound||'').replace(/'/g,"\\'")}','${(s.grade||'').replace(/'/g,"\\'")}','${(s.uid||'').replace(/'/g,"\\'")}','${(s.name||'Teacher').replace(/'/g,"\\'")}')"
         style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:var(--transition)"
         onmouseenter="this.style.borderColor='var(--blue-lt)'" onmouseleave="this.style.borderColor='var(--border)'">
       ${_av}
@@ -13077,9 +13090,11 @@ function _qeRenderLiveSessionsList(){
 }
 
 /** Advanced Admin clicked a live session — loads that grade/exam straight
- *  into their own Quick Entry sheet so they can watch/help in real time. */
-function _qeJumpToSession(compound, grade){
+ *  into their own Quick Entry sheet, read-only, populated live from that
+ *  teacher's actual in-progress draft (not just already-submitted scores). */
+function _qeJumpToSession(compound, grade, uid, name){
   _qeCloseLiveSessionsModal();
+  _qeViewingSession = uid ? {uid, name: name||'Teacher', compound} : null;
   navTo('quickentry', document.querySelector('.nav-item[data-label="Quick Entry"]'));
   setTimeout(()=>{
     const gradeEl = document.getElementById('qe-grade');
@@ -13093,6 +13108,52 @@ function _qeJumpToSession(compound, grade){
 }
 window._qeJumpToSession = _qeJumpToSession;
 
+/** Live listener on the viewed teacher's actual draft node — patches the
+ *  read-only sheet as they type (their autosave fires ~1.2s after each
+ *  pause), so what the admin sees really is "live", not a one-time snapshot
+ *  taken at click time. */
+function _qeWatchViewedDraft(uid, compound){
+  _qeStopWatchingViewedDraftListenerOnly();
+  const { ref: fref, onValue: fonValue } = window._fb;
+  const draftKey = encodeURIComponent(compound);
+  _qeViewingDraftUnsub = fonValue(fref(db, `${QE_DRAFTS_PATH}/${uid}/${draftKey}`), (snap)=>{
+    if(!_qeViewingSession || _qeViewingSession.uid !== uid || _qeViewingSession.compound !== compound) return;
+    const d = snap.val();
+    _qeLastViewedDraftScores = (d && d.scores) || {};
+    const existing = _qeGetExistingScores();
+    const merged = {};
+    Object.keys(existing).forEach(k=>merged[k]={...existing[k]});
+    Object.keys(_qeLastViewedDraftScores).forEach(k=>merged[k]={...(merged[k]||{}), ...(_qeLastViewedDraftScores[k]||{})});
+    const touched = _qePatchScoresIntoTable(merged, {protect:false});
+    const statusEl = document.getElementById('qe-save-status');
+    if(statusEl && touched) statusEl.innerHTML = `👀 Live — updated ${new Date().toLocaleTimeString()}`;
+  }, ()=>{ /* offline — sheet just stops live-updating, non-critical */ });
+}
+window._qeWatchViewedDraft = _qeWatchViewedDraft;
+
+// Detaches the RTDB listener only, without clearing _qeViewingSession —
+// used internally when (re)attaching for a fresh uid/compound.
+function _qeStopWatchingViewedDraftListenerOnly(){
+  if(_qeViewingDraftUnsub){ try{ _qeViewingDraftUnsub(); }catch(e){} _qeViewingDraftUnsub = null; }
+}
+
+/** Full stop: detach the listener AND clear viewing state — called when
+ *  leaving the sheet, navigating away, or explicitly clicking "Stop viewing". */
+function _qeStopWatchingViewedDraft(){
+  _qeStopWatchingViewedDraftListenerOnly();
+  _qeViewingSession = null;
+  _qeLastViewedDraftScores = {};
+}
+window._qeStopWatchingViewedDraft = _qeStopWatchingViewedDraft;
+
+/** "✕ Stop viewing" button in the viewing banner — drops back to a normal,
+ *  editable Quick Entry sheet for whatever's still selected in the pickers. */
+function _qeStopViewingSession(){
+  _qeStopWatchingViewedDraft();
+  loadQuickEntry();
+}
+window._qeStopViewingSession = _qeStopViewingSession;
+
 async function loadQuickEntry(){
   const gradeEl = document.getElementById('qe-grade');
   const termEl  = document.getElementById('qe-term');
@@ -13104,6 +13165,15 @@ async function loadQuickEntry(){
   const lockData = _lockedTerms[_lockKeyFor(selCompound)];
   const locked = !!(lockData && lockData.locked);
   _qeLocked = locked;
+
+  // ── Advanced Admin viewing another teacher's live session? ───────────────
+  // Only honored if it still matches what's actually selected — picking a
+  // different exam manually (instead of via the Live Editors modal) drops it.
+  if(_qeViewingSession && _qeViewingSession.compound !== selCompound){
+    _qeStopWatchingViewedDraft();
+  }
+  const viewingSession = _qeViewingSession;
+  const viewOnly = locked || !!viewingSession;
 
   _qeGrade = selGrade;
   _qeCompound = selCompound;
@@ -13176,10 +13246,28 @@ async function loadQuickEntry(){
   // actually entered. If we're offline and there's no pending edit, fall
   // back to whatever was last mirrored locally so the sheet still opens
   // fully populated with no connection at all.
+  //
+  // Viewing someone else's live session (Advanced Admin, from the Live
+  // Editors modal) is different: there's no "my local draft" to consider —
+  // we always read straight from THAT teacher's own draft node on the
+  // server, which is the actual root-cause fix for admin/teacher seeing
+  // different data on a sheet that says "synced": drafts are stored per-uid,
+  // so without this the admin was always reading their own empty draft.
   let draftScores = {};
   let draftTime = null;
   let draftFromLocalOnly = false;
-  if(!locked){
+  if(viewingSession){
+    try{
+      const {ref, get} = window._fb;
+      const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${viewingSession.uid}/${encodeURIComponent(selCompound)}`));
+      if(snap.exists()){
+        const d = snap.val();
+        draftScores = d.scores || {};
+        draftTime = d.updatedAt || null;
+        _qeLastViewedDraftScores = draftScores;
+      }
+    }catch(e){ /* they may not have typed anything yet — sheet just shows submitted scores */ }
+  } else if(!locked){
     const myUid = window._currentUser?.uid || 'anon';
     const draftKey = encodeURIComponent(selCompound);
     const localDraft = _qeReadLocalDraft(myUid, draftKey);
@@ -13212,20 +13300,29 @@ async function loadQuickEntry(){
   Object.keys(existingScores).forEach(k => mergedScores[k] = {...existingScores[k]});
   Object.keys(draftScores).forEach(k => mergedScores[k] = {...(mergedScores[k]||{}), ...draftScores[k]});
 
-  renderQuickEntryTable(mergedScores, locked);
+  renderQuickEntryTable(mergedScores, viewOnly);
 
   const banner = document.getElementById('qe-draft-banner');
   const lockBanner = document.getElementById('qe-lock-banner');
   const submitBtn = document.getElementById('qe-submit-btn');
   const statusEl = document.getElementById('qe-save-status');
 
-  if(locked){
+  if(viewingSession){
+    lockBanner.style.display = 'block';
+    lockBanner.innerHTML = `👀 Viewing <strong>${viewingSession.name}</strong>'s live sheet for "${selCompound}" — read-only, updates automatically as they type. <button class="btn btn-outline btn-sm" style="margin-left:8px" onclick="_qeStopViewingSession()">✕ Stop viewing</button>`;
+    banner.style.display = 'none';
+    if(submitBtn) submitBtn.style.display = 'none';
+    if(statusEl) statusEl.textContent = '';
+    _qeWatchViewedDraft(viewingSession.uid, selCompound);
+  } else if(locked){
+    _qeStopWatchingViewedDraft();
     lockBanner.style.display = 'block';
     lockBanner.innerHTML = `🔒 "${selCompound}" is locked. Scores are shown for viewing only — ask an Advanced Admin to unlock it before editing.`;
     banner.style.display = 'none';
     if(submitBtn) submitBtn.style.display = 'none';
     if(statusEl) statusEl.textContent = '';
   } else {
+    _qeStopWatchingViewedDraft();
     lockBanner.style.display = 'none';
     if(submitBtn) submitBtn.style.display = '';
     if(draftTime){
@@ -13240,12 +13337,13 @@ async function loadQuickEntry(){
 
   _qeUpdateOnlineBanner();
   const addSubjectBtn = document.getElementById('qe-add-subject-btn');
-  if(addSubjectBtn) addSubjectBtn.style.display = (isAdvancedAdmin && _qeWasPending && !locked) ? '' : 'none';
+  if(addSubjectBtn) addSubjectBtn.style.display = (isAdvancedAdmin && _qeWasPending && !viewOnly) ? '' : 'none';
   document.getElementById('qe-table-card').style.display='block';
 
   // Announce presence to Advanced Admins (only meaningful for an actually
-  // editable sheet — a locked exam is view-only, not "being worked on").
-  if(locked) _qeStopPresence(); else _qeStartPresence(selCompound, selGrade);
+  // editable sheet — a locked exam, or merely watching someone else's, isn't
+  // "being worked on" by this device).
+  if(viewOnly) _qeStopPresence(); else _qeStartPresence(selCompound, selGrade);
 }
 window.loadQuickEntry = loadQuickEntry;
 
@@ -13303,31 +13401,22 @@ function _qeFindExisting(r){
 
 function _qeCellKey(student, subject){ return student + '||' + subject; }
 
-/** Called from the live Firebase listener in loadAllData() whenever the
- *  database changes while Quick Entry is open. Pulls the latest SUBMITTED
- *  scores for the exam currently on screen and patches them straight into
- *  the visible table — so if another device submits/edits scores for the
- *  same exam, this device's sheet updates live with no manual reload.
- *  Cells the person is actively typing in (focused) or has edited but not
- *  yet submitted (_qeDirtyCells) are left alone so nothing they've typed
- *  gets overwritten mid-edit. */
-function _qeRefreshTableRealtime(){
-  if(!_qeCompound || !_qeStudents.length) return;
-  const view = document.getElementById('view-quickentry');
-  if(!view || !view.classList.contains('active')) return;
+/** Shared cell-patcher for both cross-device SUBMITTED-score sync and the
+ *  Advanced-Admin "watching a teacher's live draft" view. `protect` controls
+ *  whether the focused/dirty cells are left alone — true for a person's own
+ *  editable sheet (never clobber what they're typing), false when merely
+ *  watching someone else's read-only sheet (nothing local to protect there). */
+function _qePatchScoresIntoTable(scoresMap, {protect=true}={}){
   const tbody = document.getElementById('qe-tbody');
-  if(!tbody) return;
-
-  const fresh = _qeGetExistingScores();
+  if(!tbody) return 0;
   const activeEl = document.activeElement;
   let touched = 0;
-
   tbody.querySelectorAll('input[data-student]').forEach(inp=>{
-    if(inp === activeEl) return; // don't touch the cell they're typing in right now
+    if(protect && inp === activeEl) return; // don't touch the cell they're typing in right now
     const key  = inp.getAttribute('data-student');
     const subj = inp.getAttribute('data-subject');
-    if(_qeDirtyCells.has(_qeCellKey(key, subj))) return; // their unsaved edit wins until they submit
-    const newVal = (fresh[key] && fresh[key][subj] !== undefined) ? String(fresh[key][subj]) : '';
+    if(protect && _qeDirtyCells.has(_qeCellKey(key, subj))) return; // their unsaved edit wins until submit
+    const newVal = (scoresMap[key] && scoresMap[key][subj] !== undefined) ? String(scoresMap[key][subj]) : '';
     if(inp.value !== newVal){
       inp.value = newVal;
       if(newVal !== '') _qeValidateScoreInput(inp);
@@ -13336,12 +13425,40 @@ function _qeRefreshTableRealtime(){
       touched++;
     }
   });
+  return touched;
+}
+
+/** Called from the live Firebase listener in loadAllData() whenever the
+ *  database changes while Quick Entry is open. Pulls the latest SUBMITTED
+ *  scores for the exam currently on screen and patches them straight into
+ *  the visible table — so if another device submits/edits scores for the
+ *  same exam, this device's sheet updates live with no manual reload.
+ *  Cells the person is actively typing in (focused) or has edited but not
+ *  yet submitted (_qeDirtyCells) are left alone so nothing they've typed
+ *  gets overwritten mid-edit. If an Advanced Admin is watching someone
+ *  else's live sheet, this merges in that teacher's last-known draft too —
+ *  otherwise a submitted-score update here would blow away their draft. */
+function _qeRefreshTableRealtime(){
+  if(!_qeCompound || !_qeStudents.length) return;
+  const view = document.getElementById('view-quickentry');
+  if(!view || !view.classList.contains('active')) return;
+
+  const existing = _qeGetExistingScores();
+  let fresh = existing, protect = true;
+  if(_qeViewingSession && _qeViewingSession.compound === _qeCompound){
+    fresh = {};
+    Object.keys(existing).forEach(k=>fresh[k]={...existing[k]});
+    Object.keys(_qeLastViewedDraftScores).forEach(k=>fresh[k]={...(fresh[k]||{}), ...(_qeLastViewedDraftScores[k]||{})});
+    protect = false; // read-only viewed sheet — nothing "theirs" to protect
+  }
+  const touched = _qePatchScoresIntoTable(fresh, {protect});
 
   // "✓ submitted" / "new" row badges are also DB-driven — refresh them so a
   // row another device just submitted flips over live too.
+  const _tbody = document.getElementById('qe-tbody');
   _qeStudents.forEach(r=>{
     const key = _qeStudentKey(r);
-    const anyInput = tbody.querySelector(`input[data-student="${CSS.escape(key)}"]`);
+    const anyInput = _tbody ? _tbody.querySelector(`input[data-student="${CSS.escape(key)}"]`) : null;
     const row = anyInput ? anyInput.closest('tr') : null;
     const badgeEl = row ? row.querySelector('td:nth-child(2) span') : null;
     if(!badgeEl) return;
@@ -13854,6 +13971,7 @@ window.submitQuickEntry = submitQuickEntry;
  *  on screen. */
 function _qeResetToDefault(){
   _qeStopPresence();
+  _qeStopWatchingViewedDraft();
   _qeStudents = [];
   _qeSubjects = [];
   _qeGrade = '';
