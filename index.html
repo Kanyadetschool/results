@@ -1735,6 +1735,10 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       <div class="nav-item" onclick="navTo('quickentry',this)" data-label="Quick Entry">
         <span class="nav-icon">⚡</span> Quick Entry
       </div>
+      <div class="nav-item" onclick="_esaOpenLiveListModal()" data-label="Live Editing">
+        <span class="nav-icon">✏️</span><span class="nav-label">Live Editing</span>
+        <span class="nav-badge" id="esa-nav-badge" style="display:none;background:var(--orange)">0</span>
+      </div>
       <div class="nav-item" onclick="navTo('announcements',this)" data-label="Announcements">
         <span class="nav-icon">📢</span> Announcements
       </div>
@@ -3297,6 +3301,32 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
   </div>
 </div>
 
+<!-- LIVE EDIT SCORE SESSIONS MODAL (everyone — standalone sidebar item) -->
+<div class="modal-overlay" id="esa-live-list-modal" onclick="if(event.target===this)_esaCloseLiveListModal()">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-hdr">
+      <h3>✏️ Live Editing</h3>
+      <button class="modal-close" onclick="_esaCloseLiveListModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Records that are currently open for editing across the portal, updated in real time.</div>
+      <div id="esa-live-list" style="display:grid;gap:8px;max-height:min(50vh,420px);overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT SCORE BROADCAST ALERT — pops up on top of whatever screen the user is
+     currently on, regardless of view, whenever someone else opens a record
+     for editing. Independent of the standalone Live Editing sidebar/modal above. -->
+<div class="modal-overlay" id="esa-broadcast-modal" style="z-index:10050" onclick="if(event.target===this)_esaDismissBroadcast()">
+  <div class="modal-box" style="max-width:400px;text-align:center">
+    <div style="font-size:38px;margin-bottom:6px">📝</div>
+    <h3 style="margin-bottom:10px">Live Score Activity</h3>
+    <div id="esa-broadcast-message" style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:18px"></div>
+    <button class="btn btn-blue btn-sm" style="width:100%" onclick="_esaDismissBroadcast()">Got it</button>
+  </div>
+</div>
+
 <!-- ADD/EDIT STUDENT MODAL -->
 <div class="modal-overlay" id="edit-modal" onclick="if(event.target===this)closeEditModal()">
   <div class="modal-box">
@@ -4079,6 +4109,9 @@ const EXTRA_SUBJECTS_PATH = 'extraSubjects'; // {encodedKey: {grade, subject, ad
                                               // Advanced Admin pre-registers a subject title for a class
                                               // before any scores for it exist (e.g. a new exam just sat).
 const QE_ACTIVE_PATH = 'quickEntryActive'; // {encodedCompound}/{uid} -> {name, uid, grade, compound, startedAt, lastActive}
+const EDIT_SCORE_ACTIVE_PATH = 'editScoreActive'; // {uid} -> {uid,name,recordId,studentName,grade,startedAt}
+                                   // Broadcasts to EVERY connected user (not just Advanced Admins)
+                                   // whenever someone opens the Edit Score modal for a record.
                                             // Presence: who currently has a Quick Entry sheet open. Written
                                             // by teachers while editing, auto-removed on disconnect/leave/
                                             // submit; read by Advanced Admins for the Live Editors modal.
@@ -5230,6 +5263,11 @@ function _applyTeacherProfile(data, uid){
   // Live Editors notification (Advanced Admin only) — safe to call for
   // everyone; it self-checks isAdvancedAdmin and no-ops / hides otherwise.
   if(typeof _qeWatchActiveSessions === 'function') setTimeout(_qeWatchActiveSessions, 0);
+
+  // Edit Score broadcast — unlike the above, this is for EVERY user
+  // (teachers and Advanced Admins alike) so anyone opening a record for
+  // editing is announced to everyone else currently connected.
+  if(typeof _esaWatchBroadcast === 'function') setTimeout(_esaWatchBroadcast, 0);
 
   if(data.Advancedadmin === true){
     isAdvancedAdmin = true;
@@ -6972,6 +7010,7 @@ async function doSignOut(){
   currentAssignedSubjects = {};
   if(typeof window._advRoleCleanup === 'function') window._advRoleCleanup();
   if(typeof window._importPermCleanup === 'function') window._importPermCleanup();
+  if(typeof window._esaCleanup === 'function') window._esaCleanup();
   // Detach real-time teacher profile listener
   if(_teacherProfileUnsubscribe){
     try{ _teacherProfileUnsubscribe(); }catch(e){}
@@ -8667,6 +8706,7 @@ function editStudent(id){
   document.getElementById('edit-term-num').value=(_p.term||'').replace(/\D/g,'')||'';
   buildSubjectInputs(rec);
   document.getElementById('edit-modal').classList.add('on');
+  _esaStartPresence(rec); // broadcast to every connected user that this record is now being edited
 }
 window.editStudent=editStudent;
 
@@ -8752,7 +8792,10 @@ async function saveStudentRecord(){
 }
 window.saveStudentRecord=saveStudentRecord;
 
-function closeEditModal(){document.getElementById('edit-modal').classList.remove('on');}
+function closeEditModal(){
+  document.getElementById('edit-modal').classList.remove('on');
+  _esaStopPresence(); // this record is no longer being edited by this device
+}
 window.closeEditModal=closeEditModal;
 
 /* ══════════════════════════════════════════
@@ -13426,11 +13469,206 @@ function _qeStopPresence(){
 }
 window._qeStopPresence = _qeStopPresence;
 
+/* ══════════════════════════════════════════════════════════════════════════
+   EDIT SCORE BROADCAST — notifies EVERY connected user (teachers AND
+   Advanced Admins alike, unlike the admin-only Live Editors feature above)
+   in real time whenever someone opens the Edit Score modal for a record.
+   Presence is written to editScoreActive/{uid}; each client diffs every
+   snapshot against the previous one so a toast fires only for genuinely
+   NEW sessions — never for ones that were already open when this device's
+   listener first attached, and never for your own session.
+══════════════════════════════════════════════════════════════════════════ */
+
+let _esaMyRecordId = null; // record id this device is currently broadcasting as "being edited", if any
+
+/** Write this device's "I'm editing this record" presence so every other
+ *  connected user gets notified. Call when the Edit Score modal opens for
+ *  an EXISTING record (not the blank Add-Student form). */
+function _esaStartPresence(rec){
+  if(!window._currentUser?.uid || !rec) return;
+  _esaStopPresence(); // clear any previous session first (switching records)
+  const { ref: fref, set: fset, onDisconnect: fdisc } = window._fb;
+  const uid = window._currentUser.uid;
+  const path = `${EDIT_SCORE_ACTIVE_PATH}/${uid}`;
+  const payload = {
+    uid, name: currentAdminName || window._currentUser.name || 'A user',
+    recordId: rec.id || '',
+    studentName: rec['Official Student Name'] || 'a student',
+    grade: rec['Grade'] || '',
+    startedAt: Date.now()
+  };
+  try{
+    const nodeRef = fref(db, path);
+    fset(nodeRef, payload).catch(()=>{});
+    // Auto-remove if the tab closes / connection drops — no stale entries.
+    try{ fdisc(nodeRef).remove(); }catch(e){}
+    _esaMyRecordId = rec.id || null;
+  }catch(e){ /* presence is best-effort — never blocks actual editing */ }
+}
+
+/** Remove this device's presence entry — called when the Edit Score modal
+ *  closes, whether by saving, cancelling, or clicking outside it. */
+function _esaStopPresence(){
+  if(!window._currentUser?.uid){ _esaMyRecordId = null; return; }
+  try{
+    const { ref: fref, remove: fremove } = window._fb;
+    fremove(fref(db, `${EDIT_SCORE_ACTIVE_PATH}/${window._currentUser.uid}`)).catch(()=>{});
+  }catch(e){}
+  _esaMyRecordId = null;
+}
+window._esaStopPresence = _esaStopPresence;
+
+let _esaUnsub = null;           // broadcast listener unsubscribe
+let _esaKnownKeys = null;       // null until the first snapshot arrives (baseline, no popups yet)
+let _esaActiveSessions = {};    // current live snapshot, keyed by uid -> session object
+let _esaBroadcastQueue = [];    // queued popup messages, shown one at a time
+let _esaBroadcastShowing = false;
+
+/** Global broadcast listener — started for EVERY logged-in user (teacher OR
+ *  Advanced Admin), unlike _qeWatchActiveSessions which is admin-only.
+ *  Diffs each snapshot against the previous one so a popup fires only when
+ *  someone NEW starts editing a record. Also keeps the standalone "Live
+ *  Editing" sidebar badge and list panel in sync. Safe to call repeatedly —
+ *  it just re-attaches. */
+function _esaWatchBroadcast(){
+  if(_esaUnsub){ try{ _esaUnsub(); }catch(e){} _esaUnsub = null; }
+  _esaKnownKeys = null;
+  if(!window._currentUser?.uid) return;
+  const { ref: fref, onValue: fonValue } = window._fb;
+  const myUid = window._currentUser.uid;
+  _esaUnsub = fonValue(fref(db, EDIT_SCORE_ACTIVE_PATH), (snap)=>{
+    const raw = snap.val() || {};
+    _esaActiveSessions = raw;
+    const keys = Object.keys(raw);
+
+    _esaUpdateLiveBadge();
+    if(document.getElementById('esa-live-list-modal')?.classList.contains('on')) _esaRenderLiveList();
+
+    if(_esaKnownKeys === null){
+      // First snapshot since this listener attached — establish the
+      // baseline only. Sessions already open before we connected shouldn't
+      // pop up as "new" alerts.
+      _esaKnownKeys = new Set(keys);
+      return;
+    }
+    keys.forEach(k=>{
+      if(_esaKnownKeys.has(k)) return; // already known, not a new session
+      const sess = raw[k];
+      if(!sess || sess.uid === myUid) return; // never notify yourself
+      const who      = sess.name || 'A user';
+      const student  = sess.studentName || 'a student';
+      const gradeTxt = sess.grade ? ` in <strong>${sess.grade}</strong>` : '';
+      _esaQueueBroadcast(`<strong>${who}</strong> just opened Edit Score for <strong>${student}</strong>${gradeTxt}.`);
+    });
+    _esaKnownKeys = new Set(keys);
+  }, ()=>{ /* offline — broadcast just stops updating, non-critical */ });
+}
+window._esaWatchBroadcast = _esaWatchBroadcast;
+
+/** Update the badge on the standalone "Live Editing" sidebar item with the
+ *  current count of active edit-score sessions, portal-wide. */
+function _esaUpdateLiveBadge(){
+  const badge = document.getElementById('esa-nav-badge');
+  if(!badge) return;
+  const count = Object.keys(_esaActiveSessions||{}).length;
+  badge.textContent = count;
+  badge.style.display = count ? '' : 'none';
+}
+
+/** Queue a popup alert and show it immediately if nothing else is showing.
+ *  Popups display on top of WHATEVER screen/view the user is currently on —
+ *  the modal overlay is fixed-position and independent of navTo() routing. */
+function _esaQueueBroadcast(html){
+  _esaBroadcastQueue.push(html);
+  _esaProcessBroadcastQueue();
+}
+
+function _esaProcessBroadcastQueue(){
+  if(_esaBroadcastShowing) return;
+  const next = _esaBroadcastQueue.shift();
+  if(next === undefined) return;
+  _esaBroadcastShowing = true;
+  const msgEl = document.getElementById('esa-broadcast-message');
+  if(msgEl) msgEl.innerHTML = next;
+  const modal = document.getElementById('esa-broadcast-modal');
+  if(modal) modal.classList.add('on');
+}
+
+/** Dismiss the current popup alert and, after a short beat, show the next
+ *  one queued (if several sessions opened in quick succession). */
+function _esaDismissBroadcast(){
+  const modal = document.getElementById('esa-broadcast-modal');
+  if(modal) modal.classList.remove('on');
+  _esaBroadcastShowing = false;
+  setTimeout(_esaProcessBroadcastQueue, 250);
+}
+window._esaDismissBroadcast = _esaDismissBroadcast;
+
+/** Standalone "Live Editing" sidebar panel — lists every record currently
+ *  being edited, portal-wide, updated in real time. Available to every user,
+ *  not just Advanced Admins. */
+function _esaOpenLiveListModal(){
+  _esaRenderLiveList();
+  document.getElementById('esa-live-list-modal').classList.add('on');
+}
+window._esaOpenLiveListModal = _esaOpenLiveListModal;
+
+function _esaCloseLiveListModal(){
+  document.getElementById('esa-live-list-modal').classList.remove('on');
+}
+window._esaCloseLiveListModal = _esaCloseLiveListModal;
+
+function _esaRenderLiveList(){
+  const box = document.getElementById('esa-live-list');
+  if(!box) return;
+  const sessions = Object.values(_esaActiveSessions||{}).sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
+  if(!sessions.length){
+    box.innerHTML = '<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px 0">No one is currently editing a score record.</p>';
+    return;
+  }
+  box.innerHTML = sessions.map(s=>{
+    const mins = Math.max(0, Math.round((Date.now() - (s.startedAt||Date.now())) / 60000));
+    const since = mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : `${Math.round(mins/60)}h ago`;
+    const _av = makePhotoAvatar(s.name||'User', s.grade||'', 'stu-av-sm', 'flex-shrink:0');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md)">
+      ${_av}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${s.name||'User'}</div>
+        <div style="font-size:11px;color:var(--text3)">${s.studentName||'a student'}${s.grade?' · '+s.grade:''} · started ${since}</div>
+      </div>
+      <span style="flex-shrink:0;font-size:10px;font-weight:700;color:var(--orange);display:flex;align-items:center;gap:4px">🟠 editing</span>
+    </div>`;
+  }).join('');
+}
+
+/** Stop this device's broadcast listener entirely — called on sign-out. */
+function _esaCleanup(){
+  if(_esaUnsub){ try{ _esaUnsub(); }catch(e){} _esaUnsub = null; }
+  _esaKnownKeys = null;
+  _esaActiveSessions = {};
+  _esaBroadcastQueue = [];
+  _esaBroadcastShowing = false;
+  const badge = document.getElementById('esa-nav-badge');
+  if(badge) badge.style.display = 'none';
+  const bModal = document.getElementById('esa-broadcast-modal');
+  if(bModal) bModal.classList.remove('on');
+  const lModal = document.getElementById('esa-live-list-modal');
+  if(lModal) lModal.classList.remove('on');
+  _esaStopPresence();
+}
+window._esaCleanup = _esaCleanup;
+
+let _qeKnownFlatKeys = null; // null until first snapshot (baseline, no popups for pre-existing sessions)
+
 /** Advanced-Admin-only listener: keeps _qeActiveSessions + the header badge
- *  in sync in real time, and re-renders the modal if it's open. Safe to call
- *  even for non-admins — it just won't do anything visible. */
+ *  in sync in real time, and re-renders the modal if it's open. Also pops
+ *  up a modal alert — on top of WHATEVER page the admin is currently on,
+ *  not just while viewing Quick Entry — the moment a teacher opens a new
+ *  Quick Entry sheet. Safe to call even for non-admins — it just won't do
+ *  anything visible. */
 function _qeWatchActiveSessions(){
   if(_qeActiveSessionsUnsub){ try{ _qeActiveSessionsUnsub(); }catch(e){} _qeActiveSessionsUnsub = null; }
+  _qeKnownFlatKeys = null;
   const btn = document.getElementById('qe-live-sessions-btn');
   if(!isAdvancedAdmin){
     if(btn) btn.style.display = 'none';
@@ -13449,6 +13687,24 @@ function _qeWatchActiveSessions(){
     _qeActiveSessions = flat;
     _qeUpdateLiveSessionsBadge();
     if(document.getElementById('qe-live-sessions-modal')?.classList.contains('on')) _qeRenderLiveSessionsList();
+
+    const flatKeys = Object.keys(flat);
+    if(_qeKnownFlatKeys === null){
+      // First snapshot since this listener attached — establish the
+      // baseline only. Sheets already open before we connected shouldn't
+      // pop up as "new" alerts.
+      _qeKnownFlatKeys = new Set(flatKeys);
+      return;
+    }
+    flatKeys.forEach(k=>{
+      if(_qeKnownFlatKeys.has(k)) return; // already known, not a new session
+      const sess = flat[k];
+      if(!sess) return;
+      const who  = sess.name || 'A teacher';
+      const what = sess.compound || sess.grade || 'an exam';
+      _esaQueueBroadcast(`<strong>${who}</strong> opened Quick Entry for <strong>${what}</strong>.`);
+    });
+    _qeKnownFlatKeys = new Set(flatKeys);
   }, ()=>{ /* offline — badge just stops updating, non-critical */ });
 }
 window._qeWatchActiveSessions = _qeWatchActiveSessions;
