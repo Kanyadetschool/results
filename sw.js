@@ -2,16 +2,20 @@
 // Kanyadet School Portal — Service Worker
 // Strategy:
 //   • HTML pages (this app + siblings)  → network-first, cache fallback
-//   • Static assets (css/js/images/CDN) → cache-first (stale-while-revalidate)
-//   • Firebase / Google API traffic     → never intercepted, goes straight
-//     to network (SW cannot make RTDB/Firestore/Auth calls work offline —
-//     that's handled by app-level caching, not here)
+//   • Static assets (css/js/images/CDN,
+//     INCLUDING the Firebase SDK files) → cache-first (stale-while-revalidate)
+//   • Firebase / Google LIVE DATA calls → never intercepted, goes straight
+//     to network (a cache can't answer "what's in Firestore right now" —
+//     that's handled by Firestore's own offline persistence at the app
+//     level, not here). This is narrower than it looks: it only bypasses
+//     the actual API hosts (firestore.googleapis.com, RTDB, auth token
+//     endpoints), NOT the plain static .js SDK files those APIs ship in.
 //
 // IMPORTANT: bump CACHE_VERSION every time you deploy changes to any
 // precached file, or returning users will keep seeing the old version.
 // ══════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `kanyadet-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `kanyadet-runtime-${CACHE_VERSION}`;
 
@@ -34,22 +38,41 @@ const PRECACHE_URLS = [
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap',
+  // Firebase SDK module files — these are just static JS, same as any
+  // other library. Caching them is what lets the app boot at all while
+  // offline; they are NOT the same thing as live Auth/Firestore/RTDB
+  // calls (those genuinely can't be served from here — see NEVER_INTERCEPT
+  // below, which now only covers the live-data endpoints, not the SDK).
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js',
+  'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js',
 ];
 
-// Domains that must ALWAYS go to the network untouched.
-// (Auth, Firestore, Realtime Database, Google Sign-In popups, etc.)
-const NEVER_INTERCEPT = [
-  'googleapis.com',
-  'firebaseio.com',
-  'firebaseapp.com',
-  'firebase.google.com',
-  'gstatic.com/firebasejs',
-  'accounts.google.com',
-  'identitytoolkit',
+// Hostnames that must ALWAYS go to the network untouched — these serve
+// LIVE data (Auth sessions, Firestore reads/writes, Realtime Database,
+// Google Sign-In) that a cache can never legitimately answer.
+// NOTE: this is deliberately narrow and hostname-exact, not a substring
+// match — a broad substring like "googleapis.com" would also swallow
+// fonts.googleapis.com (a plain, cacheable stylesheet) and
+// www.gstatic.com/firebasejs (the plain, cacheable SDK files), which is
+// exactly what was silently breaking offline boot before.
+const NEVER_INTERCEPT_HOSTS = [
+  'firestore.googleapis.com',
+  'identitytoolkit.googleapis.com',
+  'securetoken.googleapis.com',
+  'www.googleapis.com',
+  'firebaseio.com',            // Realtime Database (matches *.firebaseio.com)
+  'firebasedatabase.app',      // newer RTDB region hosts
+  'firebaseapp.com',           // auth domain / OAuth redirect handling
+  'accounts.google.com',       // Google Sign-In popup/redirect
 ];
 
 function shouldBypass(url) {
-  return NEVER_INTERCEPT.some(d => url.includes(d));
+  let host;
+  try { host = new URL(url).hostname; } catch (e) { return false; }
+  return NEVER_INTERCEPT_HOSTS.some(d => host === d || host.endsWith('.' + d));
 }
 
 // ── INSTALL: precache the app shell ─────────────────────────────
