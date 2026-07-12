@@ -5373,11 +5373,27 @@ function _applyTeacherProfile(data, uid){
       // Quick Links stays advanced-admin-only.
       if(importNav)    importNav.style.display = canImportData ? 'flex' : 'none';
       if(qlinksSection) qlinksSection.style.display = 'none'; // advanced admin only
-      if(reportsNav)  reportsNav.style.display = '';
+      // Report Cards: class teachers only. Being assigned to a grade as a
+      // subject teacher is not enough — this must match _isClassTeacherOfGrade,
+      // i.e. the teacher must be listed in classTeacherGrades for at least
+      // one of their assigned grades.
+      const isClassTeacherOfAny = currentClassTeacherGrades.length > 0;
+      if(reportsNav)  reportsNav.style.display = isClassTeacherOfAny ? '' : 'none';
       if(atriskNav)   atriskNav.style.display = '';
       if(auditNav)    auditNav.style.display  = 'none'; // advanced admin only
       const _alc = document.getElementById('activity-log-card');
       if(_alc) _alc.style.display = 'none'; // advanced admin only
+      // If class-teacher status was just revoked (or was never held) and
+      // they happen to be sitting on the Report Cards view right now, kick
+      // them out immediately rather than leaving stale content on screen
+      // behind a now-hidden nav item.
+      if(!isClassTeacherOfAny){
+        const _activeNow = document.querySelector('.view.active');
+        if(_activeNow && _activeNow.id === 'view-reports'){
+          notify('⛔ Report Cards is only available to class teachers.', 'error', 6000);
+          navTo('dashboard', document.querySelector('.nav-item[data-label="Dashboard"]'));
+        }
+      }
       console.log(`[GradeScope] Teacher scoped to: ${grades.join(', ')}`);
       if(changed){
         _applyGradeScope();
@@ -7377,11 +7393,25 @@ function _getScopedData(){
   return allData.filter(r=>_teacherCanSeeGrade(r['Grade'])).map(r=>({...r}));
 }
 
+/* ── Helper: return allData scoped to ONLY the grades this teacher is
+ *  CLASS TEACHER of — stricter than _getScopedData(), which also includes
+ *  grades they merely teach a subject in. Used exclusively by the Report
+ *  Cards engine, since generating/printing a report card is a class-teacher
+ *  privilege, not a subject-teacher one (matches _isClassTeacherOfGrade,
+ *  same rule already enforced for the nav item and final-submission in
+ *  Quick Entry). Advanced Admins are unrestricted, same as everywhere else. ── */
+function _getClassTeacherScopedData(){
+  if(isAdvancedAdmin) return allData.map(r=>({...r}));
+  return allData.filter(r=>_isClassTeacherOfGrade(r['Grade'])).map(r=>({...r}));
+}
+
 function _bridgeReportCardSystem(){
   try{
     if(typeof studentsData!=='undefined' && typeof allData!=='undefined' && allData.length){
-      // Sync portal data into RC system — scoped to teacher's assigned grades
-      studentsData=_getScopedData();
+      // Sync portal data into RC system — scoped to grades this teacher is
+      // CLASS TEACHER of (stricter than the general assigned-grade scope
+      // used elsewhere, since report cards are a class-teacher privilege).
+      studentsData=_getClassTeacherScopedData();
       // Show controls (RC module hides them on init waiting for auth)
       const ctrl=document.querySelector('.controls');
       if(ctrl) ctrl.style.display='flex';
@@ -10240,6 +10270,12 @@ function navTo(view,el){
   // ── Security: Import Data is gated by the per-teacher canImportData flag ─
   if(!isAdvancedAdmin && !canImportData && view === 'import'){
     notify('⛔ An Advanced Admin has disabled Import Data access for your account.','error',5000);
+    view = 'dashboard';
+    el = document.querySelector('.nav-item[data-label="Dashboard"]');
+  }
+  // ── Security: Report Cards is gated to class teachers only ──────────────
+  if(!isAdvancedAdmin && view === 'reports' && (!currentClassTeacherGrades || !currentClassTeacherGrades.length)){
+    notify('⛔ Report Cards is only available to class teachers.','error',5000);
     view = 'dashboard';
     el = document.querySelector('.nav-item[data-label="Dashboard"]');
   }
@@ -18884,10 +18920,12 @@ document.addEventListener('click', function(e) {
         // (handleSignIn, retries, etc.), only load + toast once per sign-in.
         if (window._rcPortalDataLoaded) return;
 
-        // Copy from the main portal's allData — scoped to teacher's assigned grades
+        // Copy from the main portal's allData — scoped to grades this teacher
+        // is CLASS TEACHER of (report cards are a class-teacher privilege;
+        // matches _getClassTeacherScopedData used by the bridge function).
         if (typeof allData !== 'undefined' && allData.length) {
           window._rcPortalDataLoaded = true;
-          studentsData = (typeof _getScopedData === 'function') ? _getScopedData() : allData.map(r => ({...r}));
+          studentsData = (typeof _getClassTeacherScopedData === 'function') ? _getClassTeacherScopedData() : allData.map(r => ({...r}));
           populateFilters_rc(studentsData);
           buildTermSelector();
           applyFilters();
