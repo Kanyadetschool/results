@@ -3121,6 +3121,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div class="card-title">2️⃣ Enter Scores</div>
             <div style="display:flex;gap:8px;align-items:center">
               <span id="qe-save-status" style="font-size:11px;color:var(--text2)"></span>
+              <span id="qe-final-status" style="font-size:11px;font-weight:700"></span>
               <button class="btn btn-outline btn-sm" id="qe-add-student-btn" onclick="_qeOpenAddStudentModal()">➕ Add Student</button>
               <button class="btn btn-outline btn-sm" id="qe-add-subject-btn" style="display:none" onclick="_qeAddSubjectToSheet()">➕ Add Subject</button>
               <button class="btn btn-green btn-sm" id="qe-submit-btn" onclick="submitQuickEntry()">✅ Submit Final to Database</button>
@@ -4130,6 +4131,9 @@ let canImportData = true;        // per-teacher Import Data permission (Advanced
                                   // via users/{uid}.canImportData === false in Firestore)
 let currentAssignedGrade = null; // null = see all; "__NONE__" = no grades assigned
 let currentAssignedGrades = []; // array of assigned grades for multi-class teachers
+let currentClassTeacherGrades = []; // subset of grades where this teacher IS the Class Teacher
+                                     // (final-submission authority in Quick Entry), distinct from
+                                     // merely being assigned to teach a subject in that grade.
 let currentAssignedSubjects = {}; // { [grade]: [subject,...] } — which subjects this teacher
                                    // may enter scores for, PER grade. A grade missing from this
                                    // map (or an empty array) means "no subject restriction yet
@@ -5186,6 +5190,7 @@ function _cacheTeacherProfile(uid, data){
       assignedGrades: Array.isArray(data.assignedGrades) ? data.assignedGrades : [],
       assignedGrade: data.assignedGrade || '',
       assignedSubjects: (data.assignedSubjects && typeof data.assignedSubjects === 'object') ? data.assignedSubjects : {},
+      classTeacherGrades: Array.isArray(data.classTeacherGrades) ? data.classTeacherGrades : [],
       cachedAt: Date.now()
     }));
   }catch(e){ /* localStorage full/blocked — silently ignore, not critical */ }
@@ -5296,6 +5301,7 @@ function _applyTeacherProfile(data, uid){
     currentAssignedGrade = null;
     currentAssignedGrades = [];
     currentAssignedSubjects = {};
+    currentClassTeacherGrades = []; // Advanced Admins bypass the class-teacher check entirely (see _isClassTeacherOfGrade)
     // Restore every nav item and section label (teacher view hides them all)
     document.querySelectorAll('.nav-item').forEach(item => item.style.display = '');
     document.querySelectorAll('.s-label').forEach(el => el.style.display = '');
@@ -5329,6 +5335,7 @@ function _applyTeacherProfile(data, uid){
       grades = [data.assignedGrade.trim()];
     }
     currentAssignedSubjects = (data.assignedSubjects && typeof data.assignedSubjects === 'object') ? data.assignedSubjects : {};
+    currentClassTeacherGrades = Array.isArray(data.classTeacherGrades) ? data.classTeacherGrades.map(g=>g.trim()).filter(Boolean) : [];
 
     const prevGrade  = currentAssignedGrade;
     const prevGrades = currentAssignedGrades.join(',');
@@ -5426,6 +5433,20 @@ function _teacherCanEnterSubject(grade, subject){
   const list = currentAssignedSubjects && currentAssignedSubjects[g];
   if(!Array.isArray(list) || !list.length) return true; // not locked down for this grade
   return list.includes(subject);
+}
+
+/* ─── Helper: is the current user the CLASS TEACHER of this grade — i.e.
+ *  do they hold final-submission authority in Quick Entry for it? Advanced
+ *  Admins always do (same override pattern as every other permission check
+ *  in this file). A grade with NO class teacher assigned yet is treated as
+ *  locked (nobody can final-submit) rather than open, since final
+ *  submission is a one-way "publish to the official record" action —
+ *  unlike subject entry, which defaults permissive when unconfigured. ── */
+function _isClassTeacherOfGrade(grade){
+  if(isAdvancedAdmin) return true;
+  if(!grade) return false;
+  const g = gShort ? gShort(grade) : grade;
+  return (currentClassTeacherGrades||[]).some(cg => (gShort ? gShort(cg) : cg) === g);
 }
 
 /* ─── Banner telling teacher which grade(s) they see (auto-dismisses) ────── */
@@ -6627,7 +6648,7 @@ function _renderGradeAssignmentPanel(){
       <button class="btn btn-outline btn-sm" onclick="loadGradeAssignments()">🔄 Refresh</button>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8;padding:10px 14px;background:rgba(41,128,185,.06);border-radius:var(--radius-md);border:1px solid var(--border)">
-      Assign each teacher to one or more grades. Teachers will only see students from their assigned grades across the entire portal. Optionally, tick specific subjects under a grade to limit that teacher to entering scores only for those subjects in that class (leave none ticked for full access to every subject in that grade). Only Advanced Admins can change these assignments.
+      Assign each teacher to one or more grades. Teachers will only see students from their assigned grades across the entire portal. Optionally, tick specific subjects under a grade to limit that teacher to entering scores only for those subjects in that class (leave none ticked for full access to every subject in that grade). Tick <strong>👑 Class Teacher</strong> under a grade to give that teacher sole final-submission authority in Quick Entry for it — other teachers assigned there can still enter scores, but only the Class Teacher (or an Advanced Admin) can submit them to the official record, and only once every score in the sheet is filled in. <em>Assign only one Class Teacher per grade</em> — this isn't enforced automatically. Only Advanced Admins can change these assignments.
     </p>
     <div id="grade-assignments-list">
       <p style="font-size:12px;color:var(--text3)">Loading accounts…</p>
@@ -6693,6 +6714,7 @@ window.loadGradeAssignments = async function(){
           if(Array.isArray(u.assignedGrades) && u.assignedGrades.length) currentGrades = u.assignedGrades;
           else if(u.assignedGrade) currentGrades = [u.assignedGrade];
           const currentSubjects = (u.assignedSubjects && typeof u.assignedSubjects === 'object') ? u.assignedSubjects : {};
+          const classTeacherGrades = Array.isArray(u.classTeacherGrades) ? u.classTeacherGrades : [];
 
           const checkboxes = allGrades.map((g,gi)=>`
             <label class="tac-chk-label">
@@ -6714,6 +6736,10 @@ window.loadGradeAssignments = async function(){
               : `<span style="font-size:11px;color:var(--text3)">No subjects found yet for ${g}.</span>`;
             return `
               <div class="tac-subj-panel" id="subj-panel-${u.uid}-${gi}" style="display:${currentGrades.includes(g)?'block':'none'}">
+                <label class="tac-chk-label" style="margin-bottom:8px;background:rgba(243,156,18,.12);border-color:var(--orange)">
+                  <input type="checkbox" class="ct-chk-${u.uid}-${gi}" value="${g}" ${classTeacherGrades.includes(g)?'checked':''}>
+                  👑 Class Teacher of ${g} — can do final submission in Quick Entry
+                </label>
                 <div class="tac-label" style="margin-top:6px">${g} subjects (none ticked = full access)</div>
                 <div class="tac-grades">${subjChecks}</div>
               </div>`;
@@ -6768,15 +6794,18 @@ window.saveGradeAssignment = async function(uid){
   // assigned grade with nothing ticked stays fully open, same permissive
   // default as before this feature existed).
   const assignedSubjects = {};
+  const classTeacherGrades = [];
   gradeCheckboxes.forEach((gc, gi)=>{
     if(!gc.checked) return;
     const subjSel = [...document.querySelectorAll(`.subj-chk-${uid}-${gi}:checked`)].map(c=>c.value);
     if(subjSel.length) assignedSubjects[gc.value] = subjSel;
+    const ctChk = document.querySelector(`.ct-chk-${uid}-${gi}`);
+    if(ctChk && ctChk.checked) classTeacherGrades.push(gc.value);
   });
 
   try{
     const {doc, getDoc, updateDoc} = window._fb;
-    const updatePayload = { assignedGrades: checked, assignedGrade: checked[0] || '', assignedSubjects };
+    const updatePayload = { assignedGrades: checked, assignedGrade: checked[0] || '', assignedSubjects, classTeacherGrades };
     if(typeof updateDoc === 'function'){
       await updateDoc(doc(firestoreDb,'users',uid), updatePayload);
     } else {
@@ -6789,7 +6818,8 @@ window.saveGradeAssignment = async function(uid){
     const subjLabel = Object.keys(assignedSubjects).length
       ? Object.entries(assignedSubjects).map(([g,ss])=>`${g}: ${ss.join('/')}`).join('; ')
       : 'full subject access on every assigned grade';
-    notify(`✅ Grades saved: ${label} (${subjLabel})`,'success');
+    const ctLabel = classTeacherGrades.length ? ` · 👑 Class Teacher of ${classTeacherGrades.join(', ')}` : '';
+    notify(`✅ Grades saved: ${label} (${subjLabel})${ctLabel}`,'success');
     // Fetch email from Firestore doc for readable audit log
     try{
       const snap2 = await window._fb.getDoc(window._fb.doc(firestoreDb,'users',uid));
@@ -14329,6 +14359,7 @@ function renderQuickEntryTable(draftScores, locked){
       if(inp.value !== '') _qeValidateScoreInput(inp);
     });
   }
+  _qeUpdateFinalSubmitStatus();
 }
 
 /** Advanced Admin only, pending exams only — drops a subject column that was
@@ -14591,6 +14622,7 @@ function _qeOnScoreInput(inputEl){
   const statusEl = document.getElementById('qe-save-status');
   if(statusEl) statusEl.textContent = '✏️ Editing…';
   _qeSaveTimer = setTimeout(_qeSaveDraft, 1200);
+  _qeUpdateFinalSubmitStatus();
 }
 window._qeOnScoreInput = _qeOnScoreInput;
 
@@ -14658,11 +14690,78 @@ function _qeCollectScores(){
   return scores;
 }
 
+/** Counts empty score cells across the ENTIRE sheet (every student ×
+ *  every subject column), including cells disabled for this particular
+ *  teacher's subject permissions — those still carry real DB values when
+ *  filled, so an empty one genuinely means "nobody has entered this yet",
+ *  which is exactly what final submission needs to catch. */
+function _qeCountMissingScores(){
+  const cells = document.querySelectorAll('#qe-tbody input[data-student]');
+  let missing = 0;
+  cells.forEach(inp=>{ if(inp.value.trim()==='') missing++; });
+  return { missing, total: cells.length };
+}
+
+/** Keeps the "✅ Submit Final to Database" button and its status hint in
+ *  sync with (a) whether this user holds Class Teacher authority for the
+ *  currently loaded grade, and (b) whether every score cell is filled in.
+ *  Advanced Admins bypass both checks (see _isClassTeacherOfGrade). Called
+ *  after every render and on every keystroke so the button never goes
+ *  stale mid-session. */
+function _qeUpdateFinalSubmitStatus(){
+  const btn = document.getElementById('qe-submit-btn');
+  const hint = document.getElementById('qe-final-status');
+  if(!btn) return;
+  if(!_qeStudents.length || _qeLocked){ if(hint) hint.textContent=''; return; } // other guards already handle these states
+
+  const isCT = _isClassTeacherOfGrade(_qeGrade || gShort(_qeCompound));
+  if(!isCT){
+    btn.disabled = true;
+    btn.title = `🔒 Only the Class Teacher of ${_qeGrade || gShort(_qeCompound)} can submit final scores. You can still enter scores — they'll be saved and ready for the Class Teacher to submit.`;
+    if(hint){ hint.textContent = '🔒 Class Teacher only'; hint.style.color = 'var(--text3)'; }
+    return;
+  }
+
+  const { missing, total } = _qeCountMissingScores();
+  if(total > 0 && missing > 0){
+    btn.disabled = true;
+    btn.title = `🔒 ${missing} of ${total} score(s) are still empty. Every field must have a score before final submission.`;
+    if(hint){ hint.textContent = `🔒 ${missing} score${missing===1?'':'s'} missing`; hint.style.color = 'var(--red)'; }
+    return;
+  }
+
+  btn.disabled = false;
+  btn.title = '';
+  if(hint){ hint.textContent = total ? '✅ All scores complete' : ''; hint.style.color = 'var(--green)'; }
+}
+
 /** Commit all entered scores to the real database, one record per student.
  *  Updates an existing record for that student+exam if one already exists,
  *  otherwise creates a new one. Clears the draft on success. */
 async function submitQuickEntry(){
   if(!_qeStudents.length){ notify('Load students first.','warn'); return; }
+
+  // ── Class Teacher gate — only the designated Class Teacher for this grade
+  // (or an Advanced Admin) may perform FINAL submission. Anyone else can
+  // still fill in scores; the sheet just won't publish under them. ────────
+  const gradeForCT = _qeGrade || gShort(_qeCompound);
+  if(!_isClassTeacherOfGrade(gradeForCT)){
+    notify(`🔒 Only the Class Teacher of <strong>${gradeForCT}</strong> can submit final scores. Your entries are saved — ask the Class Teacher (or an Advanced Admin) to finalize.`,'error',7000);
+    return;
+  }
+
+  // ── Completeness gate — every score cell in the sheet must be filled in
+  // before the Class Teacher can finalize. Advanced Admins bypass this too
+  // (via _isClassTeacherOfGrade short-circuit above never reaching here as
+  // a non-CT, but they still get the same completeness requirement when
+  // acting as the Class Teacher, to keep "final" meaning complete). ──────
+  const { missing, total } = _qeCountMissingScores();
+  if(total > 0 && missing > 0){
+    notify(`⚠️ ${missing} of ${total} score(s) are still empty. All fields must have a score before final submission.`,'error',7000);
+    const firstEmpty = [...document.querySelectorAll('#qe-tbody input[data-student]')].find(inp=>inp.value.trim()==='');
+    if(firstEmpty){ firstEmpty.focus(); firstEmpty.scrollIntoView({behavior:'smooth', block:'center'}); }
+    return;
+  }
 
   // ── Hard block: any score currently flagged out-of-range must be fixed
   // before submitting — no more silently dropping bad values at write time.
@@ -14828,6 +14927,8 @@ function _qeResetToDefault(){
   if(tableCard) tableCard.style.display = 'none';
   const statusEl = document.getElementById('qe-save-status');
   if(statusEl) statusEl.textContent = '';
+  const finalStatusEl = document.getElementById('qe-final-status');
+  if(finalStatusEl) finalStatusEl.textContent = '';
   ['qe-offline-banner','qe-draft-banner','qe-lock-banner'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.style.display = 'none';
