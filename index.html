@@ -6628,7 +6628,7 @@ function profSetStatus(elId, msg, type){
 
 async function doSignOut(){
   if(typeof _qeStopPresence === 'function') _qeStopPresence();
-  if(typeof _qeStopWatchingViewedDraft === 'function') _qeStopWatchingViewedDraft();
+  if(typeof _qeStopWatchingSharedDraft === 'function') _qeStopWatchingSharedDraft();
   isAdvancedAdmin = false;
   currentAssignedGrade = null;
   currentAssignedGrades = [];
@@ -9729,7 +9729,7 @@ function navTo(view,el){
   const _prevActiveView = document.querySelector('.view.active');
   if(_prevActiveView && _prevActiveView.id === 'view-quickentry' && view !== 'quickentry'){
     if(typeof _qeStopPresence === 'function') _qeStopPresence();
-    if(typeof _qeStopWatchingViewedDraft === 'function') _qeStopWatchingViewedDraft();
+    if(typeof _qeStopWatchingSharedDraft === 'function') _qeStopWatchingSharedDraft();
   }
   // ── Security: unassigned users may ONLY see their profile ──────────────
   const isUnassigned = !isAdvancedAdmin &&
@@ -12621,7 +12621,15 @@ window.downloadResultsTemplate = function(){
    FEATURE: QUICK ENTRY MODE (single-page score entry, no Excel round-trip)
    + PARTIAL-SAVE DRAFTS (autosave in-progress entry to Firebase, resume later)
 ══════════════════════════════════════════ */
-const QE_DRAFTS_PATH = 'quickEntryDrafts'; // {teacherUid}/{sanitizedCompoundKey} -> {compound,grade,scores:{studentKey:{subj:val}},updatedAt}
+// SHARED, Google-Sheets-style draft: one collaborative draft PER EXAM, keyed
+// cell-by-cell (student × subject), not per-teacher. Every teacher/admin who
+// opens the same grade/exam reads and writes this exact same node, so
+// everyone always sees "where all teachers left off" — not just their own
+// isolated draft. Path: {sanitizedCompoundKey}/{studentKey}/{subject} ->
+// {v, by, byUid, t}. Writing happens as targeted multi-path updates touching
+// ONLY the cell(s) just edited, so Teacher A saving doesn't clobber Teacher
+// B's simultaneous edit to a different cell (each cell carries its own `t`).
+const QE_DRAFTS_PATH = 'quickEntrySharedDrafts';
 let _qeStudents = [];      // students loaded for the current grade+exam
 let _qeSubjects = [];      // subject columns for the current grade
 let _qeCompound  = '';     // the full compound Grade string (exam identity)
@@ -12630,9 +12638,17 @@ let _qeSaveTimer = null;
 let _qeLocked    = false;  // true when the currently loaded exam is term-locked (view-only)
 let _qeWasPending = false; // true when the loaded exam had zero records yet (first-time entry) —
                             // used to prompt an extra "no mistakes?" confirmation before submit
-let _qeDirtyCells = new Set(); // 'studentKey||subject' cells the user has typed into locally since
-                                // load, but not yet submitted — protected from being overwritten by
-                                // an incoming realtime update from another device.
+let _qeDirtyCells = new Set();  // 'studentKey||subject' cells the user has typed into locally since
+                                 // load, but not yet submitted — protected from being overwritten by
+                                 // an incoming realtime update from another device.
+let _qePendingCells = new Set(); // subset of cells changed since the LAST successful save — this is
+                                  // what actually gets written (as a multi-path update) next autosave,
+                                  // so the write only ever touches cells this device actually changed.
+
+// Encodes a piece of a Firebase RTDB path segment (student key / subject name)
+// so it can never collide with '.', '#', '$', '[', ']', or '/', all of which
+// are illegal inside an RTDB key.
+function _qeFbKey(s){ return encodeURIComponent(String(s)).replace(/\./g, '%2E'); }
 
 /* ── OFFLINE SUPPORT (Google-Sheets-style) ───────────────────────────────────
    Quick Entry keeps working with no internet connection at all: every
@@ -12645,28 +12661,77 @@ let _qeDirtyCells = new Set(); // 'studentKey||subject' cells the user has typed
    submitted to the real database this way; it only reaches the DRAFTS node,
    exactly like a normal autosave, and still needs "Submit Final to Database"
    (which itself requires being online) to become real scores. ────────────── */
+// Keyed by exam (draftKey) ONLY, not by teacher uid — the draft itself is now
+// shared/collaborative, so this device's offline mirror should reflect "the
+// exam's draft as last known on this device", regardless of who's typing.
 const QE_LS_PREFIX = 'kss_qe_offline_';
-function _qeLocalKey(uid, draftKey){ return `${QE_LS_PREFIX}${uid}::${draftKey}`; }
-function _qeReadLocalDraft(uid, draftKey){
+function _qeLocalKey(draftKey){ return `${QE_LS_PREFIX}${draftKey}`; }
+function _qeReadLocalDraft(draftKey){
   try{
-    const raw = localStorage.getItem(_qeLocalKey(uid, draftKey));
+    const raw = localStorage.getItem(_qeLocalKey(draftKey));
     return raw ? JSON.parse(raw) : null;
   }catch(e){ return null; }
 }
-function _qeWriteLocalDraft(uid, draftKey, payload){
-  try{ localStorage.setItem(_qeLocalKey(uid, draftKey), JSON.stringify(payload)); }
+function _qeWriteLocalDraft(draftKey, payload){
+  try{ localStorage.setItem(_qeLocalKey(draftKey), JSON.stringify(payload)); }
   catch(e){ /* storage full/unavailable — Firebase write (if online) still goes ahead */ }
 }
-function _qeClearLocalDraft(uid, draftKey){
-  try{ localStorage.removeItem(_qeLocalKey(uid, draftKey)); }catch(e){}
+function _qeClearLocalDraft(draftKey){
+  try{ localStorage.removeItem(_qeLocalKey(draftKey)); }catch(e){}
 }
 
-/** Pushes every locally-queued, not-yet-synced draft on this device to
- *  Firebase. Runs automatically whenever the browser comes back online, and
- *  once on page load in case drafts were left queued from a prior offline
- *  session that was closed before reconnecting. */
+/** Builds a Firebase multi-path update object writing every cell in `scores`
+ *  ({studentKey:{subject:value}}) into the SHARED draft node for `examKey`,
+ *  each cell stamped with its own `t`/`by`/`byUid` — this is the mechanism
+ *  that lets two teachers' concurrent edits to different cells merge without
+ *  clobbering each other (last-write-wins happens per-cell, not per-object).
+ *  Pass `onlyCells` (a Set of 'studentKey||subject') to restrict the write to
+ *  just those cells; omit it to write every cell currently in `scores`. */
+function _qeBuildSharedDraftUpdates(examKey, scores, {onlyCells=null, updatedAt=Date.now()}={}){
+  const myUid = window._currentUser?.uid || 'anon';
+  const myName = currentAdminName || window._currentUser?.name || 'Teacher';
+  const updates = {};
+  const cellKeys = onlyCells ? [...onlyCells] : Object.keys(scores).flatMap(k=>Object.keys(scores[k]||{}).map(s=>_qeCellKey(k,s)));
+  cellKeys.forEach(ck=>{
+    const sep = ck.indexOf('||');
+    if(sep < 0) return;
+    const studentKey = ck.slice(0, sep), subj = ck.slice(sep+2);
+    const val = scores[studentKey] ? scores[studentKey][subj] : undefined;
+    const path = `${QE_DRAFTS_PATH}/${examKey}/${_qeFbKey(studentKey)}/${_qeFbKey(subj)}`;
+    updates[path] = (val === undefined || val === '')
+      ? null // clearing a cell removes it from the shared draft too
+      : { v: val, by: myName, byUid: myUid, t: updatedAt };
+  });
+  return updates;
+}
+
+/** Reads the whole shared draft for an exam and flattens it back into the
+ *  {studentKey:{subject:value}} shape the rest of Quick Entry expects, plus
+ *  the most recent edit's time/author for the "restored draft" banner. */
+function _qeFlattenSharedDraft(raw){
+  const scores = {};
+  let latestT = null, latestBy = null;
+  if(raw) Object.keys(raw).forEach(encStudent=>{
+    const studentKey = decodeURIComponent(encStudent);
+    const subjNode = raw[encStudent] || {};
+    Object.keys(subjNode).forEach(encSubj=>{
+      const cell = subjNode[encSubj];
+      if(!cell || cell.v === undefined) return;
+      const subj = decodeURIComponent(encSubj);
+      if(!scores[studentKey]) scores[studentKey] = {};
+      scores[studentKey][subj] = cell.v;
+      if(!latestT || (cell.t||0) > latestT){ latestT = cell.t||null; latestBy = cell.by||null; }
+    });
+  });
+  return { scores, latestT, latestBy };
+}
+
+/** Pushes every locally-queued, not-yet-synced draft on this device to the
+ *  SHARED draft node. Runs automatically whenever the browser comes back
+ *  online, and once on page load in case drafts were left queued from a
+ *  prior offline session that was closed before reconnecting. */
 async function _qeSyncPendingLocalDrafts(){
-  if(!navigator.onLine || !window._fb || !window._fb.ref || !window._fb.set) return;
+  if(!navigator.onLine || !window._fb || !window._fb.ref || !window._fb.update) return;
   const pending = [];
   for(let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i);
@@ -12676,17 +12741,13 @@ async function _qeSyncPendingLocalDrafts(){
   }
   if(!pending.length) return;
 
-  const {ref, set} = window._fb;
+  const {ref, update} = window._fb;
   let synced = 0;
   for(const {key, obj} of pending){
     try{
-      const rest = key.slice(QE_LS_PREFIX.length);
-      const sep = rest.indexOf('::');
-      if(sep < 0) continue;
-      const uid = rest.slice(0, sep), draftKey = rest.slice(sep+2);
-      await set(ref(db, `${QE_DRAFTS_PATH}/${uid}/${draftKey}`), {
-        grade: obj.grade, compound: obj.compound, scores: obj.scores, updatedAt: obj.updatedAt
-      });
+      const examKey = key.slice(QE_LS_PREFIX.length);
+      const updates = _qeBuildSharedDraftUpdates(examKey, obj.scores||{}, {updatedAt: obj.updatedAt});
+      if(Object.keys(updates).length) await update(ref(db), updates);
       obj.pendingSync = false;
       localStorage.setItem(key, JSON.stringify(obj));
       synced++;
@@ -12960,16 +13021,11 @@ let _qeHeartbeatTimer = null;
 let _qeActiveSessions = {};   // flattened: { "uid|compound": {name,uid,grade,compound,startedAt,lastActive} }
 let _qeActiveSessionsUnsub = null;
 
-// ── Advanced Admin "viewing someone else's live sheet" state ───────────────
-// Set by _qeJumpToSession when an admin opens another teacher's session from
-// the Live Editors modal. The sheet then loads read-only, populated from that
-// teacher's actual in-progress DRAFT (not just submitted records — this is
-// the fix for admin/teacher seeing different data on the same "synced" sheet:
-// drafts are stored per-uid, so without this the admin was always reading
-// their OWN empty draft instead of the teacher's).
-let _qeViewingSession = null;        // {uid, name, compound} or null
-let _qeViewingDraftUnsub = null;     // live listener on that teacher's draft
-let _qeLastViewedDraftScores = {};   // most recent snapshot from that listener
+// Live listener on the SHARED draft node for whichever exam is currently
+// open on this device — every teacher/admin editing the same grade/exam
+// gets the same node patched into their table in real time, Google-Sheets
+// style, no separate "read-only viewing" mode needed.
+let _qeSharedDraftUnsub = null;
 
 /** Start (or move) this device's presence entry to the given exam. Advanced
  *  Admins don't announce themselves here — this tracks TEACHERS actually
@@ -13089,12 +13145,12 @@ function _qeRenderLiveSessionsList(){
   }).join('');
 }
 
-/** Advanced Admin clicked a live session — loads that grade/exam straight
- *  into their own Quick Entry sheet, read-only, populated live from that
- *  teacher's actual in-progress draft (not just already-submitted scores). */
+/** Advanced Admin clicked a live session — jumps straight into that same
+ *  grade/exam's Quick Entry sheet as a normal, fully-editable collaborator
+ *  (Google Sheets style: whoever opens a sheet joins the same shared draft,
+ *  no separate read-only "viewing" mode needed). */
 function _qeJumpToSession(compound, grade, uid, name){
   _qeCloseLiveSessionsModal();
-  _qeViewingSession = uid ? {uid, name: name||'Teacher', compound} : null;
   navTo('quickentry', document.querySelector('.nav-item[data-label="Quick Entry"]'));
   setTimeout(()=>{
     const gradeEl = document.getElementById('qe-grade');
@@ -13108,51 +13164,36 @@ function _qeJumpToSession(compound, grade, uid, name){
 }
 window._qeJumpToSession = _qeJumpToSession;
 
-/** Live listener on the viewed teacher's actual draft node — patches the
- *  read-only sheet as they type (their autosave fires ~1.2s after each
- *  pause), so what the admin sees really is "live", not a one-time snapshot
- *  taken at click time. */
-function _qeWatchViewedDraft(uid, compound){
-  _qeStopWatchingViewedDraftListenerOnly();
+/** Live listener on the SHARED draft node for the given exam — patches every
+ *  incoming cell change (from ANY teacher/admin editing the same sheet, on
+ *  any device) straight into this device's table, ~1.2s after their autosave
+ *  fires. Cells this device is actively typing into or has unsaved edits in
+ *  (_qeDirtyCells) are left alone, exactly like the submitted-scores sync,
+ *  so nobody's in-progress typing gets clobbered mid-edit. */
+function _qeWatchSharedDraft(examKey){
+  _qeStopWatchingSharedDraft();
   const { ref: fref, onValue: fonValue } = window._fb;
-  const draftKey = encodeURIComponent(compound);
-  _qeViewingDraftUnsub = fonValue(fref(db, `${QE_DRAFTS_PATH}/${uid}/${draftKey}`), (snap)=>{
-    if(!_qeViewingSession || _qeViewingSession.uid !== uid || _qeViewingSession.compound !== compound) return;
-    const d = snap.val();
-    _qeLastViewedDraftScores = (d && d.scores) || {};
+  _qeSharedDraftUnsub = fonValue(fref(db, `${QE_DRAFTS_PATH}/${examKey}`), (snap)=>{
+    const { scores: draftScores, latestBy } = _qeFlattenSharedDraft(snap.val());
     const existing = _qeGetExistingScores();
     const merged = {};
     Object.keys(existing).forEach(k=>merged[k]={...existing[k]});
-    Object.keys(_qeLastViewedDraftScores).forEach(k=>merged[k]={...(merged[k]||{}), ...(_qeLastViewedDraftScores[k]||{})});
-    const touched = _qePatchScoresIntoTable(merged, {protect:false});
+    Object.keys(draftScores).forEach(k=>merged[k]={...(merged[k]||{}), ...draftScores[k]});
+    const touched = _qePatchScoresIntoTable(merged, {protect:true});
     const statusEl = document.getElementById('qe-save-status');
-    if(statusEl && touched) statusEl.innerHTML = `👀 Live — updated ${new Date().toLocaleTimeString()}`;
+    if(statusEl && touched && !/Editing/.test(statusEl.textContent)){
+      statusEl.innerHTML = `🔄 ${touched} score${touched>1?'s':''} synced${latestBy?` — ${latestBy}`:''} ${new Date().toLocaleTimeString()}`;
+    }
   }, ()=>{ /* offline — sheet just stops live-updating, non-critical */ });
 }
-window._qeWatchViewedDraft = _qeWatchViewedDraft;
+window._qeWatchSharedDraft = _qeWatchSharedDraft;
 
-// Detaches the RTDB listener only, without clearing _qeViewingSession —
-// used internally when (re)attaching for a fresh uid/compound.
-function _qeStopWatchingViewedDraftListenerOnly(){
-  if(_qeViewingDraftUnsub){ try{ _qeViewingDraftUnsub(); }catch(e){} _qeViewingDraftUnsub = null; }
+/** Detaches the shared-draft listener — called when leaving the sheet,
+ *  navigating away, switching exams, or after a successful submit. */
+function _qeStopWatchingSharedDraft(){
+  if(_qeSharedDraftUnsub){ try{ _qeSharedDraftUnsub(); }catch(e){} _qeSharedDraftUnsub = null; }
 }
-
-/** Full stop: detach the listener AND clear viewing state — called when
- *  leaving the sheet, navigating away, or explicitly clicking "Stop viewing". */
-function _qeStopWatchingViewedDraft(){
-  _qeStopWatchingViewedDraftListenerOnly();
-  _qeViewingSession = null;
-  _qeLastViewedDraftScores = {};
-}
-window._qeStopWatchingViewedDraft = _qeStopWatchingViewedDraft;
-
-/** "✕ Stop viewing" button in the viewing banner — drops back to a normal,
- *  editable Quick Entry sheet for whatever's still selected in the pickers. */
-function _qeStopViewingSession(){
-  _qeStopWatchingViewedDraft();
-  loadQuickEntry();
-}
-window._qeStopViewingSession = _qeStopViewingSession;
+window._qeStopWatchingSharedDraft = _qeStopWatchingSharedDraft;
 
 async function loadQuickEntry(){
   const gradeEl = document.getElementById('qe-grade');
@@ -13165,19 +13206,13 @@ async function loadQuickEntry(){
   const lockData = _lockedTerms[_lockKeyFor(selCompound)];
   const locked = !!(lockData && lockData.locked);
   _qeLocked = locked;
+  const viewOnly = locked;
 
-  // ── Advanced Admin viewing another teacher's live session? ───────────────
-  // Only honored if it still matches what's actually selected — picking a
-  // different exam manually (instead of via the Live Editors modal) drops it.
-  if(_qeViewingSession && _qeViewingSession.compound !== selCompound){
-    _qeStopWatchingViewedDraft();
-  }
-  const viewingSession = _qeViewingSession;
-  const viewOnly = locked || !!viewingSession;
-
+  _qeStopWatchingSharedDraft(); // drop any listener from a previously-open sheet
   _qeGrade = selGrade;
   _qeCompound = selCompound;
-  _qeDirtyCells = new Set(); // fresh sheet load — nothing unsaved yet
+  _qeDirtyCells = new Set();   // fresh sheet load — nothing unsaved yet
+  _qePendingCells = new Set(); // nothing queued to write yet either
 
   // ── Build raw student roster ──────────────────────────────────────────────
   // Assessment No is the true unique identifier at this school (most students
@@ -13239,38 +13274,25 @@ async function loadQuickEntry(){
   // instead of a blank sheet.
   const existingScores = _qeGetExistingScores();
 
-  // ── Check for a saved draft to restore in-progress scores (unlocked only —
-  // a locked exam is view-only, so there's nothing to resume editing). ──────
-  // Offline-first: a not-yet-synced local draft (typed while offline) always
-  // wins over the server copy, since it's the most recent thing the user
-  // actually entered. If we're offline and there's no pending edit, fall
-  // back to whatever was last mirrored locally so the sheet still opens
-  // fully populated with no connection at all.
+  // ── Check for a saved SHARED draft to restore in-progress scores (unlocked
+  // only — a locked exam is view-only, so there's nothing to resume editing).
+  // This is the Google-Sheets-style collaborative draft: every teacher/admin
+  // who has ever typed into this exam writes into the SAME node, so whatever
+  // is restored here reflects "where all teachers left off", not just this
+  // one device's own history.
   //
-  // Viewing someone else's live session (Advanced Admin, from the Live
-  // Editors modal) is different: there's no "my local draft" to consider —
-  // we always read straight from THAT teacher's own draft node on the
-  // server, which is the actual root-cause fix for admin/teacher seeing
-  // different data on a sheet that says "synced": drafts are stored per-uid,
-  // so without this the admin was always reading their own empty draft.
+  // Offline-first: a not-yet-synced local mirror (typed while offline) always
+  // wins over the server copy, since it's the most recent thing THIS device
+  // actually entered and the server hasn't seen it yet. If we're offline and
+  // there's no pending edit, fall back to whatever was last mirrored locally
+  // so the sheet still opens fully populated with no connection at all.
+  const draftKey = encodeURIComponent(selCompound);
   let draftScores = {};
   let draftTime = null;
+  let draftBy = null;
   let draftFromLocalOnly = false;
-  if(viewingSession){
-    try{
-      const {ref, get} = window._fb;
-      const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${viewingSession.uid}/${encodeURIComponent(selCompound)}`));
-      if(snap.exists()){
-        const d = snap.val();
-        draftScores = d.scores || {};
-        draftTime = d.updatedAt || null;
-        _qeLastViewedDraftScores = draftScores;
-      }
-    }catch(e){ /* they may not have typed anything yet — sheet just shows submitted scores */ }
-  } else if(!locked){
-    const myUid = window._currentUser?.uid || 'anon';
-    const draftKey = encodeURIComponent(selCompound);
-    const localDraft = _qeReadLocalDraft(myUid, draftKey);
+  if(!locked){
+    const localDraft = _qeReadLocalDraft(draftKey);
 
     if(localDraft && localDraft.pendingSync){
       draftScores = localDraft.scores || {};
@@ -13279,12 +13301,11 @@ async function loadQuickEntry(){
     } else if(navigator.onLine){
       try{
         const {ref, get} = window._fb;
-        const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`));
-        if(snap.exists()){
-          const d = snap.val();
-          draftScores = d.scores || {};
-          draftTime = d.updatedAt || null;
-        }
+        const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${draftKey}`));
+        const flat = _qeFlattenSharedDraft(snap.exists() ? snap.val() : null);
+        draftScores = flat.scores;
+        draftTime = flat.latestT;
+        draftBy = flat.latestBy;
       }catch(e){ /* no draft, or a network blip — fall through to local mirror below */ }
     }
     if(!draftTime && localDraft){
@@ -13307,32 +13328,27 @@ async function loadQuickEntry(){
   const submitBtn = document.getElementById('qe-submit-btn');
   const statusEl = document.getElementById('qe-save-status');
 
-  if(viewingSession){
-    lockBanner.style.display = 'block';
-    lockBanner.innerHTML = `👀 Viewing <strong>${viewingSession.name}</strong>'s live sheet for "${selCompound}" — read-only, updates automatically as they type. <button class="btn btn-outline btn-sm" style="margin-left:8px" onclick="_qeStopViewingSession()">✕ Stop viewing</button>`;
-    banner.style.display = 'none';
-    if(submitBtn) submitBtn.style.display = 'none';
-    if(statusEl) statusEl.textContent = '';
-    _qeWatchViewedDraft(viewingSession.uid, selCompound);
-  } else if(locked){
-    _qeStopWatchingViewedDraft();
+  if(locked){
     lockBanner.style.display = 'block';
     lockBanner.innerHTML = `🔒 "${selCompound}" is locked. Scores are shown for viewing only — ask an Advanced Admin to unlock it before editing.`;
     banner.style.display = 'none';
     if(submitBtn) submitBtn.style.display = 'none';
     if(statusEl) statusEl.textContent = '';
   } else {
-    _qeStopWatchingViewedDraft();
     lockBanner.style.display = 'none';
     if(submitBtn) submitBtn.style.display = '';
     if(draftTime){
       banner.style.display='block';
+      const byWho = draftBy && !draftFromLocalOnly ? ` by <strong>${draftBy}</strong>` : '';
       banner.innerHTML = draftFromLocalOnly
         ? `📴 Restored your <strong>offline</strong> draft from <strong>${new Date(draftTime).toLocaleString()}</strong> (not yet synced) — keep entering scores below.`
-        : `📝 Restored your unsaved draft from <strong>${new Date(draftTime).toLocaleString()}</strong> — keep entering scores below.`;
+        : `📝 Restored the shared draft — last edited${byWho} at <strong>${new Date(draftTime).toLocaleString()}</strong>. Keep entering scores below; every teacher on this exam sees the same live sheet.`;
     } else {
       banner.style.display='none';
     }
+    // Live collaborative sync — patches in cell changes from any other
+    // teacher/admin editing this exact same exam, in real time.
+    _qeWatchSharedDraft(draftKey);
   }
 
   _qeUpdateOnlineBanner();
@@ -13341,8 +13357,7 @@ async function loadQuickEntry(){
   document.getElementById('qe-table-card').style.display='block';
 
   // Announce presence to Advanced Admins (only meaningful for an actually
-  // editable sheet — a locked exam, or merely watching someone else's, isn't
-  // "being worked on" by this device).
+  // editable sheet — a locked exam isn't "being worked on" by this device).
   if(viewOnly) _qeStopPresence(); else _qeStartPresence(selCompound, selGrade);
 }
 window.loadQuickEntry = loadQuickEntry;
@@ -13435,23 +13450,15 @@ function _qePatchScoresIntoTable(scoresMap, {protect=true}={}){
  *  same exam, this device's sheet updates live with no manual reload.
  *  Cells the person is actively typing in (focused) or has edited but not
  *  yet submitted (_qeDirtyCells) are left alone so nothing they've typed
- *  gets overwritten mid-edit. If an Advanced Admin is watching someone
- *  else's live sheet, this merges in that teacher's last-known draft too —
- *  otherwise a submitted-score update here would blow away their draft. */
+ *  gets overwritten mid-edit. (In-progress draft cells from other teachers
+ *  are handled separately, live, by _qeWatchSharedDraft.) */
 function _qeRefreshTableRealtime(){
   if(!_qeCompound || !_qeStudents.length) return;
   const view = document.getElementById('view-quickentry');
   if(!view || !view.classList.contains('active')) return;
 
   const existing = _qeGetExistingScores();
-  let fresh = existing, protect = true;
-  if(_qeViewingSession && _qeViewingSession.compound === _qeCompound){
-    fresh = {};
-    Object.keys(existing).forEach(k=>fresh[k]={...existing[k]});
-    Object.keys(_qeLastViewedDraftScores).forEach(k=>fresh[k]={...(fresh[k]||{}), ...(_qeLastViewedDraftScores[k]||{})});
-    protect = false; // read-only viewed sheet — nothing "theirs" to protect
-  }
-  const touched = _qePatchScoresIntoTable(fresh, {protect});
+  const touched = _qePatchScoresIntoTable(existing, {protect:true});
 
   // "✓ submitted" / "new" row badges are also DB-driven — refresh them so a
   // row another device just submitted flips over live too.
@@ -13772,13 +13779,19 @@ function _qeValidateScoreInput(inputEl){
   inputEl.classList.toggle('qe-invalid-score', invalid);
 }
 
-/** Debounced autosave — fires ~1.2s after the user stops typing. */
+/** Debounced autosave — fires ~1.2s after the user stops typing. Marks the
+ *  edited cell as both "dirty" (protected from incoming live updates until
+ *  submit) and "pending" (queued to actually be written next autosave). */
 function _qeOnScoreInput(inputEl){
   if(inputEl) _qeValidateScoreInput(inputEl);
   if(inputEl){
     const key = inputEl.getAttribute('data-student');
     const subj = inputEl.getAttribute('data-subject');
-    if(key && subj) _qeDirtyCells.add(_qeCellKey(key, subj));
+    if(key && subj){
+      const ck = _qeCellKey(key, subj);
+      _qeDirtyCells.add(ck);
+      _qePendingCells.add(ck);
+    }
   }
   clearTimeout(_qeSaveTimer);
   const statusEl = document.getElementById('qe-save-status');
@@ -13787,12 +13800,20 @@ function _qeOnScoreInput(inputEl){
 }
 window._qeOnScoreInput = _qeOnScoreInput;
 
+/** Writes ONLY the cell(s) changed since the last save into the SHARED draft,
+ *  as a single Firebase multi-path update — this is what lets two teachers
+ *  edit different cells of the same sheet at the same time without either
+ *  one clobbering the other's write (each cell gets its own timestamp, and
+ *  this device only ever touches the specific cells it changed). A full copy
+ *  of everything currently on screen is still mirrored to localStorage so
+ *  offline restore/resync has a complete fallback snapshot. */
 async function _qeSaveDraft(){
   const statusEl = document.getElementById('qe-save-status');
-  const myUid = window._currentUser?.uid || 'anon';
   const draftKey = encodeURIComponent(_qeCompound);
   const scores = _qeCollectScores();
   const updatedAt = Date.now();
+  const cellsToSave = _qePendingCells;
+  _qePendingCells = new Set(); // any further typing queues fresh cells for the NEXT autosave
 
   // navigator.onLine is unreliable — it can read false on a perfectly good
   // connection (or true on a dead one). So don't gate on it: always ATTEMPT
@@ -13800,15 +13821,19 @@ async function _qeSaveDraft(){
   // that attempt genuinely fails or times out. A 6s timeout keeps a truly
   // offline device from hanging the autosave indefinitely.
   try{
-    const {ref, set} = window._fb;
-    if(!ref || !set) throw new Error('firebase-not-ready');
-    const writePromise = set(ref(db, `${QE_DRAFTS_PATH}/${myUid}/${draftKey}`), { grade: _qeGrade, compound: _qeCompound, scores, updatedAt });
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000));
-    await Promise.race([writePromise, timeoutPromise]);
+    const {ref, update} = window._fb;
+    if(!ref || !update) throw new Error('firebase-not-ready');
+    const updates = _qeBuildSharedDraftUpdates(draftKey, scores, {onlyCells: cellsToSave, updatedAt});
+    if(Object.keys(updates).length){
+      const writePromise = update(ref(db), updates);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000));
+      await Promise.race([writePromise, timeoutPromise]);
+    }
 
-    // Write confirmed — DB now holds the latest — clear any stale local
-    // draft so a future offline session doesn't resurrect older scores.
-    _qeClearLocalDraft(myUid, draftKey);
+    // Write confirmed — DB now holds the latest for these cells — refresh
+    // the full local mirror (still useful if this device goes offline later)
+    // and clear its pendingSync flag.
+    _qeWriteLocalDraft(draftKey, { grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: false });
     if(statusEl) statusEl.innerHTML = `☁️ Synced ${new Date().toLocaleTimeString()} — awaiting final submission`;
     return;
   }catch(e){
@@ -13816,8 +13841,11 @@ async function _qeSaveDraft(){
   }
 
   // The real write failed or timed out — genuinely offline (or flaky).
-  // Save locally, flagged for the automatic sync-on-reconnect to pick up.
-  _qeWriteLocalDraft(myUid, draftKey, {
+  // Put the cells back in the pending queue so the next successful save
+  // (online, or the reconnect flush) still picks them up, and save the full
+  // current sheet locally, flagged for the automatic sync-on-reconnect.
+  cellsToSave.forEach(ck => _qePendingCells.add(ck));
+  _qeWriteLocalDraft(draftKey, {
     grade: _qeGrade, compound: _qeCompound, scores, updatedAt, pendingSync: true
   });
   if(statusEl) statusEl.innerHTML = `📴 Saved on this device — will sync once connection is stable`;
@@ -13937,13 +13965,12 @@ async function submitQuickEntry(){
     }
   }
 
-  // ── Clear the draft now that it's been committed ──────────────────────────
+  // ── Clear the SHARED draft now that it's been committed for everyone ──────
   try{
     const {ref:ref2, remove} = window._fb;
-    const myUid = window._currentUser?.uid || 'anon';
-    await remove(ref2(db, `${QE_DRAFTS_PATH}/${myUid}/${encodeURIComponent(_qeCompound)}`));
+    await remove(ref2(db, `${QE_DRAFTS_PATH}/${encodeURIComponent(_qeCompound)}`));
   }catch(e){}
-  _qeClearLocalDraft(window._currentUser?.uid || 'anon', encodeURIComponent(_qeCompound));
+  _qeClearLocalDraft(encodeURIComponent(_qeCompound));
 
   // ── This exam is no longer "pending" once at least one record exists ──────
   if(created>0){
@@ -13971,7 +13998,7 @@ window.submitQuickEntry = submitQuickEntry;
  *  on screen. */
 function _qeResetToDefault(){
   _qeStopPresence();
-  _qeStopWatchingViewedDraft();
+  _qeStopWatchingSharedDraft();
   _qeStudents = [];
   _qeSubjects = [];
   _qeGrade = '';
@@ -13979,6 +14006,7 @@ function _qeResetToDefault(){
   _qeWasPending = false;
   _qeLocked = false;
   _qeDirtyCells = new Set();
+  _qePendingCells = new Set();
   const gradeEl = document.getElementById('qe-grade');
   const termEl = document.getElementById('qe-term');
   if(gradeEl) gradeEl.value = '';
