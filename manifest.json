@@ -4,18 +4,20 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#fffff",
-  "theme_color": "#2980b9",
+  "background_color": "#ffffff",
+  "theme_color": "#1a5276",
   "icons": [
     {
       "src": "./images/logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./images/logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
