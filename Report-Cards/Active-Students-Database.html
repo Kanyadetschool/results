@@ -1072,6 +1072,10 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v6h6"/></svg>
                     Student PDFs <span class="tab-kbd">P</span>
                 </button>
+                <button id="parent-id-nav-btn" class="tab-toolbar-btn" title="Browse Parent IDs (Alt+I)" onclick="window._openParentIdSearchPanel()" style="display:flex;align-items:center;gap:.35rem;color:#b45309;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h4M15 13h4M6 17c.5-1.5 1.8-2.4 3-2.4s2.5.9 3 2.4"/></svg>
+                    Parent IDs <span class="tab-kbd" style="background:rgba(180,83,9,.12);color:#b45309;border-color:rgba(180,83,9,.35);">Alt+I</span>
+                </button>
                 <button id="hist-panel-btn" class="tab-toolbar-btn" title="Change History Panel (H)" style="display:flex;align-items:center;gap:.35rem;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     History <span class="tab-kbd">H</span>
@@ -1476,6 +1480,43 @@
     </div>
 </div>
 <div id="pdf-panel-overlay" onclick="window._closePdfSearchPanel()" style="display:none;"></div>
+
+<!-- ══ PARENT ID SEARCH PANEL ══ -->
+<div id="parent-id-search-panel" style="display:none;position:fixed;inset:0;z-index:9150;background:rgba(13,31,53,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);margin:1rem;">
+        <!-- Header -->
+        <div style="padding:1rem 1.25rem .875rem;border-bottom:1px solid var(--border);background:var(--navy);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
+            <div style="display:flex;align-items:center;gap:.65rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#e8b64a" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h4M15 13h4M6 17c.5-1.5 1.8-2.4 3-2.4s2.5.9 3 2.4"/></svg>
+                <span style="font-weight:700;color:#fff;font-size:.97rem;">Parent IDs</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+                <button onclick="window._closeParentIdSearchPanel()" style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            </div><!-- /right button group -->
+        </div>
+        <!-- Advanced Filters -->
+        <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;">
+            <div style="display:flex;gap:.55rem;align-items:center;">
+                <div style="position:relative;flex:1;min-width:0;transition:flex .2s ease;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="var(--slate)" stroke-width="2" style="position:absolute;left:.65rem;top:50%;transform:translateY(-50%);pointer-events:none;z-index:1;"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+                    <input id="parent-id-search-input" type="text" placeholder="Search name…" autocomplete="off" style="box-sizing:border-box;width:100%;padding:.58rem .75rem .58rem 2.1rem;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s;display:block;min-width:0;">
+                </div>
+                <select id="parent-id-grade-filter" style="box-sizing:border-box;padding:.55rem .7rem;border:1.5px solid var(--border);border-radius:8px;font-size:.84rem;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;width:120px;transition:border-color .15s,width .2s ease;">
+                    <option value="">All Grades</option>
+                </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.4rem;">
+                <div id="parent-id-search-count" style="font-size:.72rem;color:var(--slate);"></div>
+                <button id="parent-id-filter-clear" onclick="window._clearParentIdFilters()" style="display:none;font-size:.7rem;color:var(--navy-lt);background:none;border:none;cursor:pointer;font-weight:600;padding:0;">Clear filters ✕</button>
+            </div>
+        </div>
+        <!-- Student List -->
+        <div id="parent-id-student-list" style="flex:1;overflow-y:auto;padding:.5rem .75rem;min-height:200px;"></div>
+    </div>
+</div>
+<div id="parent-id-panel-overlay" onclick="window._closeParentIdSearchPanel()" style="display:none;"></div>
 
 <!-- ══ UNMATCHED PDFs MODAL ══ -->
 
@@ -7520,6 +7561,213 @@ setTimeout(() => {
     });
     panel.addEventListener('click', e => {
         if (e.target === panel) window._closePdfSearchPanel();
+    });
+})();
+
+// ── PARENT ID SEARCH PANEL ────────────────────────────
+// Mirrors the Student PDF panel above, but browses ./parent_ID/{Grade}/ID_{Name}.pdf
+// instead of ./student_pdf/{Grade}/{Name}.pdf. Opens results with the exact
+// same viewer modal as student PDFs (window._openPdfDirect).
+(function() {
+    const panel       = document.getElementById('parent-id-search-panel');
+    const listEl      = document.getElementById('parent-id-student-list');
+    const countEl     = document.getElementById('parent-id-search-count');
+    const searchInput = document.getElementById('parent-id-search-input');
+    const gradeFilter = document.getElementById('parent-id-grade-filter');
+    const clearBtn    = document.getElementById('parent-id-filter-clear');
+
+    if (!panel || !listEl || !searchInput || !gradeFilter) {
+        console.warn('[Parent ID Panel] Missing DOM elements — panel disabled');
+        return;
+    }
+
+    let _cachedStudents = [];   // only students that have a matched Parent ID
+    let _renderData     = [];
+
+    function getName(s) {
+        return (s['Official Student Name'] || s['name'] || '').trim();
+    }
+    function getRawGrade(s) {
+        const raw = (s.Grade || s['Class'] || s['grade'] || s['class'] || '').toString().trim();
+        return raw.replace(/^Grade\s+/i, '').trim();
+    }
+
+    function populateGradeFilter(students) {
+        const grades = [...new Set(students.map(getRawGrade).filter(Boolean))].sort((a, b) => {
+            const na = parseInt(a), nb = parseInt(b);
+            return (!isNaN(na) && !isNaN(nb)) ? na - nb : a.localeCompare(b);
+        });
+        gradeFilter.innerHTML = '<option value="">All Grades</option>' +
+            grades.map(g => `<option value="${g}">Grade ${g}</option>`).join('');
+    }
+
+    function renderList(students) {
+        _renderData = students;
+        const total = _cachedStudents.length;
+        const shown = students.length;
+        if (!document.getElementById('parent-id-refresh-btn')) {
+            countEl.textContent = (shown === total)
+                ? `${total} Parent ID${total !== 1 ? 's' : ''} found`
+                : `${shown} of ${total} Parent IDs`;
+        } else {
+            const span = countEl.querySelector('span');
+            if (span) span.textContent = shown === total
+                ? `${total} Parent ID${total !== 1 ? 's' : ''} found`
+                : `${shown} of ${total} Parent IDs`;
+        }
+
+        const hasFilter = searchInput.value.trim() !== '' || gradeFilter.value !== '';
+        clearBtn.style.display = hasFilter ? 'inline-block' : 'none';
+
+        if (!students.length) {
+            listEl.innerHTML = '<div style="text-align:center;padding:2.5rem 1rem;color:var(--slate);font-size:.83rem;">No students match your filters</div>';
+            return;
+        }
+
+        listEl.innerHTML = students.map((s, i) => {
+            const name    = getName(s) || '—';
+            const grade   = getRawGrade(s);
+            const initials = name.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+            return `<div class="parent-id-list-item" data-idx="${i}" style="display:flex;align-items:center;gap:.7rem;padding:.6rem .65rem;border-radius:8px;cursor:pointer;margin-bottom:.18rem;border:1.5px solid transparent;transition:background .12s,border-color .12s;">
+                <div style="width:38px;height:38px;border-radius:50%;background:rgba(180,83,9,.1);border:1.5px solid #b45309;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.72rem;color:var(--navy);flex-shrink:0;overflow:hidden;">
+                    <img src="./student_images/${encodeURIComponent(name)}.jpg" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';">
+                    <span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${initials}</span>
+                </div>
+                <div style="min-width:0;flex:1;">
+                    <div style="font-weight:600;font-size:.83rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+                    <div style="font-size:.7rem;color:var(--slate);">${grade ? 'Grade ' + grade : 'No grade'}</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#b45309" stroke-width="2.5" style="flex-shrink:0;opacity:.8;"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h4M15 13h4M6 17c.5-1.5 1.8-2.4 3-2.4s2.5.9 3 2.4"/></svg>
+            </div>`;
+        }).join('');
+    }
+
+    function doFilter() {
+        if (!_cachedStudents.length) return;
+        const term  = searchInput.value.trim().toLowerCase();
+        const grade = gradeFilter.value.trim();
+        const filtered = _cachedStudents.filter(s => {
+            const name   = getName(s).toLowerCase();
+            const sGrade = getRawGrade(s);
+            const no     = (s['Assessment No'] || s.id || '').toString().toLowerCase();
+            const matchName  = !term  || name.includes(term) || no.includes(term);
+            const matchGrade = !grade || sGrade === grade;
+            return matchName && matchGrade;
+        });
+        renderList(filtered);
+    }
+
+    searchInput.addEventListener('input',  doFilter);
+    gradeFilter.addEventListener('change', doFilter);
+
+    const searchWrap = searchInput.parentElement;
+    searchInput.addEventListener('focus', () => {
+        searchInput.style.borderColor = 'var(--navy-lt)';
+        searchInput.style.boxShadow   = '0 0 0 3px rgba(59,130,246,.18)';
+        if (searchWrap) searchWrap.style.flex = '2';
+    });
+    searchInput.addEventListener('blur', () => {
+        searchInput.style.borderColor = 'var(--border)';
+        searchInput.style.boxShadow   = 'none';
+        if (searchWrap && !searchInput.value) searchWrap.style.flex = '1';
+    });
+
+    listEl.addEventListener('click', e => {
+        const item = e.target.closest('.parent-id-list-item');
+        if (!item) return;
+        const s = _renderData[parseInt(item.dataset.idx, 10)];
+        if (!s || !s._parentIdHref) return;
+        window._closeParentIdSearchPanel();
+        // Reuse the exact same viewer modal used for student report-card PDFs.
+        setTimeout(() => window._openPdfDirect(s._parentIdHref, getName(s) || 'Parent ID'), 180);
+    });
+    listEl.addEventListener('mouseover', e => {
+        const item = e.target.closest('.parent-id-list-item');
+        if (item) { item.style.background = 'var(--surface2)'; item.style.borderColor = 'var(--border)'; }
+    });
+    listEl.addEventListener('mouseout', e => {
+        const item = e.target.closest('.parent-id-list-item');
+        if (item) { item.style.background = ''; item.style.borderColor = 'transparent'; }
+    });
+
+    window._clearParentIdFilters = function() {
+        searchInput.value = '';
+        gradeFilter.value = '';
+        clearBtn.style.display = 'none';
+        renderList(_cachedStudents);
+    };
+
+    /* ─── Open panel — reuses window._bgScanParentIds (HEAD-probe scan) ── */
+    window._openParentIdSearchPanel = async function(forceRefresh = false) {
+        searchInput.value = '';
+        gradeFilter.value = '';
+        clearBtn.style.display = 'none';
+        _cachedStudents = [];
+        panel.style.display = 'flex';
+
+        const all = (window._studentsData || []).slice().sort((a,b) =>
+            getName(a).toLowerCase().localeCompare(getName(b).toLowerCase())
+        );
+
+        if (!all.length) {
+            listEl.innerHTML = '<div style="text-align:center;padding:2.5rem 1rem;color:var(--slate);font-size:.83rem;">No student data loaded yet.<br>Please wait for the database to load.</div>';
+            countEl.textContent = ''; return;
+        }
+
+        searchInput.disabled = true; gradeFilter.disabled = true;
+        searchInput.style.opacity = '.5'; gradeFilter.style.opacity = '.5';
+        listEl.innerHTML = `<div style="text-align:center;padding:2.5rem 1rem;color:var(--slate);font-size:.83rem;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5" style="animation:um-spin .8s linear infinite;display:inline-block;margin-bottom:.5rem;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <div>${forceRefresh ? 'Refreshing Parent IDs…' : 'Scanning server for Parent IDs…'}</div>
+        </div>`;
+        countEl.textContent = '';
+
+        if (typeof window._bgScanParentIds === 'function') {
+            await window._bgScanParentIds(all, forceRefresh || !window._bgParentIdScanDone);
+        }
+
+        searchInput.disabled = false; gradeFilter.disabled = false;
+        searchInput.style.opacity = ''; gradeFilter.style.opacity = '';
+
+        const withIds = all.filter(s => s._parentIdHref)
+            .sort((a,b) => getName(a).toLowerCase().localeCompare(getName(b).toLowerCase()));
+
+        if (!withIds.length) {
+            listEl.innerHTML = `<div style="text-align:center;padding:2.5rem 1rem;color:var(--slate);font-size:.83rem;">
+                <div style="font-size:1.6rem;margin-bottom:.5rem;">📂</div>
+                No Parent IDs found in <code style="font-size:.75rem;background:var(--surface2);padding:.1rem .3rem;border-radius:4px;">parent_ID/{Grade}/</code>
+            </div>`;
+            countEl.innerHTML = `<span>0 Parent IDs found</span>
+                <button id="parent-id-refresh-btn" style="margin-left:.5rem;font-size:.7rem;color:var(--navy-lt);background:none;border:1px solid var(--border);border-radius:5px;padding:.1rem .4rem;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="window._openParentIdSearchPanel(true)">🔄 Refresh</button>`;
+            return;
+        }
+
+        _cachedStudents = withIds;
+        populateGradeFilter(_cachedStudents);
+        doFilter();
+
+        countEl.innerHTML = `<span>${withIds.length} Parent ID${withIds.length!==1?'s':''} found</span>
+            <button id="parent-id-refresh-btn" title="Re-scan server for Parent IDs" style="margin-left:.5rem;font-size:.7rem;color:var(--navy-lt);background:none;border:1px solid var(--border);border-radius:5px;padding:.1rem .4rem;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="window._openParentIdSearchPanel(true)">
+                🔄 Refresh
+            </button>`;
+
+        setTimeout(() => searchInput.focus(), 60);
+    };
+
+    window._closeParentIdSearchPanel = function() {
+        panel.style.display = 'none';
+    };
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && panel.style.display === 'flex') window._closeParentIdSearchPanel();
+        // Alt+I opens the Parent ID browser (mirrors the Student PDFs "P" shortcut)
+        if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+            e.preventDefault();
+            window._openParentIdSearchPanel();
+        }
+    });
+    panel.addEventListener('click', e => {
+        if (e.target === panel) window._closeParentIdSearchPanel();
     });
 })();
 
