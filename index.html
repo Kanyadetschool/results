@@ -21,40 +21,71 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ── "Install as app" (PWA) prompt capture ─────────────────────────────────
-// Chrome/Edge/Android fire beforeinstallprompt when the app is installable
-// and not already installed; we stash the event and reveal the Install
-// button(s), since the browser will only let us call .prompt() once per
-// captured event and only from a genuine user gesture (the button click).
-window.deferredInstallPrompt = null;
-function _showInstallButtons(show){
-  document.querySelectorAll('.install-app-btn').forEach(b => { b.style.display = show ? '' : 'none'; });
+// ── PWA "Install App" (standalone-only) ───────────────────────────────────
+// Button is visible by default on the auth screen. If the browser has fired
+// beforeinstallprompt we use the native prompt; otherwise (prompt not fired
+// yet, or an unsupported browser like iOS Safari) we fall back to short
+// manual instructions. The app only ever installs in standalone mode
+// because manifest.json must declare "display": "standalone" (or
+// "window-controls-overlay") — the browser, not this code, decides the
+// display mode based on that manifest value.
+let _pwaDeferredPrompt = null;
+
+function _isRunningStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true; // iOS Safari
 }
+
+function _hideInstallBtn() {
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.classList.add('hide');
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  window.deferredInstallPrompt = e;
-  _showInstallButtons(true);
+  e.preventDefault();          // stop the mini-infobar
+  _pwaDeferredPrompt = e;      // stash it for the button click
 });
+
 window.addEventListener('appinstalled', () => {
-  window.deferredInstallPrompt = null;
-  _showInstallButtons(false);
+  _pwaDeferredPrompt = null;
+  _hideInstallBtn();
+  console.log('[PWA] App installed as standalone.');
 });
-// Already running as an installed app (standalone / iOS) → never show the button.
-if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-  window.addEventListener('DOMContentLoaded', () => _showInstallButtons(false));
-}
-window.installApp = async function(){
-  const promptEvent = window.deferredInstallPrompt;
-  if(!promptEvent){
-    if(typeof notify === 'function') notify('ℹ️ This app is already installed, or your browser doesn\'t support one-tap install. Use your browser\'s menu → "Install app" / "Add to Home Screen" instead.', 'info', 6000);
+
+async function installPwaApp() {
+  // Native path — browser already offered us the install prompt.
+  if (_pwaDeferredPrompt) {
+    const promptEvent = _pwaDeferredPrompt;
+    _pwaDeferredPrompt = null;
+    promptEvent.prompt();
+    try {
+      const { outcome } = await promptEvent.userChoice;
+      console.log('[PWA] install choice:', outcome);
+    } catch (err) {
+      console.warn('[PWA] install prompt failed:', err);
+    }
     return;
   }
-  promptEvent.prompt();
-  const { outcome } = await promptEvent.userChoice;
-  window.deferredInstallPrompt = null;
-  _showInstallButtons(false);
-  if(outcome === 'accepted' && typeof notify === 'function') notify('✅ App installed — find it on your home screen / app list.', 'success', 5000);
-};
+
+  // Fallback path — prompt hasn't fired (not ready yet / unsupported
+  // browser such as iOS Safari or Firefox). Give manual instructions.
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const msg = isIOS
+    ? 'To install: tap the Share icon, then "Add to Home Screen".'
+    : 'To install: open your browser menu and choose "Install App" (or "Add to Home screen").';
+  if (window.Swal) {
+    Swal.fire({ icon: 'info', title: 'Install App', text: msg, confirmButtonColor: '#2980b9' });
+  } else {
+    alert(msg);
+  }
+}
+window.installPwaApp = installPwaApp;
+
+// If already launched standalone, no need to offer install.
+document.addEventListener('DOMContentLoaded', () => {
+  if (_isRunningStandalone()) _hideInstallBtn();
+});
 </script>
  
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -431,6 +462,25 @@ body::before{
 
 /* Account list on lock screen */
 #account-list button{font-family:'Plus Jakarta Sans',sans-serif;}
+
+/* PWA install button (auth page only) — visible by default */
+#pwa-install-btn{
+  display:flex;
+  position:fixed;top:18px;right:18px;z-index:9100;
+  align-items:center;gap:.5rem;
+  padding:.65rem 1.1rem;font-size:.82rem;font-weight:700;
+  border:1px solid var(--border-strong);border-radius:12px;cursor:pointer;
+  background:var(--surface);color:var(--text);
+  box-shadow:0 8px 24px rgba(0,0,0,.15);
+  font-family:'Plus Jakarta Sans',sans-serif;
+  transition:var(--transition);
+}
+#pwa-install-btn:hover{transform:translateY(-2px);border-color:var(--blue-lt);color:var(--blue-lt);box-shadow:0 12px 28px rgba(41,128,185,.25);}
+#pwa-install-btn.hide{display:none;}
+#pwa-install-btn svg{flex-shrink:0;}
+@media(max-width:480px){
+  #pwa-install-btn{top:12px;right:12px;padding:.55rem .85rem;font-size:.76rem;}
+}
 
 /* Login error */
 .login-err{
@@ -1666,6 +1716,12 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 <!-- LOGIN SCREEN -->
 <div id="login-screen">
 
+  <!-- ── INSTALL APP (PWA, standalone-only) — shown when browser deems the app installable ── -->
+  <button id="pwa-install-btn" type="button" onclick="installPwaApp()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+    Install App
+  </button>
+
   <!-- ── LOCK SCREEN — returning users with passkeys registered ── -->
   <div class="signin-card" id="lock-screen-card" style="display:none;max-width:420px;">
     <div id="login-logo-icon-lock" style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;margin:0 auto .9rem;box-shadow:0 8px 24px var(--blue-glow);overflow:hidden;font-size:24px;">&#x1F3EB;</div>
@@ -1838,7 +1894,6 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <button class="btn btn-outline btn-sm topbar-desktop-only" onclick="togglePrintMode()" title="Print Mode" id="print-mode-btn">🖨️</button>
         <button class="btn btn-outline btn-sm topbar-desktop-only" onclick="showShortcuts()" title="Keyboard Shortcuts (?)">⌨️</button>
         <button class="btn btn-outline btn-sm topbar-desktop-only" onclick="openTutorial()" title="Help &amp; Tutorial">🎓 Help</button>
-        <button class="btn btn-green btn-sm install-app-btn topbar-desktop-only" onclick="installApp()" title="Install as a standalone app" style="display:none">⬇️ Install App</button>
         <button class="btn btn-blue btn-sm" onclick="refreshData()">🔄 Refresh</button>
         <button class="btn btn-red btn-sm topbar-desktop-only" onclick="doSignOut()" title="Sign out" style="display:flex;align-items:center;gap:5px">↩ Sign Out</button>
         <!-- Mobile overflow menu -->
@@ -1849,7 +1904,6 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <button class="topbar-more-item" onclick="togglePrintMode();closeTopbarMenu()" id="print-mode-btn-mobile">🖨️ Print Mode <span class="topbar-more-hint">P</span></button>
             <button class="topbar-more-item" onclick="showShortcuts();closeTopbarMenu()">⌨️ Shortcuts <span class="topbar-more-hint">?</span></button>
             <button class="topbar-more-item" onclick="openTutorial();closeTopbarMenu()">🎓 Help &amp; Tutorial</button>
-            <button class="topbar-more-item install-app-btn" onclick="installApp();closeTopbarMenu()" style="display:none">⬇️ Install App</button>
             <div class="topbar-more-divider"></div>
             <button class="topbar-more-item topbar-more-danger" onclick="doSignOut()">↩ Sign Out</button>
           </div>
@@ -13039,24 +13093,16 @@ window.downloadResultsTemplate = function(){
   // the same name (e.g. siblings, common names in the same grade).
   let students = [];
 
-  // Collects the deduped student list from allData, optionally restricted to
-  // rows whose exam identity exactly matches the selected term (normalized
-  // for case/whitespace). Factored out so we can try the exact-term match
-  // first, then fall back to the whole-grade roster only if that match is
-  // empty (a brand-new "pending" exam has zero records yet to match against).
-  function _collectStudents(restrictToTerm){
-    const out = [];
+  {
     const seenAsmNo    = new Set();
     const seenUPI      = new Set();
     const seenNoIdName = new Set();
-    const normSel = _normTermStr(selCompound);
     allData.forEach(r => {
       if(targetGrade){
         if(gShort(r['Grade']) !== targetGrade && r['Grade'] !== targetGrade) return;
       } else if(myGrades){
         if(!myGrades.includes(gShort(r['Grade'])) && !myGrades.includes(r['Grade'])) return;
       }
-      if(restrictToTerm && _normTermStr(getRecordTerm(r)) !== normSel) return;
       const asmNo = _qeRealId(r['Assessment No']);
       const upi   = _qeRealId(r['UPI']);
       const name  = String(r['Official Student Name']||'').trim().toLowerCase();
@@ -13072,21 +13118,9 @@ window.downloadResultsTemplate = function(){
         if(seenNoIdName.has(name)) return;
         seenNoIdName.add(name);
       }
-      out.push(r);
+      students.push(r);
     });
-    return out;
   }
-
-  // Exact term match first — this is what makes the template reflect exactly
-  // who's enrolled for the selected exam/term rather than every student ever
-  // recorded anywhere in the grade (which could include students who've since
-  // left, transferred streams, etc.).
-  students = _collectStudents(true);
-
-  // Fall back to the full grade roster only when the selected term has no
-  // records at all yet (a pending exam created via Quick Entry's New Exam
-  // builder, awaiting its first score) — there's nothing exact to match yet.
-  if(!students.length) students = _collectStudents(false);
 
   if(!students.length){
     notify('⚠️ No students found for the selected grade. Make sure results data is loaded.','warn');
@@ -14535,20 +14569,6 @@ function _qeOpenAddStudentModal(){
     notify('⚠️ Load a grade/exam first.','warn'); return;
   }
   if(_qeLocked){ notify('🔒 This exam is locked — cannot add students.','warn'); return; }
-  // ── Stale-sheet guard ────────────────────────────────────────────────────
-  // Changing the Grade/Term dropdowns does NOT reload the sheet by itself —
-  // the teacher must click "📋 Load Students" again. If they switch the
-  // dropdown to a different exam (e.g. a new pending one) but forget to
-  // reload, _qeStudents/_qeCompound still belong to the PREVIOUS exam. The
-  // "already on sheet" duplicate check below is scoped correctly to whatever
-  // sheet is actually loaded — but without this guard, that sheet silently
-  // stops matching the dropdown, so a student who's really only on the old
-  // term gets wrongly reported as already on the (different) pending sheet.
-  const _termEl = document.getElementById('qe-term');
-  if(_termEl && _termEl.value.trim() && _termEl.value.trim() !== _qeCompound){
-    notify('⚠️ The exam/term selector has changed since this sheet was loaded — click "📋 Load Students" to refresh before adding a student.','warn',7000);
-    return;
-  }
   document.getElementById('qe-add-name').value = '';
   document.getElementById('qe-add-asm').value = '';
   document.getElementById('qe-add-upi').value = '';
