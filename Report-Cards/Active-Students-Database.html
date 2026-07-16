@@ -3343,7 +3343,7 @@ function _parentIdPath(name, grade, ext) {
     const n = _segName(name);
     if (!n) return '';
     const g = _segName(grade);
-    const base = g ? `./parent_ID/${g}/ID_${n}` : `./parent_ID/ID_${n}`;
+    const base = g ? `./parent_ID/${g}/${n}` : `./parent_ID/${n}`;
     return base + (ext || '.pdf');
 }
 window._parentIdPath = _parentIdPath;
