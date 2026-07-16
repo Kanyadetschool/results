@@ -3313,21 +3313,15 @@ function _pdfCandidates(name, grade) {
 
 async function _probePdf(url) {
     if (!url) return false;
-    if (_pdfExistCache[url] !== undefined) {
-        console.log('[probe:cache]', _pdfExistCache[url] ? 'HIT ✓' : 'HIT ✗ (cached miss)', url);
-        return _pdfExistCache[url];
-    }
+    if (_pdfExistCache[url] !== undefined) return _pdfExistCache[url];
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 10000);
-    const t0 = performance.now();
     try {
         const res = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: controller.signal });
         _pdfExistCache[url] = res.ok;
-        console.log(`[probe] ${res.ok ? '✓ FOUND' : '✗ ' + res.status} (${Math.round(performance.now()-t0)}ms)`, url);
         return res.ok;
-    } catch(e) {
+    } catch(_) {
         _pdfExistCache[url] = false;
-        console.log(`[probe] ✗ ERROR "${e.message}" (${Math.round(performance.now()-t0)}ms)`, url);
         return false;
     } finally {
         clearTimeout(t);
@@ -3349,7 +3343,7 @@ function _parentIdPath(name, grade, ext) {
     const n = _segName(name);
     if (!n) return '';
     const g = _segName(grade);
-    const base = g ? `./parent_ID/${g}/${n}` : `./parent_ID/${n}`;
+    const base = g ? `./parent_ID/${g}/ID_${n}` : `./parent_ID/ID_${n}`;
     return base + (ext || '.pdf');
 }
 window._parentIdPath = _parentIdPath;
@@ -3362,15 +3356,9 @@ function _parentIdCandidates(name, grade) {
 // Reuses the same _probePdf/_pdfExistCache used for report cards — cache is
 // keyed by full URL so student PDFs and parent IDs never collide.
 async function resolveParentId(name, grade) {
-    const candidates = _parentIdCandidates(name, grade);
-    console.log(`[ParentID] resolving "${name}" (Grade: "${grade}") — trying ${candidates.length} URL(s):`, candidates);
-    for (const url of candidates) {
-        if (await _probePdf(url)) {
-            console.log(`[ParentID] ✓ MATCHED "${name}" →`, url);
-            return url;
-        }
+    for (const url of _parentIdCandidates(name, grade)) {
+        if (await _probePdf(url)) return url;
     }
-    console.log(`[ParentID] ✗ NO MATCH for "${name}"`);
     return '';
 }
 window._resolveParentId = resolveParentId;
@@ -3920,30 +3908,27 @@ window._bgParentIdScanDone = false;
 async function _bgScanParentIds(students, force) {
     if (!students || !students.length) return;
     if (window._bgParentIdScanDone && !force) return;
-    const t0 = performance.now();
-    console.log(`[ParentID scan] START — ${students.length} students, force=${!!force}`);
     if (force) {
+        // Full rescan requested (e.g. re-opening the ID Report): drop any
+        // cached negative probes and each student's memoized href so files
+        // uploaded since the last scan are actually picked up.
         _clearParentIdProbeCache(students);
         students.forEach(s => { s._parentIdHref = ''; });
-        console.log('[ParentID scan] cleared stale probe cache + memoized hrefs');
     }
     const map = new Map(); // id → href
     const BATCH = 40;
-    let found = 0, skippedNoName = 0;
     for (let i = 0; i < students.length; i += BATCH) {
         const batch = students.slice(i, i + BATCH);
         await Promise.all(batch.map(async s => {
-            if (s._parentIdHref) { map.set(s.id, s._parentIdHref); found++; return; }
+            if (s._parentIdHref) { map.set(s.id, s._parentIdHref); return; }
             const name = (s['Official Student Name'] || '').trim();
-            if (!name) { skippedNoName++; return; }
+            if (!name) return;
             const href = await resolveParentId(name, s.Grade || '');
-            if (href) { s._parentIdHref = href; map.set(s.id, href); found++; }
+            if (href) { s._parentIdHref = href; map.set(s.id, href); }
         }));
-        console.log(`[ParentID scan] batch ${Math.floor(i/BATCH)+1}/${Math.ceil(students.length/BATCH)} done — ${found} found so far`);
     }
     window._parentIdHrefById = map;
     window._bgParentIdScanDone = true;
-    console.log(`[ParentID scan] DONE in ${Math.round(performance.now()-t0)}ms — found ${found}/${students.length} (skipped ${skippedNoName} with no name)`);
 }
 window._bgScanParentIds = _bgScanParentIds;
 
@@ -7965,9 +7950,7 @@ setTimeout(() => {
     }
 
     window._openPrintOptions = async function(docType) {
-        const _t0 = performance.now();
         _printDocType = (docType === 'parentId') ? 'parentId' : (docType === 'cert') ? 'cert' : _printDocType;
-        console.log(`[PrintOptions] opened, docType=${_printDocType}`);
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) { alert('No student data loaded yet.'); return; }
 
@@ -7980,7 +7963,6 @@ setTimeout(() => {
         } else if (_printDocType === 'cert' && !window._bgPdfScanDone) {
             await _bgScanPdfs(students);
         }
-        console.log(`[PrintOptions] scan resolved after ${Math.round(performance.now()-_t0)}ms, rendering modal…`);
 
         const labels = _docLabels();
 
