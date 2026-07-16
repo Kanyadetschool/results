@@ -1076,9 +1076,13 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     History <span class="tab-kbd">H</span>
                 </button>
-                <button id="analytics-print-report-btn" onclick="window._openPrintOptions()" class="tab-toolbar-btn" title="Print PDF Status Report (Alt+R)" style="display:flex;align-items:center;gap:.35rem;color:var(--gold);font-weight:700;">
+                <button id="analytics-print-report-btn" onclick="window._openPrintOptions('cert')" class="tab-toolbar-btn" title="Print PDF Status Report (Alt+R)" style="display:flex;align-items:center;gap:.35rem;color:var(--gold);font-weight:700;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/></svg>
                     Print Report <span class="tab-kbd" style="background:rgba(240,165,0,.15);color:var(--gold);border-color:rgba(240,165,0,.4);">Alt+R</span>
+                </button>
+                <button id="analytics-print-parentid-report-btn" onclick="window._openPrintOptions('parentId')" class="tab-toolbar-btn" title="Print Parent ID Status Report" style="display:flex;align-items:center;gap:.35rem;color:#b45309;font-weight:700;border-color:rgba(180,83,9,.35);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h4M15 13h4M6 17c.5-1.5 1.8-2.4 3-2.4s2.5.9 3 2.4"/></svg>
+                    ID Report
                 </button>
                 <!-- #4 Bulk Export Birth Certs as ZIP -->
                 <button id="bulk-export-zip-btn" onclick="window._bulkExportZip()" class="tab-toolbar-btn" title="Export all birth certificates as ZIP archive" style="display:flex;align-items:center;gap:.35rem;color:#00695c;font-weight:700;border-color:rgba(0,105,92,.35);">
@@ -1088,6 +1092,10 @@
                 <button id="bulk-photos-zip-btn" onclick="window._bulkExportPhotosZip()" class="tab-toolbar-btn" title="Export all student photos grouped by grade as ZIP" style="display:flex;align-items:center;gap:.35rem;color:#6d28d9;font-weight:700;border-color:rgba(109,40,217,.35);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     Photos ZIP
+                </button>
+                <button id="bulk-parent-ids-zip-btn" onclick="window._bulkExportParentIdsZip()" class="tab-toolbar-btn" title="Export all parent national IDs grouped by grade as ZIP" style="display:flex;align-items:center;gap:.35rem;color:#b45309;font-weight:700;border-color:rgba(180,83,9,.35);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h4M15 13h4M6 17c.5-1.5 1.8-2.4 3-2.4s2.5.9 3 2.4"/></svg>
+                    Parent IDs ZIP
                 </button>
                 <!-- #5 DB Size Monitor badge -->
                 <span id="db-size-badge" title="Estimated Firebase database size" style="display:none;align-items:center;gap:.3rem;padding:.25rem .6rem;border-radius:20px;background:var(--surface3);border:1px solid var(--border);font-size:.7rem;font-weight:700;color:var(--slate);cursor:default;">
@@ -1405,6 +1413,10 @@
             <a id="pdf-download-link" href="#" download style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none;" title="Download PDF">
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v11"/></svg>
             </a>
+            <a id="parent-id-link" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;gap:.35rem;height:30px;padding:0 .55rem;border-radius:6px;border:1px solid var(--gold);background:rgba(212,175,55,.1);color:var(--navy);cursor:pointer;text-decoration:none;font-size:.72rem;font-weight:700;white-space:nowrap;" title="View Parent National ID">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path stroke-linecap="round" d="M15 9h4M15 13h4M6 17c.5-1.5 1.8-2.4 3-2.4s2.5.9 3 2.4"/></svg>
+                Parent ID
+            </a>
             <span id="pdf-loading-spinner" style="display:none;margin-left:.4rem;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--navy-lt)" stroke-width="2.5" style="animation:um-spin .8s linear infinite;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
             </span>
@@ -1474,7 +1486,7 @@
     <div style="background:var(--navy);padding:.9rem 1.2rem;display:flex;align-items:center;justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:.6rem;">
         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="var(--gold)" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/></svg>
-        <span style="font-weight:700;color:#fff;font-size:.95rem;">Print Report Options</span>
+        <span id="print-options-title" style="font-weight:700;color:#fff;font-size:.95rem;">Print Report Options</span>
       </div>
       <button onclick="document.getElementById('print-options-modal').style.display='none'" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1482,6 +1494,14 @@
     </div>
     <!-- Body -->
     <div style="padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:1rem;">
+      <!-- Document type -->
+      <div>
+        <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:.5rem;">Document Type</div>
+        <div id="print-doctype-btns" style="display:flex;gap:.45rem;">
+          <button data-doctype="cert"     onclick="window._openPrintOptions('cert')"     style="flex:1;padding:.5rem .6rem;border-radius:8px;border:2px solid var(--navy-lt);background:var(--navy-lt);color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;">Report Cards</button>
+          <button data-doctype="parentId" onclick="window._openPrintOptions('parentId')" style="flex:1;padding:.5rem .6rem;border-radius:8px;border:2px solid var(--border2);background:transparent;color:var(--text2);font-size:.8rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;">Parent IDs</button>
+        </div>
+      </div>
       <!-- Filter -->
       <div>
         <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:.5rem;">Include Students</div>
@@ -1982,6 +2002,7 @@ const closePdfModalBtn = document.getElementById('close-pdf-modal-btn');
 const pdfModalStudentImage = document.getElementById('pdf-modal-student-image');
 const pdfModalStudentName  = document.getElementById('pdf-modal-student-name');
 const pdfModalStudentGrade = document.getElementById('pdf-modal-student-grade');
+const parentIdLink = document.getElementById('parent-id-link');
 
 // ── PDF.js VIEWER STATE ───────────────────────────────
 (function() {
@@ -2425,6 +2446,7 @@ export const openLocalPDF = (assessmentNo, studentName) => {
         window._pdfViewerLoad(href || (window._pdfPath ? window._pdfPath(pdfName, grade) : ''));
     }));
     if (typeof window._pdfNavSync === 'function') window._pdfNavSync(studentName, assessmentNo);
+    if (typeof window._syncParentIdLink === 'function') window._syncParentIdLink(pdfName, grade);
 };
 window.openLocalPDF = openLocalPDF;
 
@@ -2443,6 +2465,7 @@ window._openPdfDirect = (url, studentName) => {
     pdfModalBackdrop.classList.remove('hidden');
     requestAnimationFrame(() => requestAnimationFrame(() => window._pdfViewerLoad(url)));
     if (typeof window._pdfNavSync === 'function') window._pdfNavSync(studentName, null);
+    if (typeof window._syncParentIdLink === 'function') window._syncParentIdLink(name, grade2);
 };
 
 // ── TOGGLE UPLOAD SECTION ─────────────────────────────
@@ -3313,6 +3336,47 @@ async function resolveStudentPdf(name, grade) {
 }
 window._resolveStudentPdf = resolveStudentPdf;
 
+// ── PARENT NATIONAL ID — server folder only, no database ──
+// Parent IDs: ./parent_ID/{Grade}/ID_{Name}.pdf  (falls back to .PDF)
+// Same per-grade subfolder layout as report cards, just prefixed with "ID_".
+function _parentIdPath(name, grade, ext) {
+    const n = _segName(name);
+    if (!n) return '';
+    const g = _segName(grade);
+    const base = g ? `./parent_ID/${g}/ID_${n}` : `./parent_ID/ID_${n}`;
+    return base + (ext || '.pdf');
+}
+window._parentIdPath = _parentIdPath;
+
+function _parentIdCandidates(name, grade) {
+    if (!(name || '').toString().trim()) return [];
+    return [_parentIdPath(name, grade, '.pdf'), _parentIdPath(name, grade, '.PDF')];
+}
+
+// Reuses the same _probePdf/_pdfExistCache used for report cards — cache is
+// keyed by full URL so student PDFs and parent IDs never collide.
+async function resolveParentId(name, grade) {
+    for (const url of _parentIdCandidates(name, grade)) {
+        if (await _probePdf(url)) return url;
+    }
+    return '';
+}
+window._resolveParentId = resolveParentId;
+
+// Shows/hides + wires up the "Parent ID" toolbar button for the currently
+// open student. Safe no-op if the button isn't in the DOM.
+async function _syncParentIdLink(name, grade) {
+    if (!parentIdLink) return;
+    parentIdLink.style.display = 'none';
+    parentIdLink.href = '#';
+    const url = await resolveParentId(name, grade);
+    if (url) {
+        parentIdLink.href = url;
+        parentIdLink.style.display = 'flex';
+    }
+}
+window._syncParentIdLink = _syncParentIdLink;
+
 // Synchronous helpers kept for legacy call sites (spotlight, profile modal) —
 // these build the expected server path directly; the <img onerror> in markup
 // handles the case where the file isn't actually there.
@@ -3822,6 +3886,27 @@ async function _bgScanPdfs(students) {
 }
 
 window._bgScanPdfs = _bgScanPdfs;
+
+window._bgParentIdScanDone = false;
+async function _bgScanParentIds(students) {
+    if (!students || !students.length || window._bgParentIdScanDone) return;
+    const map = new Map(); // id → href
+    const BATCH = 40;
+    for (let i = 0; i < students.length; i += BATCH) {
+        const batch = students.slice(i, i + BATCH);
+        await Promise.all(batch.map(async s => {
+            if (s._parentIdHref) { map.set(s.id, s._parentIdHref); return; }
+            const name = (s['Official Student Name'] || '').trim();
+            if (!name) return;
+            const href = await resolveParentId(name, s.Grade || '');
+            if (href) { s._parentIdHref = href; map.set(s.id, href); }
+        }));
+    }
+    window._parentIdHrefById = map;
+    window._bgParentIdScanDone = true;
+}
+window._bgScanParentIds = _bgScanParentIds;
+
 function _buildPdfDrawer(students) {
     const total = students.length;
     const withPdf = students.filter(s=>s._pdfHref).length;
@@ -7828,17 +7913,51 @@ setTimeout(() => {
     /* ── Print Options Dialog ───────────────────────────── */
     let _printFilter    = 'all';   // 'all' | 'with' | 'without'
     let _printGrades    = new Set();
+    let _printDocType   = 'cert';  // 'cert' (report card) | 'parentId'
 
-    window._openPrintOptions = function() {
+    function _docHasDoc(s) {
+        return _printDocType === 'parentId' ? !!s._parentIdHref : !!s._pdfHref;
+    }
+    function _docLabels() {
+        return _printDocType === 'parentId'
+            ? { noun:'Parent ID', short:'ID', reportTitle:'Parent ID Status Report', fileBase:'Parent_ID_Status_Report' }
+            : { noun:'Report Card', short:'PDF', reportTitle:'PDF Status Report', fileBase:'PDF_Status_Report' };
+    }
+
+    window._openPrintOptions = async function(docType) {
+        _printDocType = (docType === 'parentId') ? 'parentId' : (docType === 'cert') ? 'cert' : _printDocType;
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) { alert('No student data loaded yet.'); return; }
+
+        // Make sure the relevant document type has been probed on the server
+        if (_printDocType === 'parentId' && !window._bgParentIdScanDone) {
+            await window._bgScanParentIds(students);
+        } else if (_printDocType === 'cert' && !window._bgPdfScanDone) {
+            await _bgScanPdfs(students);
+        }
+
+        const labels = _docLabels();
+
+        // Update modal chrome for the active document type
+        const titleEl = document.getElementById('print-options-title');
+        if (titleEl) titleEl.textContent = `${labels.reportTitle} Options`;
+        document.querySelectorAll('#print-doctype-btns button').forEach(b => {
+            const active = b.dataset.doctype === _printDocType;
+            b.style.background  = active ? 'var(--navy-lt)' : 'transparent';
+            b.style.color       = active ? '#fff' : 'var(--text2)';
+            b.style.borderColor = active ? 'var(--navy-lt)' : 'var(--border2)';
+        });
+        const filterWithBtn    = document.querySelector('#print-filter-btns button[data-filter="with"]');
+        const filterWithoutBtn = document.querySelector('#print-filter-btns button[data-filter="without"]');
+        if (filterWithBtn)    filterWithBtn.textContent    = `\u2713 Have ${labels.short}`;
+        if (filterWithoutBtn) filterWithoutBtn.textContent = `\u2717 No ${labels.short}`;
 
         // Build grade list
         const groups = {};
         students.forEach(s => {
             const grade = (s.Grade||s['Class']||s['grade']||s['class']||'Unknown').toString().trim();
             if (!groups[grade]) groups[grade] = { withPdf:[], noPdf:[] };
-            (s._pdfHref ? groups[grade].withPdf : groups[grade].noPdf).push(s);
+            (_docHasDoc(s) ? groups[grade].withPdf : groups[grade].noPdf).push(s);
         });
         const gradeKeys = Object.keys(groups).sort((a,b) => {
             const na = parseInt(a.replace(/\D+/g,''))||0, nb = parseInt(b.replace(/\D+/g,''))||0;
@@ -7905,19 +8024,20 @@ setTimeout(() => {
 
     window._updatePrintPreview = function() {
         const students = (window._studentsData || window.studentsData || []);
+        const labels = _docLabels();
         const filtered = students.filter(s => {
             const grade = (s.Grade||s['Class']||s['grade']||s['class']||'Unknown').toString().trim();
             if (!_printGrades.has(grade)) return false;
-            if (_printFilter === 'with')    return !!s._pdfHref;
-            if (_printFilter === 'without') return !s._pdfHref;
+            if (_printFilter === 'with')    return _docHasDoc(s);
+            if (_printFilter === 'without') return !_docHasDoc(s);
             return true;
         });
         const el = document.getElementById('print-preview-count');
         if (el) {
-            const withPdf = filtered.filter(s=>s._pdfHref).length;
-            const noPdf   = filtered.length - withPdf;
+            const withDoc = filtered.filter(s=>_docHasDoc(s)).length;
+            const noDoc   = filtered.length - withDoc;
             el.innerHTML = filtered.length
-                ? `<strong>${filtered.length}</strong> students will be included &nbsp;&middot;&nbsp; <span style="color:var(--success);">${withPdf} with PDF</span> &nbsp;&middot;&nbsp; <span style="color:var(--danger);">${noPdf} missing</span>`
+                ? `<strong>${filtered.length}</strong> students will be included &nbsp;&middot;&nbsp; <span style="color:var(--success);">${withDoc} with ${labels.short}</span> &nbsp;&middot;&nbsp; <span style="color:var(--danger);">${noDoc} missing</span>`
                 : `<span style="color:var(--danger);">No students match the selected criteria</span>`;
             const goBtn = document.getElementById('print-options-go-btn');
             if (goBtn) goBtn.disabled = filtered.length === 0;
@@ -7930,8 +8050,8 @@ setTimeout(() => {
         const students = allStudents.filter(s => {
             const grade = (s.Grade||s['Class']||s['grade']||s['class']||'Unknown').toString().trim();
             if (!_printGrades.has(grade)) return false;
-            if (_printFilter === 'with')    return !!s._pdfHref;
-            if (_printFilter === 'without') return !s._pdfHref;
+            if (_printFilter === 'with')    return _docHasDoc(s);
+            if (_printFilter === 'without') return !_docHasDoc(s);
             return true;
         });
         if (!students.length) { alert('No students match the selected criteria.'); return; }
@@ -7958,19 +8078,20 @@ setTimeout(() => {
             const M     = 12;
             const today = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
             const base  = location.origin + location.pathname.replace(/[^/]*$/, '');
+            const docLabels = _docLabels();
 
             // ── Group & sort ──────────────────────────────────────────────
             const groups = {};
             students.forEach(s => {
                 const grade = (s.Grade||s['Class']||s['grade']||s['class']||'Unknown').toString().trim();
                 if (!groups[grade]) groups[grade] = { withPdf:[], noPdf:[] };
-                (s._pdfHref ? groups[grade].withPdf : groups[grade].noPdf).push(s);
+                (_docHasDoc(s) ? groups[grade].withPdf : groups[grade].noPdf).push(s);
             });
             const gradeKeys = Object.keys(groups).sort((a,b) => {
                 const na = parseInt(a.replace(/\D+/g,''))||0, nb = parseInt(b.replace(/\D+/g,''))||0;
                 return na !== nb ? na-nb : a.localeCompare(b);
             });
-            const totalWith    = students.filter(s=>s._pdfHref).length;
+            const totalWith    = students.filter(s=>_docHasDoc(s)).length;
             const totalWithout = students.length - totalWith;
             const coverage     = students.length ? Math.round(totalWith/students.length*100) : 0;
 
@@ -8019,7 +8140,7 @@ setTimeout(() => {
             setBtn('Building PDF…', true);
             await new Promise(r => setTimeout(r, 20));
 
-            const filterLabel = _printFilter==='with' ? 'Students With PDF' : _printFilter==='without' ? 'Students Without PDF' : 'All Students';
+            const filterLabel = _printFilter==='with' ? `Students With ${docLabels.short}` : _printFilter==='without' ? `Students Without ${docLabels.short}` : 'All Students';
 
             // ── Color palette matching the school report card ─────
             const C = {
@@ -8049,9 +8170,9 @@ setTimeout(() => {
                 doc.setFontSize(11); doc.setFont(undefined,'bold');
                 doc.text('KANYADET PRI & JUNIOR SCHOOL', M+13, 9);
                 doc.setFontSize(6.5); doc.setFont(undefined,'normal');
-                doc.text(`PDF Status Report \u2014 ${filterLabel} \u2014 ${today}`, M+13, 15);
+                doc.text(`${docLabels.reportTitle} \u2014 ${filterLabel} \u2014 ${today}`, M+13, 15);
                 doc.setFontSize(6.5); doc.setTextColor(180,210,240);
-                doc.text(`${totalWith}/${students.length} have PDF \u00B7 ${coverage}% \u00B7 p.${pageNum}`, PW-M, 15, {align:'right'});
+                doc.text(`${totalWith}/${students.length} have ${docLabels.short} \u00B7 ${coverage}% \u00B7 p.${pageNum}`, PW-M, 15, {align:'right'});
             };
 
             // Cover page
@@ -8061,8 +8182,8 @@ setTimeout(() => {
             // Summary stat cards
             const statCards = [
                 {l:'Total Students', val:String(students.length), clr:C.hdr},
-                {l:'Have PDF',        val:String(totalWith),       clr:C.green},
-                {l:'Missing PDF',     val:String(totalWithout),    clr:C.red},
+                {l:`Have ${docLabels.short}`,        val:String(totalWith),       clr:C.green},
+                {l:`Missing ${docLabels.short}`,     val:String(totalWithout),    clr:C.red},
                 {l:'Classes',         val:String(gradeKeys.length),clr:C.hdr},
                 {l:'Coverage',        val:coverage+'%',            clr:C.gold},
             ];
@@ -8091,7 +8212,7 @@ setTimeout(() => {
 
             doc.autoTable({
                 startY: y,
-                head: [['Class','Total','Have PDF','Missing','Coverage']],
+                head: [['Class','Total',`Have ${docLabels.short}`,'Missing','Coverage']],
                 body: gradeKeys.map(g => {
                     const gr = groups[g];
                     const tot = gr.withPdf.length + gr.noPdf.length;
@@ -8129,7 +8250,7 @@ setTimeout(() => {
                 doc.text(grade, M+5.5, y+4.8);
                 const tot2 = g.withPdf.length + g.noPdf.length;
                 doc.setFontSize(7); doc.setFont(undefined,'normal');
-                doc.text(`${g.withPdf.length} PDF \u00B7 ${g.noPdf.length} missing \u00B7 ${tot2} total`, PW-M-2, y+4.8, {align:'right'});
+                doc.text(`${g.withPdf.length} ${docLabels.short} \u00B7 ${g.noPdf.length} missing \u00B7 ${tot2} total`, PW-M-2, y+4.8, {align:'right'});
                 y += 9.5;
 
                 // Column headers
@@ -8149,7 +8270,7 @@ setTimeout(() => {
                         doc.text(grade+' (cont.)', M+5.5, y+4); y += 8.5;
                     }
 
-                    const hasPdf = !!s._pdfHref;
+                    const hasPdf = _docHasDoc(s);
                     const name   = s['Official Student Name']||'';
                     const admNo  = String(s['Assessment No']||'\u2014');
 
@@ -8189,7 +8310,7 @@ setTimeout(() => {
                         doc.roundedRect(C_ST, y+2, 17, 5.5, 1.5,1.5,'S');
                         doc.setLineWidth(0.2);
                         doc.setFontSize(6.5); doc.setFont(undefined,'bold'); doc.setTextColor(...C.green);
-                        doc.text('\u2713  PDF', C_ST+8.5, y+5.7, {align:'center'});
+                        doc.text(`\u2713  ${docLabels.short}`, C_ST+8.5, y+5.7, {align:'center'});
                     } else {
                         doc.setFillColor(...C.redL);
                         doc.roundedRect(C_ST, y+2, 17, 5.5, 1.5,1.5,'F');
@@ -8214,13 +8335,13 @@ setTimeout(() => {
                 doc.setPage(p);
                 doc.setFillColor(...C.gold); doc.rect(0, PH-10, PW, 0.5, 'F');
                 doc.setFontSize(6.2); doc.setTextColor(...C.sub); doc.setFont(undefined,'normal');
-                doc.text(`Kanyadet Pri & Junior School  \u00B7  PDF Status Report  \u00B7  ${today}  \u00B7  Page ${p} of ${tp}`,
+                doc.text(`Kanyadet Pri & Junior School  \u00B7  ${docLabels.reportTitle}  \u00B7  ${today}  \u00B7  Page ${p} of ${tp}`,
                     PW/2, PH-6.5, {align:'center'});
                 doc.setFontSize(5.5); doc.setTextColor(180,200,220);
                 doc.text('https://kanyadet-school-portal.web.app/', PW/2, PH-3.5, {align:'center'});
             }
-            const filterSuffix = _printFilter==='with' ? '_WithPDF' : _printFilter==='without' ? '_NoPDF' : '_All';
-            doc.save(`PDF_Status_Report${filterSuffix}_${new Date().toISOString().split('T')[0]}.pdf`);
+            const filterSuffix = _printFilter==='with' ? `_With${docLabels.short}` : _printFilter==='without' ? `_No${docLabels.short}` : '_All';
+            doc.save(`${docLabels.fileBase}${filterSuffix}_${new Date().toISOString().split('T')[0]}.pdf`);
 
         } catch(err) {
             console.error('Print report error:', err);
@@ -8537,6 +8658,146 @@ window._bulkExportPhotosZip = async function() {
         if (pm) pm.style.display = 'none';
         showToast('Photos ZIP failed: ' + err.message, 'danger');
         console.error('[Photos ZIP]', err);
+    }
+};
+
+// ── Parent IDs ZIP: all parent national IDs grouped by Grade ──
+// Server layout: ./parent_ID/{Grade}/ID_{Name}.pdf (or .PDF)
+window._bulkExportParentIdsZip = async function() {
+    const students = window._studentsData || [];
+    if (!students.length) { showToast('No students loaded.', 'danger'); return; }
+
+    const pm = document.getElementById('zip-progress-modal');
+    const pt = document.getElementById('zip-progress-title');
+    const pf = document.getElementById('zip-progress-fill');
+    const pl = document.getElementById('zip-progress-label');
+    const ps = document.getElementById('zip-progress-sub');
+    window._zipExportCancelled = false;
+    if (pt) pt.textContent = 'Exporting Parent IDs';
+    if (pm) pm.style.display = 'flex';
+    if (pl) pl.textContent = 'Checking server for parent IDs…';
+    if (ps) ps.textContent = '';
+
+    // ── Probe each student's ./parent_ID/{Grade}/ID_{Name}.pdf(.PDF) ──
+    const withId = []; // { student, url }
+    const BATCH = 40;
+    try {
+        for (let i = 0; i < students.length; i += BATCH) {
+            if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
+            const batch = students.slice(i, i + BATCH);
+            if (pf) pf.style.width = Math.round(i / students.length * 30) + '%';
+            await Promise.all(batch.map(async s => {
+                const url = await resolveParentId(s['Official Student Name'], s.Grade);
+                if (url) withId.push({ student: s, url });
+            }));
+        }
+    } catch(scanErr) {
+        if (pm) pm.style.display = 'none';
+        showToast('Could not check the server for parent IDs: ' + scanErr.message, 'danger');
+        return;
+    }
+    if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
+    const total = withId.length;
+    if (pm) pm.style.display = 'none';
+
+    if (!total) {
+        showToast('No parent IDs found on the server.', 'danger');
+        return;
+    }
+
+    // Count by grade for the confirm dialog
+    const gradeCounts = {};
+    withId.forEach(({student: s}) => {
+        const g = (s.Grade || 'No Grade').trim();
+        gradeCounts[g] = (gradeCounts[g] || 0) + 1;
+    });
+    const gradeList = Object.entries(gradeCounts)
+        .sort(([a],[b]) => a.localeCompare(b, undefined, {numeric:true}))
+        .map(([g, n]) => `${g} (${n})`)
+        .join(', ');
+
+    const result = await window.openModal({
+        icon: 'info',
+        title: 'Export Parent IDs as ZIP',
+        text: `${total} parent IDs across ${Object.keys(gradeCounts).length} grades will be bundled into per-class folders.\n\nGrades: ${gradeList}`,
+        showCancelButton: true,
+        confirmButtonText: `Export ${total} Parent IDs`,
+        cancelButtonText: 'Cancel',
+    });
+    if (!result.isConfirmed) return;
+
+    if (pm) pm.style.display = 'flex';
+
+    try {
+        // Lazy-load JSZip
+        if (!window.JSZip) {
+            if (pl) pl.textContent = 'Loading ZIP library…';
+            await new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                s.onload = res; s.onerror = () => rej(new Error('Could not load JSZip'));
+                document.head.appendChild(s);
+            });
+        }
+
+        const zip = new window.JSZip();
+        let added = 0;
+        let done = 0;
+        for (const { student, url } of withId) {
+            if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
+            done++;
+            const pct = Math.round((done / total) * 88);
+            if (pf) pf.style.width = pct + '%';
+            const name = String(student['Official Student Name'] || student['Assessment No'] || student.id || 'unknown')
+                .replace(/[\/\\:*?"<>|]/g, '_').trim();
+            const grade = String(student.Grade || 'No Grade').replace(/[/\\:*?"<>|]/g, '_').trim();
+            if (pl) pl.textContent = `Fetching ${done} of ${total}…`;
+            if (ps) ps.textContent = `${grade} / ${name}`;
+
+            try {
+                const res = await fetch(url, { cache: 'no-store' });
+                if (!res.ok) continue;
+                const arrayBuffer = await res.arrayBuffer();
+                // File path within the grade folder keeps the ID_ prefix,
+                // plus Assessment No for uniqueness: ID_Name_AssessNo.pdf
+                const assessNo = String(student['Assessment No'] ?? '').replace(/[/\\:*?"<>|]/g,'_');
+                const filename = assessNo ? `ID_${name}_${assessNo}.pdf` : `ID_${name}.pdf`;
+                zip.folder(grade).file(filename, arrayBuffer);
+                added++;
+            } catch(fetchErr) {
+                console.warn(`[Parent IDs ZIP] Skipped ${name}:`, fetchErr.message);
+            }
+        }
+
+        if (!added) { if (pm) pm.style.display = 'none'; showToast('Could not fetch any parent IDs from the server.', 'danger'); return; }
+
+        if (pf) pf.style.width = '93%';
+        if (pl) pl.textContent = 'Generating ZIP…';
+        if (ps) ps.textContent = '';
+
+        const blob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 5 }
+        });
+
+        if (pf) pf.style.width = '100%';
+        if (pl) pl.textContent = 'Done!';
+
+        const url2 = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url2;
+        a.download = `parent_ids_${new Date().toISOString().split('T')[0]}.zip`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url2), 2000);
+        setTimeout(() => { if (pm) pm.style.display = 'none'; }, 1000);
+
+        showToast(`Parent IDs ZIP with ${added} files (${Object.keys(gradeCounts).length} grades) downloaded!`, 'success');
+
+    } catch(err) {
+        if (pm) pm.style.display = 'none';
+        showToast('Parent IDs ZIP failed: ' + err.message, 'danger');
+        console.error('[Parent IDs ZIP]', err);
     }
 };
 
