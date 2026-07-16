@@ -3957,7 +3957,7 @@ async function _bgScanParentIds(students, force) {
         students.forEach(s => { s._parentIdHref = ''; });
     }
     const map = new Map(); // id → href
-    const BATCH = 40;
+    const BATCH = 150; // large database — bigger batch keeps the scan from crawling
     for (let i = 0; i < students.length; i += BATCH) {
         const batch = students.slice(i, i + BATCH);
         await Promise.all(batch.map(async s => {
@@ -8202,6 +8202,22 @@ setTimeout(() => {
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) { alert('No student data loaded yet.'); return; }
 
+        // Open the modal immediately so the button feels instant — on a large
+        // database the parent-ID rescan below can take a few seconds, so show
+        // a scanning placeholder right away instead of leaving the button
+        // looking unresponsive while we wait.
+        const titleElEarly = document.getElementById('print-options-title');
+        if (titleElEarly) titleElEarly.textContent = _printDocType === 'parentId' ? 'Parent ID Status Report' : 'Print Report Options';
+        const boxEarly = document.getElementById('print-grade-checkboxes');
+        const needsScan = _printDocType === 'parentId' || (_printDocType === 'cert' && !window._bgPdfScanDone);
+        if (boxEarly && needsScan) {
+            boxEarly.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:.5rem;padding:1.25rem .5rem;color:var(--slate);font-size:.8rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--navy-lt)" stroke-width="2.5" style="animation:um-spin .8s linear infinite;flex-shrink:0;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                <span>Scanning server for ${_printDocType === 'parentId' ? 'Parent IDs' : 'PDFs'} — this can take a moment on a large database…</span>
+            </div>`;
+        }
+        document.getElementById('print-options-modal').style.display = 'flex';
+
         // Make sure the relevant document type has been probed on the server.
         // Parent IDs are force-rescanned on every open (cheap HEAD probes,
         // and files get uploaded mid-session) so this report never shows a
@@ -8956,7 +8972,7 @@ window._bulkExportParentIdsZip = async function() {
 
     // ── Probe each student's ./parent_ID/{Grade}/ID_{Name}.pdf(.PDF) ──
     const withId = []; // { student, url }
-    const BATCH = 40;
+    const BATCH = 150; // large database — bigger batch keeps the scan from crawling
     try {
         for (let i = 0; i < students.length; i += BATCH) {
             if (window._zipExportCancelled) { if (pm) pm.style.display = 'none'; return; }
