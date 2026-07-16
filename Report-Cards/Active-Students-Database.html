@@ -3369,6 +3369,11 @@ async function _syncParentIdLink(name, grade) {
     if (!parentIdLink) return;
     parentIdLink.style.display = 'none';
     parentIdLink.href = '#';
+    // Drop any cached "not found" for this student's candidate URLs so a
+    // file uploaded earlier this session shows up without a full reload.
+    _parentIdCandidates(name, grade).forEach(u => {
+        if (_pdfExistCache[u] === false) delete _pdfExistCache[u];
+    });
     const url = await resolveParentId(name, grade);
     if (url) {
         parentIdLink.href = url;
@@ -3887,9 +3892,29 @@ async function _bgScanPdfs(students) {
 
 window._bgScanPdfs = _bgScanPdfs;
 
+// Wipes cached HEAD-probe results (true or false) for every parent-ID
+// candidate URL these students could resolve to, so a stale 404 from before
+// the PDF existed can't keep masking a file that's since been uploaded.
+function _clearParentIdProbeCache(students) {
+    (students || []).forEach(s => {
+        const name = (s['Official Student Name'] || '').trim();
+        if (!name) return;
+        _parentIdCandidates(name, s.Grade || '').forEach(url => { delete _pdfExistCache[url]; });
+    });
+}
+window._clearParentIdProbeCache = _clearParentIdProbeCache;
+
 window._bgParentIdScanDone = false;
-async function _bgScanParentIds(students) {
-    if (!students || !students.length || window._bgParentIdScanDone) return;
+async function _bgScanParentIds(students, force) {
+    if (!students || !students.length) return;
+    if (window._bgParentIdScanDone && !force) return;
+    if (force) {
+        // Full rescan requested (e.g. re-opening the ID Report): drop any
+        // cached negative probes and each student's memoized href so files
+        // uploaded since the last scan are actually picked up.
+        _clearParentIdProbeCache(students);
+        students.forEach(s => { s._parentIdHref = ''; });
+    }
     const map = new Map(); // id → href
     const BATCH = 40;
     for (let i = 0; i < students.length; i += BATCH) {
@@ -7929,9 +7954,12 @@ setTimeout(() => {
         const students = (window._studentsData || window.studentsData || []);
         if (!students.length) { alert('No student data loaded yet.'); return; }
 
-        // Make sure the relevant document type has been probed on the server
-        if (_printDocType === 'parentId' && !window._bgParentIdScanDone) {
-            await window._bgScanParentIds(students);
+        // Make sure the relevant document type has been probed on the server.
+        // Parent IDs are force-rescanned on every open (cheap HEAD probes,
+        // and files get uploaded mid-session) so this report never shows a
+        // stale "missing" from before the PDF existed.
+        if (_printDocType === 'parentId') {
+            await window._bgScanParentIds(students, true);
         } else if (_printDocType === 'cert' && !window._bgPdfScanDone) {
             await _bgScanPdfs(students);
         }
