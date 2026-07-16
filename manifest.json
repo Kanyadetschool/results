@@ -1,5 +1,5 @@
 {
-  "name": "Kanyadet School Results Portal",
+  "name": "Kanyadet Pri & Junior School Results Portal",
   "short_name": "Results Portal",
   "start_url": "./index.html",
   "scope": "./",
@@ -8,13 +8,13 @@
   "theme_color": "#1a5276",
   "icons": [
     {
-      "src": "./images/logo.png",
+      "src": "./images/logoapp.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./images/logo.png",
+      "src": "./images/logoapp.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
