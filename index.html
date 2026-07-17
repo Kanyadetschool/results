@@ -13297,6 +13297,108 @@ let _qePendingCells = new Set(); // subset of cells changed since the LAST succe
 // are illegal inside an RTDB key.
 function _qeFbKey(s){ return encodeURIComponent(String(s)).replace(/\./g, '%2E'); }
 
+/* ── ROSTER OVERRIDES (students manually added/removed this exam) ─────────
+   The score DRAFT above only ever tracks cell values — it has no idea which
+   students should even be on the sheet. Before this, "➕ Add Student" and
+   "🗑️ Remove" only ever touched the in-memory _qeStudents array, so a
+   reload (or another device opening the same exam) rebuilt the roster
+   straight from allData and silently threw those changes away: an added
+   student who hadn't been submitted yet vanished, and a removed student —
+   who's still a real record elsewhere in the database — came right back.
+   This mirrors the shared-draft approach one level up: a small per-exam
+   node recording which students were added (with their full starter data,
+   since they don't exist in allData yet) and which existing students were
+   removed from THIS sheet, applied on every load on top of the raw
+   database roster. Same offline pattern too — local mirror written first
+   (always succeeds), Firebase write best-effort on top of it. */
+const QE_ROSTER_OVERRIDES_PATH = 'quickEntryRosterOverrides';
+const QE_ROSTER_LS_PREFIX = 'kss_qe_roster_';
+function _qeRosterLocalKey(examKey){ return `${QE_ROSTER_LS_PREFIX}${examKey}`; }
+function _qeReadLocalRoster(examKey){
+  try{
+    const raw = localStorage.getItem(_qeRosterLocalKey(examKey));
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function _qeWriteLocalRoster(examKey, payload){
+  try{ localStorage.setItem(_qeRosterLocalKey(examKey), JSON.stringify(payload)); }
+  catch(e){ /* storage full/unavailable — Firebase write (if online) still goes ahead */ }
+}
+
+/** Fetches roster overrides for an exam — local mirror first (instant,
+ *  works offline), refreshed from Firebase when online so multi-device
+ *  changes are picked up too. */
+async function _qeFetchRosterOverrides(examKey){
+  let overrides = _qeReadLocalRoster(examKey) || { added:{}, removed:{} };
+  if(navigator.onLine){
+    try{
+      const {ref, get} = window._fb;
+      const snap = await get(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}`));
+      if(snap.exists()){
+        const val = snap.val() || {};
+        overrides = { added: val.added||{}, removed: val.removed||{} };
+        _qeWriteLocalRoster(examKey, overrides);
+      }
+    }catch(e){ /* offline/blip — fall back to whatever the local mirror had */ }
+  }
+  return overrides;
+}
+
+/** Records a manually-added student so it survives a reload — writes the
+ *  local mirror synchronously (before any network round trip), then
+ *  best-effort pushes to Firebase so other devices on this exam see it too. */
+async function _qeSaveRosterAdd(examKey, key, studentObj){
+  const overrides = _qeReadLocalRoster(examKey) || { added:{}, removed:{} };
+  overrides.added[key] = studentObj;
+  delete overrides.removed[key];
+  _qeWriteLocalRoster(examKey, overrides);
+  if(navigator.onLine){
+    try{
+      const {ref, set, remove} = window._fb;
+      await set(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}/added/${_qeFbKey(key)}`), studentObj);
+      await remove(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}/removed/${_qeFbKey(key)}`));
+    }catch(e){ /* stays queued in the local mirror */ }
+  }
+}
+
+/** Records that a student should be excluded from this sheet. If they were
+ *  a locally-added student who hasn't been submitted yet, this just undoes
+ *  the add (nothing to exclude — they simply won't exist next load). If
+ *  they're a real existing-record student, their key is remembered so the
+ *  next roster rebuild filters them back out instead of pulling them in
+ *  again from allData. */
+async function _qeSaveRosterRemove(examKey, key, wasLocallyAdded){
+  const overrides = _qeReadLocalRoster(examKey) || { added:{}, removed:{} };
+  if(wasLocallyAdded){ delete overrides.added[key]; }
+  else { overrides.removed[key] = true; }
+  _qeWriteLocalRoster(examKey, overrides);
+  if(navigator.onLine){
+    try{
+      const {ref, set, remove} = window._fb;
+      if(wasLocallyAdded){
+        await remove(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}/added/${_qeFbKey(key)}`));
+      } else {
+        await set(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}/removed/${_qeFbKey(key)}`), true);
+      }
+    }catch(e){ /* stays queued in the local mirror */ }
+  }
+}
+
+/** Called once a Quick Entry submission succeeds — every added student now
+ *  has a real database record (so the normal exactRows roster picks them up
+ *  next load) and every removed student still correctly has no record for
+ *  this exam (so they stay excluded naturally too). The overrides node has
+ *  done its job and can be cleared to avoid stale data building up. */
+async function _qeClearRosterOverrides(examKey){
+  _qeWriteLocalRoster(examKey, { added:{}, removed:{} });
+  if(navigator.onLine){
+    try{
+      const {ref, remove} = window._fb;
+      await remove(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}`));
+    }catch(e){ /* harmless — next successful submit will retry the clear */ }
+  }
+}
+
 /* ── OFFLINE SUPPORT (Google-Sheets-style) ───────────────────────────────────
    Quick Entry keeps working with no internet connection at all: every
    autosave writes to localStorage FIRST (always succeeds, even offline), and
@@ -14230,9 +14332,26 @@ async function loadQuickEntry(){
     else { if(seenNoIdName.has(name)) return; seenNoIdName.add(name); }
     students.push(r);
   });
-  students.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
 
-  if(!students.length){
+  // ── Apply persisted roster overrides ────────────────────────────────────
+  // Restores students manually added via "➕ Add Student" that haven't been
+  // submitted yet, and re-excludes students manually removed via "🗑️" —
+  // without this, both changes were silently lost on every reload since the
+  // roster above is rebuilt fresh from the database every time.
+  const _qeExamKey = encodeURIComponent(selCompound);
+  const _rosterOverrides = await _qeFetchRosterOverrides(_qeExamKey);
+  const _removedKeys = new Set(Object.keys(_rosterOverrides.removed||{}).map(k=>{
+    try{ return decodeURIComponent(k); }catch(e){ return k; }
+  }));
+  let finalStudents = students.filter(r => !_removedKeys.has(_qeStudentKey(r)));
+  const _presentKeys = new Set(finalStudents.map(r=>_qeStudentKey(r)));
+  Object.values(_rosterOverrides.added||{}).forEach(stu=>{
+    const k = _qeStudentKey(stu);
+    if(!_presentKeys.has(k)){ finalStudents.push(stu); _presentKeys.add(k); }
+  });
+  finalStudents.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
+
+  if(!finalStudents.length){
     notify('⚠️ No existing students found for that grade/exam yet — use "➕ Add Student" below to start building the sheet.','warn',6000);
   }
 
@@ -14244,7 +14363,7 @@ async function loadQuickEntry(){
   // (Settings → Extra Subjects) so they're ready for teachers to fill in.
   getExtraSubjectsForGrade(selGrade).forEach(s => subjSet.add(s));
   _qeSubjects = [...subjSet].sort();
-  _qeStudents = students;
+  _qeStudents = finalStudents;
 
   // ── Pull in any scores already submitted to the database for this exam ────
   // so teachers see (and, if unlocked, can correct) what's already there
@@ -14828,14 +14947,19 @@ function _qeConfirmAddStudent(){
   );
   if(dupe){ notify('⚠️ A student with that Assessment No or UPI is already on this sheet.','warn'); return; }
 
-  _qeStudents.push({
+  const newStudent = {
     id: 'NEW_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
     'Official Student Name': name,
     'Assessment No': asm,
     'UPI': upi,
     'Grade': _qeCompound
-  });
+  };
+  _qeStudents.push(newStudent);
   _qeStudents.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
+
+  // Persist so this survives a reload / shows up for other devices on this
+  // exam — previously this only lived in memory and vanished on refresh.
+  _qeSaveRosterAdd(encodeURIComponent(_qeCompound), _qeStudentKey(newStudent), newStudent);
 
   const scores = _qeCollectScores(); // preserve whatever's already on-screen
   renderQuickEntryTable(scores, _qeLocked);
@@ -14855,6 +14979,11 @@ async function _qeRemoveStudentRow(key){
     '🗑️','Remove','btn-red'
   );
   if(!ok) return;
+  // Was this student added locally this session (not yet in the database)?
+  // If so, removing just undoes the add — nothing needs to be "excluded"
+  // since they won't exist in allData next load anyway.
+  const wasLocallyAdded = String(r.id||'').startsWith('NEW_');
+  _qeSaveRosterRemove(encodeURIComponent(_qeCompound), key, wasLocallyAdded);
   _qeStudents = _qeStudents.filter(x=>_qeStudentKey(x)!==key);
   const scores = _qeCollectScores();
   delete scores[key];
@@ -15156,6 +15285,12 @@ async function submitQuickEntry(){
     await remove(ref2(db, `${QE_DRAFTS_PATH}/${encodeURIComponent(_qeCompound)}`));
   }catch(e){}
   _qeClearLocalDraft(encodeURIComponent(_qeCompound));
+
+  // ── Clear roster overrides too — every added student now has a real
+  // record (so the normal database roster will include them next load) and
+  // every removed student still correctly has none (so they stay excluded
+  // naturally). Nothing left for the overrides node to do. ─────────────────
+  try{ await _qeClearRosterOverrides(encodeURIComponent(_qeCompound)); }catch(e){}
 
   // ── This exam is no longer "pending" once at least one record exists ──────
   if(created>0){
