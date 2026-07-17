@@ -13297,22 +13297,24 @@ let _qePendingCells = new Set(); // subset of cells changed since the LAST succe
 // are illegal inside an RTDB key.
 function _qeFbKey(s){ return encodeURIComponent(String(s)).replace(/\./g, '%2E'); }
 
-/* ── ROSTER OVERRIDES (students manually added/removed this exam) ─────────
+/* ── ROSTER OVERRIDES (students AND subjects manually added/removed this
+   exam) ────────────────────────────────────────────────────────────────
    The score DRAFT above only ever tracks cell values — it has no idea which
-   students should even be on the sheet. Before this, "➕ Add Student" and
-   "🗑️ Remove" only ever touched the in-memory _qeStudents array, so a
-   reload (or another device opening the same exam) rebuilt the roster
-   straight from allData and silently threw those changes away: an added
-   student who hadn't been submitted yet vanished, and a removed student —
-   who's still a real record elsewhere in the database — came right back.
-   This mirrors the shared-draft approach one level up: a small per-exam
-   node recording which students were added (with their full starter data,
-   since they don't exist in allData yet) and which existing students were
-   removed from THIS sheet, applied on every load on top of the raw
-   database roster. Same offline pattern too — local mirror written first
-   (always succeeds), Firebase write best-effort on top of it. */
+   students or subject columns should even be on the sheet. Before this,
+   "➕ Add Student", "🗑️ Remove" (student), and the ✕ next to a subject
+   header only ever touched in-memory arrays, so a reload (or another
+   device opening the same exam) rebuilt everything straight from allData
+   and silently threw those changes away: an added student who hadn't been
+   submitted yet vanished, and a removed student or subject — still present
+   in the database / latest-term suggestion / Extra Subjects registry —
+   came right back. This mirrors the shared-draft approach one level up: a
+   small per-exam node recording what changed, applied on every load on top
+   of the raw database roster/subjects. Same offline pattern too — local
+   mirror written first (always succeeds), Firebase write best-effort on
+   top of it. */
 const QE_ROSTER_OVERRIDES_PATH = 'quickEntryRosterOverrides';
 const QE_ROSTER_LS_PREFIX = 'kss_qe_roster_';
+const _qeEmptyOverrides = () => ({ added:{}, removed:{}, removedSubjects:{} });
 function _qeRosterLocalKey(examKey){ return `${QE_ROSTER_LS_PREFIX}${examKey}`; }
 function _qeReadLocalRoster(examKey){
   try{
@@ -13325,18 +13327,18 @@ function _qeWriteLocalRoster(examKey, payload){
   catch(e){ /* storage full/unavailable — Firebase write (if online) still goes ahead */ }
 }
 
-/** Fetches roster overrides for an exam — local mirror first (instant,
- *  works offline), refreshed from Firebase when online so multi-device
- *  changes are picked up too. */
+/** Fetches roster/subject overrides for an exam — local mirror first
+ *  (instant, works offline), refreshed from Firebase when online so
+ *  multi-device changes are picked up too. */
 async function _qeFetchRosterOverrides(examKey){
-  let overrides = _qeReadLocalRoster(examKey) || { added:{}, removed:{} };
+  let overrides = _qeReadLocalRoster(examKey) || _qeEmptyOverrides();
   if(navigator.onLine){
     try{
       const {ref, get} = window._fb;
       const snap = await get(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}`));
       if(snap.exists()){
         const val = snap.val() || {};
-        overrides = { added: val.added||{}, removed: val.removed||{} };
+        overrides = { added: val.added||{}, removed: val.removed||{}, removedSubjects: val.removedSubjects||{} };
         _qeWriteLocalRoster(examKey, overrides);
       }
     }catch(e){ /* offline/blip — fall back to whatever the local mirror had */ }
@@ -13348,7 +13350,7 @@ async function _qeFetchRosterOverrides(examKey){
  *  local mirror synchronously (before any network round trip), then
  *  best-effort pushes to Firebase so other devices on this exam see it too. */
 async function _qeSaveRosterAdd(examKey, key, studentObj){
-  const overrides = _qeReadLocalRoster(examKey) || { added:{}, removed:{} };
+  const overrides = _qeReadLocalRoster(examKey) || _qeEmptyOverrides();
   overrides.added[key] = studentObj;
   delete overrides.removed[key];
   _qeWriteLocalRoster(examKey, overrides);
@@ -13368,7 +13370,7 @@ async function _qeSaveRosterAdd(examKey, key, studentObj){
  *  next roster rebuild filters them back out instead of pulling them in
  *  again from allData. */
 async function _qeSaveRosterRemove(examKey, key, wasLocallyAdded){
-  const overrides = _qeReadLocalRoster(examKey) || { added:{}, removed:{} };
+  const overrides = _qeReadLocalRoster(examKey) || _qeEmptyOverrides();
   if(wasLocallyAdded){ delete overrides.added[key]; }
   else { overrides.removed[key] = true; }
   _qeWriteLocalRoster(examKey, overrides);
@@ -13384,13 +13386,46 @@ async function _qeSaveRosterRemove(examKey, key, wasLocallyAdded){
   }
 }
 
+/** Records that a subject column should be excluded from THIS specific
+ *  pending exam's sheet — so it stays gone on reload instead of
+ *  reappearing from the latest-term suggestion or the grade-wide Extra
+ *  Subjects registry. */
+async function _qeSaveSubjectRemove(examKey, subject){
+  const overrides = _qeReadLocalRoster(examKey) || _qeEmptyOverrides();
+  overrides.removedSubjects[subject] = true;
+  _qeWriteLocalRoster(examKey, overrides);
+  if(navigator.onLine){
+    try{
+      const {ref, set} = window._fb;
+      await set(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}/removedSubjects/${_qeFbKey(subject)}`), true);
+    }catch(e){ /* stays queued in the local mirror */ }
+  }
+}
+
+/** Undoes a previous subject removal — used when an Admin re-adds a subject
+ *  that had earlier been removed from this same sheet, so it doesn't get
+ *  filtered right back out again on the next load. */
+async function _qeClearSubjectRemoval(examKey, subject){
+  const overrides = _qeReadLocalRoster(examKey) || _qeEmptyOverrides();
+  delete overrides.removedSubjects[subject];
+  _qeWriteLocalRoster(examKey, overrides);
+  if(navigator.onLine){
+    try{
+      const {ref, remove} = window._fb;
+      await remove(ref(db, `${QE_ROSTER_OVERRIDES_PATH}/${examKey}/removedSubjects/${_qeFbKey(subject)}`));
+    }catch(e){ /* stays queued in the local mirror */ }
+  }
+}
+
 /** Called once a Quick Entry submission succeeds — every added student now
  *  has a real database record (so the normal exactRows roster picks them up
- *  next load) and every removed student still correctly has no record for
- *  this exam (so they stay excluded naturally too). The overrides node has
- *  done its job and can be cleared to avoid stale data building up. */
+ *  next load), every removed student still correctly has no record for
+ *  this exam (so they stay excluded naturally too), and subject columns
+ *  are about to be driven by real data instead of suggestions. The
+ *  overrides node has done its job and can be cleared to avoid stale data
+ *  building up. */
 async function _qeClearRosterOverrides(examKey){
-  _qeWriteLocalRoster(examKey, { added:{}, removed:{} });
+  _qeWriteLocalRoster(examKey, _qeEmptyOverrides());
   if(navigator.onLine){
     try{
       const {ref, remove} = window._fb;
@@ -14362,6 +14397,15 @@ async function loadQuickEntry(){
   // Include Advanced-Admin-registered subjects awaiting their first score
   // (Settings → Extra Subjects) so they're ready for teachers to fill in.
   getExtraSubjectsForGrade(selGrade).forEach(s => subjSet.add(s));
+  // Drop any subject an Advanced Admin removed from THIS specific pending
+  // exam's sheet via the ✕ in the table header — same overrides fetch as
+  // the roster above, so a removed subject stays gone on reload instead of
+  // reappearing from the latest-term suggestion or the grade-wide Extra
+  // Subjects registry.
+  const _removedSubjects = new Set(Object.keys(_rosterOverrides.removedSubjects||{}).map(k=>{
+    try{ return decodeURIComponent(k); }catch(e){ return k; }
+  }));
+  _removedSubjects.forEach(s => subjSet.delete(s));
   _qeSubjects = [...subjSet].sort();
   _qeStudents = finalStudents;
 
@@ -14760,17 +14804,29 @@ window.downloadQuickEntryMarkSheet = function(){
 
 /** Advanced Admin only, pending exams only — drops a subject column that was
  *  auto-suggested from the latest existing term but doesn't apply to this
- *  new exam. Purely local to this sheet: the new exam has no scores of its
- *  own yet, so there's nothing in the database to clean up — this just
- *  narrows what gets asked for when scores are entered and submitted. */
-function _qeRemoveSubjectFromSheet(subject){
+ *  new exam. Requires confirmation (easy to hit the ✕ by mistake), and the
+ *  removal is persisted per-exam so it stays gone on reload / for other
+ *  devices, instead of quietly reappearing from the latest-term suggestion
+ *  or the grade-wide Extra Subjects registry. */
+async function _qeRemoveSubjectFromSheet(subject){
   if(!isAdvancedAdmin){ notify('⛔ Advanced Admin only.','error'); return; }
   if(!_qeWasPending){ notify('⚠️ Subject columns can only be edited here for a brand-new (pending) exam.','warn'); return; }
+  const ok = await showConfirm(
+    '🗑️ Remove Subject Column?',
+    `Remove <strong>${subject}</strong> from this sheet?<br><br>
+     This only removes the column from <strong>this exam's sheet</strong> — it does <u>not</u> delete any "${subject}" scores already saved elsewhere in the database.`,
+    '🗑️','Remove','btn-red'
+  );
+  if(!ok) return;
   const scores = _qeCollectScores();
   Object.keys(scores).forEach(k => { if(scores[k]) delete scores[k][subject]; });
   _qeSubjects = _qeSubjects.filter(s => s !== subject);
   renderQuickEntryTable(scores, _qeLocked);
   notify(`Removed "${subject}" from this sheet.`,'info');
+
+  // Persist so it survives a reload / stays removed for other devices on
+  // this exam — previously this only lived in memory and reappeared on refresh.
+  _qeSaveSubjectRemove(encodeURIComponent(_qeCompound), subject);
 }
 window._qeRemoveSubjectFromSheet = _qeRemoveSubjectFromSheet;
 
@@ -14790,6 +14846,10 @@ async function _qeAddSubjectToSheet(){
   _qeSubjects = [..._qeSubjects, subject].sort();
   renderQuickEntryTable(_qeCollectScores(), _qeLocked);
   notify(`✅ "${subject}" added to this sheet.`,'success');
+
+  // In case this subject was previously removed from THIS exam's sheet,
+  // clear that so it doesn't get filtered right back out on the next load.
+  _qeClearSubjectRemoval(encodeURIComponent(_qeCompound), subject);
 
   // Best-effort persistence so it survives a reload / shows up for teachers —
   // mirrors Settings → Extra Subjects, but doesn't block the local UI on it.
