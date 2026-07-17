@@ -331,6 +331,7 @@ body::before{
 @media(max-width:1200px){.grid-2,.grid-3{grid-template-columns:1fr;}}
 @media(max-width:900px){.grid-2,.grid-3,.grid-60-40{grid-template-columns:1fr;}}
 @media(max-width:768px){.grid-2{grid-template-columns:1fr;}}
+@media(max-width:480px){.qe-select-group{flex:1 1 100%!important;max-width:100%!important;}}
 
 /* ══════════════════════════════════════════
    DATA TABLE
@@ -346,6 +347,12 @@ body::before{
 .data-table tbody tr:hover{background:rgba(41,128,185,.05);}
 .data-table td{padding:10px 14px;color:var(--text);}
 .data-table td:first-child{color:var(--text3);font-size:11px;font-family:'JetBrains Mono',monospace;}
+/* Quick Entry: freeze the #/Student Name columns so they stay visible while
+   scrolling horizontally through subject columns. */
+#qe-table th:nth-child(1),#qe-table td:nth-child(1){position:sticky;left:0;z-index:2;width:34px;min-width:34px;max-width:34px;box-sizing:border-box;background:var(--surface);}
+#qe-table th:nth-child(2),#qe-table td:nth-child(2){position:sticky;left:34px;z-index:2;background:var(--surface);box-shadow:2px 0 4px rgba(0,0,0,.15);}
+#qe-table thead th:nth-child(1),#qe-table thead th:nth-child(2){z-index:3;background:linear-gradient(rgba(41,128,185,.1),rgba(41,128,185,.1)),var(--surface);}
+#qe-table tbody tr:hover td:nth-child(1),#qe-table tbody tr:hover td:nth-child(2){background:linear-gradient(rgba(41,128,185,.05),rgba(41,128,185,.05)),var(--surface);}
 
 /* ══════════════════════════════════════════
    GRADE PILLS
@@ -3163,13 +3170,13 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div class="card" style="margin-bottom:18px">
           <div class="card-hdr"><div class="card-title">1️⃣ Select Grade &amp; Exam</div></div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding:4px 0">
-            <div>
+            <div class="qe-select-group" style="flex:1 1 160px;min-width:140px;max-width:260px">
               <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Grade</label>
-              <select class="sel qe-loading" id="qe-grade" style="min-width:160px" disabled><option value="">⏳ Loading grades…</option></select>
+              <select class="sel qe-loading" id="qe-grade" style="width:100%" disabled><option value="">⏳ Loading grades…</option></select>
             </div>
-            <div>
+            <div class="qe-select-group" style="flex:2 1 220px;min-width:180px;max-width:340px">
               <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam / Term</label>
-              <select class="sel qe-loading" id="qe-term" style="min-width:260px" onchange="_qeToggleNewExamBuilder(); _qeAutoLoadOnTermChange();" disabled>
+              <select class="sel qe-loading" id="qe-term" style="width:100%" onchange="_qeToggleNewExamBuilder(); _qeAutoLoadOnTermChange();" disabled>
                 <option value="">⏳ Loading exams…</option>
               </select>
             </div>
