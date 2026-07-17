@@ -3169,11 +3169,10 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
             <div>
               <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Exam / Term</label>
-              <select class="sel qe-loading" id="qe-term" style="min-width:260px" onchange="_qeToggleNewExamBuilder()" disabled>
+              <select class="sel qe-loading" id="qe-term" style="min-width:260px" onchange="_qeToggleNewExamBuilder(); _qeAutoLoadOnTermChange();" disabled>
                 <option value="">⏳ Loading exams…</option>
               </select>
             </div>
-            <button class="btn btn-blue btn-sm" onclick="loadQuickEntry()">📋 Load Students</button>
           </div>
           <div id="qe-new-exam-builder" style="display:none;margin-top:14px;padding:12px 14px;background:rgba(41,128,185,.06);border:1px solid rgba(41,128,185,.2);border-radius:var(--radius-md)">
             <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Advanced Admin only — create a new exam identity for the selected Grade above. It will appear in the "Exam / Term" list for teachers assigned to that grade only, ready for them to enter scores.</div>
@@ -3216,14 +3215,17 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div class="card" id="qe-table-card" style="display:none">
           <div class="card-hdr">
             <div class="card-title">2️⃣ Enter Scores</div>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input type="text" id="qe-search" class="sel" placeholder="🔍 Search student…" oninput="_qeFilterTable(this.value)" style="width:180px;padding:6px 10px;font-size:12px">
               <span id="qe-save-status" style="font-size:11px;color:var(--text2)"></span>
               <span id="qe-final-status" style="font-size:11px;font-weight:700"></span>
               <button class="btn btn-outline btn-sm" id="qe-add-student-btn" onclick="_qeOpenAddStudentModal()">➕ Add Student</button>
               <button class="btn btn-outline btn-sm" id="qe-add-subject-btn" style="display:none" onclick="_qeAddSubjectToSheet()">➕ Add Subject</button>
+              <button class="btn btn-outline btn-sm" onclick="downloadQuickEntryMarkSheet()" title="Excel mark sheet with the current roster, in the same order shown below — fill in offline, then re-enter here">⬇️ Download Mark Sheet</button>
               <button class="btn btn-green btn-sm" id="qe-submit-btn" onclick="submitQuickEntry()">✅ Submit Final to Database</button>
             </div>
           </div>
+          <div id="qe-search-empty" style="display:none;padding:14px 4px;font-size:12px;color:var(--text2)">No students match your search.</div>
           <div class="table-wrap"><table class="data-table" id="qe-table" style="min-width:700px">
             <thead><tr id="qe-thead-row"></tr></thead>
             <tbody id="qe-tbody"></tbody>
@@ -13606,6 +13608,19 @@ function _qeToggleNewExamBuilder(){
 }
 window._qeToggleNewExamBuilder = _qeToggleNewExamBuilder;
 
+/** Fires automatically whenever the Exam/Term dropdown changes to a real
+ *  selection (not the empty placeholder, and not "__new__" which instead
+ *  opens the New Exam builder panel above). Replaces the old manual
+ *  "📋 Load Students" button — picking an exam/term is now enough. */
+function _qeAutoLoadOnTermChange(){
+  const termEl = document.getElementById('qe-term');
+  if(!termEl) return;
+  const val = termEl.value.trim();
+  if(!val || val === '__new__') return;
+  loadQuickEntry();
+}
+window._qeAutoLoadOnTermChange = _qeAutoLoadOnTermChange;
+
 /** Advanced Admin creates a new exam identity and publishes it to Firebase
  *  as a "pending" exam. It becomes visible in Quick Entry only to teachers
  *  assigned to that specific grade — no other teacher ever sees it. */
@@ -14480,7 +14495,7 @@ function renderQuickEntryTable(draftScores, locked){
       ? `<span title="Already has a submitted record for this exam — Submit will update it" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(39,174,96,.12);color:var(--green);font-size:10px;font-weight:700;vertical-align:middle">✓ submitted</span>`
       : `<span title="No record yet for this exam — Submit will create one" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.12);color:var(--orange);font-size:10px;font-weight:700;vertical-align:middle">new</span>`;
     const _qeAv = makePhotoAvatar(r['Official Student Name']||'', r['Grade']||_qeGrade||'', 'stu-av-sm', 'flex-shrink:0', r.id||'');
-    return `<tr>
+    return `<tr data-name="${(r['Official Student Name']||'').toLowerCase()}">
       <td>${i+1}</td>
       <td style="font-size:12px;font-weight:600">
         <div style="display:flex;align-items:center;gap:8px">
@@ -14512,7 +14527,117 @@ function renderQuickEntryTable(draftScores, locked){
     });
   }
   _qeUpdateFinalSubmitStatus();
+
+  // Fresh render (e.g. new exam loaded, student added/removed) — clear any
+  // stale search filter from a previous sheet so no rows stay hidden.
+  const searchEl = document.getElementById('qe-search');
+  if(searchEl && searchEl.value){ searchEl.value=''; }
+  const emptyMsgEl = document.getElementById('qe-search-empty');
+  if(emptyMsgEl) emptyMsgEl.style.display = 'none';
 }
+
+/** Filters the Quick Entry score table by student name as the user types.
+ *  Purely visual (hides/shows <tr> elements) — doesn't touch _qeStudents or
+ *  any draft/score data, so it's safe to use while editing. */
+function _qeFilterTable(query){
+  const q = query.trim().toLowerCase();
+  const rows = document.querySelectorAll('#qe-tbody tr[data-name]');
+  let visibleCount = 0;
+  rows.forEach(tr=>{
+    const match = !q || tr.dataset.name.includes(q);
+    tr.style.display = match ? '' : 'none';
+    if(match) visibleCount++;
+  });
+  const emptyEl = document.getElementById('qe-search-empty');
+  if(emptyEl) emptyEl.style.display = (q && !visibleCount) ? 'block' : 'none';
+}
+window._qeFilterTable = _qeFilterTable;
+
+/** Downloads an Excel mark sheet for the CURRENTLY LOADED Quick Entry roster
+ *  — same students, in the exact same order as the on-screen table (whatever
+ *  order _qeStudents is in: alphabetical by default, but reflects any manual
+ *  "➕ Add Student" additions too, since those get sorted back into place).
+ *  Intended as an offline fill-in sheet: any score already saved to this
+ *  session's draft is carried over so the sheet shows real progress, while
+ *  everything still pending (not yet entered) is left blank for the teacher
+ *  to fill by hand and re-enter later. Does not touch the database. */
+window.downloadQuickEntryMarkSheet = function(){
+  if(!window.XLSX){
+    notify('⏳ XLSX library not yet loaded — please wait a moment and try again.','warn');
+    return;
+  }
+  if(!_qeStudents.length){
+    notify('⚠️ Load an exam/term first — nothing to export yet.','warn');
+    return;
+  }
+
+  // Pull whatever's already been typed into the sheet this session so the
+  // offline copy reflects real progress instead of wiping it back to blank.
+  const draftScores = _qeCollectScores ? _qeCollectScores() : {};
+
+  const META_COLS  = ['#', 'Official Student Name', 'UPI'];
+  const SCORE_COLS = _qeSubjects;
+  const header = [...META_COLS, ...SCORE_COLS];
+
+  const rows = _qeStudents.map((r, i) => {
+    const key = _qeStudentKey(r);
+    const draft = draftScores[key] || {};
+    const row = {};
+    row['#'] = i + 1;
+    row['Official Student Name'] = r['Official Student Name'] || '';
+    row['UPI'] = r['UPI'] || '';
+    SCORE_COLS.forEach(s => { row[s] = draft[s] !== undefined ? draft[s] : ''; });
+    return row;
+  });
+
+  const ws = window.XLSX.utils.json_to_sheet(rows, { header });
+  ws['!cols'] = header.map(h => {
+    if(h === '#') return { wch: 4 };
+    if(h === 'Official Student Name') return { wch: 30 };
+    if(h === 'UPI') return { wch: 14 };
+    return { wch: Math.max(h.length + 2, 12) };
+  });
+
+  const range = window.XLSX.utils.decode_range(ws['!ref']);
+  header.forEach((h, ci) => {
+    const addr = window.XLSX.utils.encode_cell({ r: 0, c: ci });
+    if(!ws[addr]) return;
+    const isMeta = ci < META_COLS.length;
+    ws[addr].s = {
+      font:      { bold: true, color: { rgb: 'FFFFFF' } },
+      fill:      { fgColor: { rgb: isMeta ? '1A5276' : '1D6A3A' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border:    { bottom: { style: 'medium', color: { rgb: isMeta ? '2980B9' : '27AE60' } } }
+    };
+  });
+  for(let ri = 1; ri <= range.e.r; ri++){
+    META_COLS.forEach((_, ci) => {
+      const addr = window.XLSX.utils.encode_cell({ r: ri, c: ci });
+      if(!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = { fill: { fgColor: { rgb: 'EBF5FB' } }, font: { color: { rgb: '1A5276' } }, alignment: { vertical: 'center' } };
+    });
+    SCORE_COLS.forEach((_, ci) => {
+      const addr = window.XLSX.utils.encode_cell({ r: ri, c: META_COLS.length + ci });
+      if(!ws[addr]) ws[addr] = { t: 'n', v: null };
+      ws[addr].s = { fill: { fgColor: { rgb: 'EAFAF1' } }, alignment: { horizontal: 'center', vertical: 'center' } };
+    });
+  }
+
+  const wb = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(wb, ws, 'Mark Sheet');
+
+  const gradeLabel = (_qeGrade || gShort(_qeCompound) || 'Grade').replace(/\s/g,'');
+  const termLabel  = (_qeCompound || 'Exam').replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_');
+  const filename   = `MarkSheet_${gradeLabel}_${termLabel}_${new Date().toISOString().slice(0,10)}.xlsx`;
+
+  try {
+    window.XLSX.writeFile(wb, filename, { cellStyles: true, bookSST: false });
+  } catch(e) {
+    window.XLSX.writeFile(wb, filename);
+  }
+  notify(`✅ Mark sheet downloaded — <strong>${_qeStudents.length} students</strong>, <strong>${SCORE_COLS.length} subjects</strong>, same order as on screen.`, 'success', 6000);
+  logActivity(`⬇️ Downloaded Quick Entry mark sheet: ${gradeLabel} · ${_qeCompound} · ${_qeStudents.length} students`, 'act-blue', currentAdminName, { category:'export' });
+};
 
 /** Advanced Admin only, pending exams only — drops a subject column that was
  *  auto-suggested from the latest existing term but doesn't apply to this
