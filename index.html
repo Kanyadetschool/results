@@ -96,9 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- DataTables + ColumnControl — powers the Quick Entry score sheet (sort / search / per-column filter list) -->
 <link rel="stylesheet" href="https://cdn.datatables.net/2.3.8/css/dataTables.dataTables.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/columncontrol/1.2.1/css/columnControl.dataTables.min.css">
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/2.3.8/js/dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/columncontrol/1.2.1/js/dataTables.columnControl.min.js"></script>
+<script defer src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script defer src="https://cdn.datatables.net/2.3.8/js/dataTables.min.js"></script>
+<script defer src="https://cdn.datatables.net/columncontrol/1.2.1/js/dataTables.columnControl.min.js"></script>
 <style>
 /* ══════════════════════════════════════════
    CSS VARIABLES
@@ -358,11 +358,14 @@ body::before{
 #qe-table th:nth-child(1),#qe-table td:nth-child(1){position:sticky;left:0;z-index:2;width:34px;min-width:34px;max-width:34px;box-sizing:border-box;background:var(--surface);}
 #qe-table th:nth-child(2),#qe-table td:nth-child(2){position:sticky;left:34px;z-index:2;background:var(--surface);box-shadow:2px 0 4px rgba(0,0,0,.15);}
 #qe-table tbody tr:hover td:nth-child(1),#qe-table tbody tr:hover td:nth-child(2){background:linear-gradient(rgba(41,128,185,.05),rgba(41,128,185,.05)),var(--surface);}
-/* Quick Entry: stick the header row itself under the app's own sticky topbar
-   while scrolling down, so subject names stay visible. --qe-thead-top is set
-   from JS to the topbar's actual rendered height (it differs by breakpoint). */
-#qe-table thead th{position:sticky;top:var(--qe-thead-top,0px);z-index:4;background:linear-gradient(rgba(41,128,185,.1),rgba(41,128,185,.1)),var(--surface);}
-#qe-table thead th:nth-child(1),#qe-table thead th:nth-child(2){z-index:5;} /* corner cells: sticky both ways, must sit above regular sticky header cells */
+#qe-table thead th:nth-child(1),#qe-table thead th:nth-child(2){z-index:3;background:linear-gradient(rgba(41,128,185,.1),rgba(41,128,185,.1)),var(--surface);}
+
+/* Highlight whichever column is currently sorted, so it's obvious at a
+   glance what the sheet is ordered by (DataTables tags cells in the
+   primary sort column with .sorting_1). */
+#qe-table tbody td.sorting_1{background:rgba(41,128,185,.07);}
+#qe-table tbody tr:hover td.sorting_1{background:rgba(41,128,185,.1);}
+
 
 
 /* Quick Entry: theme DataTables + ColumnControl to match the app's palette.
@@ -14594,18 +14597,6 @@ function _qeFindExisting(r){
 
 function _qeCellKey(student, subject){ return student + '||' + subject; }
 
-/** Keeps the Quick Entry sticky header positioned just below the app's own
- *  sticky topbar (whose height changes between desktop and the mobile
- *  breakpoint) instead of hardcoding a pixel value that would only be
- *  right at one screen size. */
-function _qeSyncStickyHeaderOffset(){
-  const topbar = document.querySelector('.topbar');
-  const h = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
-  document.documentElement.style.setProperty('--qe-thead-top', h + 'px');
-}
-window.addEventListener('load', _qeSyncStickyHeaderOffset);
-window.addEventListener('resize', _qeSyncStickyHeaderOffset);
-
 /** Tells DataTables to re-read a score cell's data (sort/filter caches are
  *  otherwise only computed once) — call after any code writes a new value
  *  into a score <input>, whether from the teacher typing or a live sync. */
@@ -14765,7 +14756,6 @@ function renderQuickEntryTable(draftScores, locked){
   if(emptyMsgEl) emptyMsgEl.style.display = 'none';
 
   _qeInitDataTable(locked);
-  _qeSyncStickyHeaderOffset();
 }
 
 /** Reads the live value out of an editable score <input> for a given
@@ -14781,9 +14771,14 @@ function _qeCellInputValue(meta){
 /** (Re)builds the DataTables wrapper around #qe-table right after its
  *  thead/tbody HTML has been (re)written. Destroys any previous instance
  *  first — DataTables can't be initialised twice on the same table. Adds:
- *   - sortable columns (click a header to order by it)
- *   - ColumnControl's per-column "searchList" picker — the Select all /
- *     Deselect / search-box / checklist filter shown in the reference image
+ *   - sortable columns (click a header to order by it) — the actively
+ *     sorted column also gets a subtle tint down the whole table
+ *   - ColumnControl's per-column "searchList" toggle picker (Select all /
+ *     Deselect / search-box / checklist — the filter shown in the
+ *     reference image) PLUS a "search" operator box (equals / greater
+ *     than / less than for scores, contains / starts / ends for names)
+ *   - state saving — sort order, search term and hidden columns are
+ *     remembered per exam (keyed by grade+term) across page reloads
  *   - the existing #qe-search box rewired to drive DataTables' own search
  *  Paging is left off so every student row stays in the DOM at once — the
  *  live Firebase patch/autosave code (_qePatchScoresIntoTable) depends on
@@ -14818,13 +14813,22 @@ function _qeInitDataTable(locked){
     columnDefs.push({ targets: -1, orderable: false, columnControl: [] }); // trailing 🗑️ column
   }
 
+  // State-saving key is scoped to the specific grade+term sheet, not shared
+  // across every exam — otherwise a hidden-columns list saved for a grade
+  // with 8 subjects would misapply to a grade with 6 and hide the wrong ones.
+  const stateKey = 'qe-dt-state-' + (_qeCompound || 'default');
+
   try{
     _qeDataTable = new DataTable('#qe-table', {
       paging: false,
       info: false,
       searching: true,
       ordering: true,
-      columnControl: ['order', ['searchList']],
+      stateSave: true,
+      stateDuration: -1, // -1 = persist in localStorage indefinitely (not just for the browser session)
+      stateSaveCallback: (settings, data) => { try{ localStorage.setItem(stateKey, JSON.stringify(data)); }catch(e){} },
+      stateLoadCallback: () => { try{ return JSON.parse(localStorage.getItem(stateKey)) || null; }catch(e){ return null; } },
+      columnControl: ['order', ['searchList', 'spacer', 'search']],
       columnDefs,
       layout: { topStart: null, topEnd: null, bottomStart: null, bottomEnd: null } // hide DataTables' own search/info bar — we keep the app's existing one
     });
