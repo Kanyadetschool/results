@@ -3260,6 +3260,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div style="margin-top:10px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--blue-lt)">Preview: <span id="qe-ne-preview">—</span></div>
           </div>
           <div id="qe-offline-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(243,156,18,.10);border:1px solid rgba(243,156,18,.3);border-radius:var(--radius-md);padding:10px 14px;color:#b9770e"></div>
+          <div id="qe-pending-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(255,159,10,.10);border:1px solid rgba(255,159,10,.3);border-radius:var(--radius-md);padding:10px 14px;color:var(--orange)"></div>
           <div id="qe-draft-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(41,128,185,.08);border:1px solid rgba(41,128,185,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--blue-lt)"></div>
           <div id="qe-lock-banner" style="display:none;margin-top:12px;font-size:12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.25);border-radius:var(--radius-md);padding:10px 14px;color:var(--red)"></div>
         </div>
@@ -3475,7 +3476,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
     <div style="font-size:38px;margin-bottom:6px">📝</div>
     <h3 style="margin-bottom:10px">Live Score Activity</h3>
     <div id="esa-broadcast-message" style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:18px"></div>
-    <button class="btn btn-blue btn-sm" style="width:100%" onclick="_esaDismissBroadcast()">Got it</button>
+    <button class="btn btn-blue btn-sm" style="padding:8px 32px" onclick="_esaDismissBroadcast()">Got it</button>
   </div>
 </div>
 
@@ -6877,7 +6878,9 @@ window.loadGradeAssignments = async function(){
     // Responsive card layout — works on mobile and desktop
     container.innerHTML = `
       <style>
-        .teacher-assign-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:4px}
+        .grade-assign-search{width:100%;padding:9px 14px;border-radius:var(--radius-md);border:1px solid var(--border);
+          background:var(--surface);color:var(--text);font-size:13px;margin-bottom:14px;font-family:inherit}
+        .teacher-assign-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:4px;align-items:start}
         .teacher-assign-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px}
         .teacher-assign-card .tac-name{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px}
         .teacher-assign-card .tac-email{font-size:11px;color:var(--text3);margin-bottom:10px;word-break:break-all}
@@ -6893,8 +6896,21 @@ window.loadGradeAssignments = async function(){
         .tac-subj-panel{border-left:2px solid var(--border);padding-left:10px;margin:2px 0 10px}
         .teacher-assign-card .tac-summary{font-size:10px;color:var(--text3);min-height:14px;margin-bottom:10px}
         .teacher-assign-card .tac-save{width:100%}
+        .tac-grade-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;border-radius:20px;
+          background:rgba(41,128,185,.15);border:1px solid var(--blue);color:var(--blue);font-size:12px;font-weight:700}
+        .tac-grade-tag button{background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;
+          line-height:1;padding:0;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+        .tac-grade-tag button:hover{background:rgba(41,128,185,.28)}
+        .tac-grade-add{width:100%;margin-bottom:10px;font-size:12px;padding:7px 10px}
+        .tac-view-tag{display:inline-flex;padding:3px 10px;border-radius:20px;background:rgba(41,128,185,.1);
+          border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:700}
+        .tac-edit-toggle{width:100%;font-size:12px}
+        .tac-edit-body{margin-top:10px;padding-top:12px;border-top:1px dashed var(--border)}
       </style>
-      <div class="teacher-assign-grid">
+      <input type="text" id="grade-assign-search" class="grade-assign-search"
+        placeholder="🔍 Search teacher by name or email…" oninput="_filterTeacherCards(this.value)">
+      <p id="grade-assign-noresults" style="display:none;font-size:12px;color:var(--text3);text-align:center;padding:16px 0">No teachers match your search.</p>
+      <div class="teacher-assign-grid" id="teacher-assign-grid">
         ${teachers.map(u=>{
           let currentGrades = [];
           if(Array.isArray(u.assignedGrades) && u.assignedGrades.length) currentGrades = u.assignedGrades;
@@ -6932,21 +6948,44 @@ window.loadGradeAssignments = async function(){
           }).join('');
 
           const summaryText = currentGrades.length ? currentGrades.join(', ') : '— No grades assigned yet —';
+          const searchKey = `${(u.name||u.displayName||'')} ${(u.email||'')}`.toLowerCase();
 
           return `
-          <div class="teacher-assign-card" id="row-${u.uid}">
+          <div class="teacher-assign-card" id="row-${u.uid}" data-search="${searchKey.replace(/"/g,'&quot;')}">
             <div class="tac-name">${u.name||u.displayName||'—'}</div>
             <div class="tac-email">${u.email||'—'}</div>
             <div class="tac-label">Assigned Grades</div>
-            <div class="tac-grades">${checkboxes}</div>
-            <div class="tac-summary" id="sel-summary-${u.uid}">${summaryText}</div>
-            ${subjectPanels}
-            <button class="btn btn-sm tac-save" style="background:var(--blue);color:#fff;font-size:12px"
-              onclick="saveGradeAssignment('${u.uid}')">💾 Save Assignment</button>
+            <div class="tac-grades" id="grade-tags-view-${u.uid}"></div>
+            <button type="button" class="btn btn-outline btn-sm tac-edit-toggle" id="edit-toggle-${u.uid}"
+              onclick="_toggleTeacherCardEdit('${u.uid}')">✏️ Edit Assignment</button>
+            <div class="tac-edit-body" id="edit-body-${u.uid}" style="display:none">
+              <div class="tac-label">Assigned Grades</div>
+              <div class="tac-grades" id="grade-tags-${u.uid}"></div>
+              <select class="sel tac-grade-add" id="grade-add-${u.uid}"
+                onchange="_qeGradeAssignAdd('${u.uid}', this.value); this.value='';">
+                <option value="">+ Add a grade…</option>
+              </select>
+              <div style="display:none">${checkboxes}</div>
+              <div class="tac-summary" id="sel-summary-${u.uid}">${summaryText}</div>
+              ${subjectPanels}
+              <button class="btn btn-sm tac-save" style="background:var(--blue);color:#fff;font-size:12px"
+                onclick="saveGradeAssignment('${u.uid}')">💾 Save Assignment</button>
+            </div>
           </div>`;
         }).join('')}
       </div>
     `;
+
+    // The grade checkboxes render hidden above (kept for saveGradeAssignment
+    // and the subject-panel toggler, unchanged) — the visible picker is the
+    // tag list + dropdown built here instead of a long row of checkbox pills
+    // the admin previously had to scroll through one grade at a time. Each
+    // card also starts COLLAPSED (just name/email/grade tags) with the full
+    // subject checklist tucked behind "✏️ Edit Assignment" — with many
+    // teachers on screen, having every subject list open at once was the
+    // "cloudy"/cluttered feeling; now only one card's editor is open at a
+    // time (see _toggleTeacherCardEdit's accordion behavior below).
+    teachers.forEach(u => _renderGradeTags(u.uid));
 
     // Summary helper now called via onchange inline attribute
 
@@ -6960,6 +6999,100 @@ window._updateGradeSummary = function(uid){
   const selected = [...document.querySelectorAll(`.grade-chk-${uid}:checked`)].map(c=>c.value);
   const summary  = document.getElementById(`sel-summary-${uid}`);
   if(summary) summary.textContent = selected.length ? selected.join(', ') : '— No grades assigned yet —';
+};
+
+/* ─── Grade-assignment picker: renders the assigned-grade tag chips and the
+ *  "+ Add a grade…" dropdown's options for one teacher, from the current
+ *  (hidden) checkbox state. Called after every add/remove so both stay in
+ *  sync with the underlying checkboxes that saveGradeAssignment reads. ─── */
+window._renderGradeTags = function(uid){
+  const checkboxes = [...document.querySelectorAll(`.grade-chk-${uid}`)];
+  const tagsBox = document.getElementById(`grade-tags-${uid}`);
+  const viewBox = document.getElementById(`grade-tags-view-${uid}`);
+  const addSel  = document.getElementById(`grade-add-${uid}`);
+  const assigned   = checkboxes.filter(c=>c.checked);
+  const unassigned = checkboxes.filter(c=>!c.checked);
+  if(tagsBox){
+    tagsBox.innerHTML = assigned.length
+      ? assigned.map(c=>`<span class="tac-grade-tag">${c.value}<button type="button" title="Remove ${c.value}" onclick="_qeGradeAssignRemove('${uid}','${c.value.replace(/'/g,"\\'")}')">✕</button></span>`).join('')
+      : '<span style="font-size:11px;color:var(--text3)">No grades assigned yet — pick one below.</span>';
+  }
+  // Read-only echo shown on the COLLAPSED card (no edit body open) so the
+  // admin can still see who teaches what without expanding every card —
+  // this is what keeps the panel scannable when there are many teachers.
+  if(viewBox){
+    viewBox.innerHTML = assigned.length
+      ? assigned.map(c=>`<span class="tac-view-tag">${c.value}</span>`).join('')
+      : '<span style="font-size:11px;color:var(--text3)">No grades assigned yet</span>';
+  }
+  if(addSel){
+    addSel.innerHTML = `<option value="">${unassigned.length ? '+ Add a grade…' : 'All grades assigned'}</option>` +
+      unassigned.map(c=>`<option value="${c.value.replace(/"/g,'&quot;')}">${c.value}</option>`).join('');
+    addSel.disabled = !unassigned.length;
+  }
+};
+
+/* ─── Picking a grade from the dropdown checks its hidden checkbox (same
+ *  effect as ticking it directly), reveals its subject panel, and refreshes
+ *  the tag list — one click instead of hunting through a long checkbox row. */
+window._qeGradeAssignAdd = function(uid, value){
+  if(!value) return;
+  const checkboxes = [...document.querySelectorAll(`.grade-chk-${uid}`)];
+  const idx = checkboxes.findIndex(c=>c.value === value);
+  if(idx === -1) return;
+  checkboxes[idx].checked = true;
+  _updateGradeSummary(uid);
+  _toggleSubjectPanel(uid, idx);
+  _renderGradeTags(uid);
+};
+
+/* ─── Removing a tag unchecks the same hidden checkbox and hides its
+ *  subject panel, mirroring what unticking the old pill used to do. ─── */
+window._qeGradeAssignRemove = function(uid, value){
+  const checkboxes = [...document.querySelectorAll(`.grade-chk-${uid}`)];
+  const idx = checkboxes.findIndex(c=>c.value === value);
+  if(idx === -1) return;
+  checkboxes[idx].checked = false;
+  _updateGradeSummary(uid);
+  _toggleSubjectPanel(uid, idx);
+  _renderGradeTags(uid);
+};
+
+/* ─── Expands one teacher's editor (dropdown + subject checklists) and
+ *  collapses whichever OTHER card was open — with many teachers, having
+ *  every subject checklist open at once was the source of the clutter, so
+ *  only one card's full editor is ever on screen at a time. The collapsed
+ *  cards still show their assigned-grade tags read-only via
+ *  grade-tags-view-${uid}, so nothing is hidden — it's just tucked away
+ *  until the admin actually wants to change it. ─── */
+window._toggleTeacherCardEdit = function(uid){
+  const body = document.getElementById(`edit-body-${uid}`);
+  const btn  = document.getElementById(`edit-toggle-${uid}`);
+  if(!body) return;
+  const opening = body.style.display === 'none';
+  if(opening){
+    document.querySelectorAll('[id^="edit-body-"]').forEach(el=>{ if(el !== body) el.style.display = 'none'; });
+    document.querySelectorAll('[id^="edit-toggle-"]').forEach(el=>{ if(el !== btn) el.textContent = '✏️ Edit Assignment'; });
+  }
+  body.style.display = opening ? 'block' : 'none';
+  if(btn) btn.textContent = opening ? '✕ Close' : '✏️ Edit Assignment';
+  if(opening) body.scrollIntoView({behavior:'smooth', block:'nearest'});
+};
+
+/* ─── Filters the teacher cards by name/email as the admin types — with
+ *  many teacher accounts, scrolling through all of them just to find one
+ *  is the same "too tiresome" problem the grade dropdown fixed, just one
+ *  level up. ─── */
+window._filterTeacherCards = function(query){
+  const q = (query||'').trim().toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#teacher-assign-grid .teacher-assign-card').forEach(card=>{
+    const match = !q || (card.dataset.search||'').includes(q);
+    card.style.display = match ? '' : 'none';
+    if(match) visible++;
+  });
+  const noResults = document.getElementById('grade-assign-noresults');
+  if(noResults) noResults.style.display = (q && !visible) ? 'block' : 'none';
 };
 
 /* ─── Show/hide a grade's subject checklist as its grade checkbox toggles ── */
@@ -13745,7 +13878,23 @@ function _populateQuickEntrySelectors(){
     // reset an exam the teacher already picked back to "Select exam…".
     if(_prevVal && [...termEl.options].some(o => o.value === _prevVal)) termEl.value = _prevVal;
   };
-  gradeEl.onchange = rebuildTerms;
+  // Changing GRADE only rebuilds the list of exams/terms available for that
+  // grade — it doesn't by itself say anything about the sheet currently on
+  // screen. But that sheet (if any) was loaded for the PREVIOUS grade, and
+  // since exam/term values are grade-specific strings (e.g. "Grade 1-2026-…"
+  // vs "Grade 2-2026-…"), the old selection essentially never matches an
+  // option in the rebuilt list — termEl.value silently resets to blank via
+  // rebuildTerms() above. That reset is done in code, not by the person
+  // interacting with the dropdown, so it never fires qe-term's own 'change'
+  // event, and nothing was clearing the old table: the previous grade's
+  // students stayed on screen looking exactly like the currently-selected
+  // grade's roster. Clear the stale sheet explicitly whenever the grade
+  // actually changes, so the table reflects "nothing loaded yet" until the
+  // teacher picks a term for the newly-selected grade.
+  gradeEl.onchange = () => {
+    if(_qeGrade && _qeGrade !== gradeEl.value) _qeClearLoadedSheet();
+    rebuildTerms();
+  };
   rebuildTerms();
 }
 window._populateQuickEntrySelectors = _populateQuickEntrySelectors;
@@ -14113,26 +14262,46 @@ function _esaUpdateLiveBadge(){
 
 let _esaBroadcastActiveUid = null; // uid of the session whose popup is currently on-screen, if any
 
-/** Queue a popup alert (by session uid) and show it immediately if nothing
- *  else is showing. Popups display on top of WHATEVER screen/view the user
- *  is currently on — the modal overlay is fixed-position and independent
- *  of navTo() routing. Storing the uid (not static html) lets the popup
- *  live-refresh as that session's field/value activity changes. */
+/** Queue a popup alert for an Edit-Score session (by session uid) and show
+ *  it immediately if nothing else is showing. Popups display on top of
+ *  WHATEVER screen/view the user is currently on — the modal overlay is
+ *  fixed-position and independent of navTo() routing. Storing the uid (not
+ *  static html) lets the popup live-refresh as that session's field/value
+ *  activity changes. */
 function _esaQueueBroadcast(uid){
-  _esaBroadcastQueue.push(uid);
+  _esaBroadcastQueue.push({type:'esa', uid});
   _esaProcessBroadcastQueue();
 }
 
+/** Queue a popup alert built from a ready-made HTML message rather than an
+ *  Edit-Score session uid — used by callers (e.g. Quick Entry's live
+ *  sessions) that already have the exact text to show and have no
+ *  _esaActiveSessions entry to look up or live-refresh from. Shares the
+ *  same on-screen popup/queue as _esaQueueBroadcast above, so alerts from
+ *  either source queue and display one at a time in the order they fire. */
+function _esaQueueHtmlBroadcast(html){
+  _esaBroadcastQueue.push({type:'html', html});
+  _esaProcessBroadcastQueue();
+}
+window._esaQueueHtmlBroadcast = _esaQueueHtmlBroadcast;
+
 function _esaProcessBroadcastQueue(){
   if(_esaBroadcastShowing) return;
-  const nextUid = _esaBroadcastQueue.shift();
-  if(nextUid === undefined) return;
-  const sess = _esaActiveSessions[nextUid];
-  if(!sess){ _esaProcessBroadcastQueue(); return; } // session already ended before its turn — skip it
+  const next = _esaBroadcastQueue.shift();
+  if(next === undefined) return;
+  let html;
+  if(next.type === 'html'){
+    html = next.html;
+    _esaBroadcastActiveUid = null; // no live-refresh source for a plain message
+  } else {
+    const sess = _esaActiveSessions[next.uid];
+    if(!sess){ _esaProcessBroadcastQueue(); return; } // session already ended before its turn — skip it
+    html = _esaBuildBroadcastMessage(sess);
+    _esaBroadcastActiveUid = next.uid;
+  }
   _esaBroadcastShowing = true;
-  _esaBroadcastActiveUid = nextUid;
   const msgEl = document.getElementById('esa-broadcast-message');
-  if(msgEl) msgEl.innerHTML = _esaBuildBroadcastMessage(sess);
+  if(msgEl) msgEl.innerHTML = html;
   const modal = document.getElementById('esa-broadcast-modal');
   if(modal) modal.classList.add('on');
 }
@@ -14261,7 +14430,7 @@ function _qeWatchActiveSessions(){
       if(!sess) return;
       const who  = sess.name || 'A teacher';
       const what = sess.compound || sess.grade || 'an exam';
-      _esaQueueBroadcast(`<strong>${who}</strong> opened Quick Entry for <strong>${what}</strong>.`);
+      _esaQueueHtmlBroadcast(`<strong>${who}</strong> opened Quick Entry for <strong>${what}</strong>.`);
     });
     _qeKnownFlatKeys = new Set(flatKeys);
   }, ()=>{ /* offline — badge just stops updating, non-critical */ });
@@ -14414,9 +14583,10 @@ async function loadQuickEntry(){
   const useExact = exactRows.length > 0;
   const pendingGrade = selGrade || gShort(selCompound);
   let rosterRows = exactRows;
+  let _qeBorrowedFromTerm = null; // set below if this pending exam's roster was copied from an existing term
   if(!useExact){
-    const latestTerm = _qeLatestTermForGrade(pendingGrade);
-    rosterRows = latestTerm ? allData.filter(r => getRecordTerm(r) === latestTerm) : [];
+    _qeBorrowedFromTerm = _qeLatestTermForGrade(pendingGrade);
+    rosterRows = _qeBorrowedFromTerm ? allData.filter(r => getRecordTerm(r) === _qeBorrowedFromTerm) : [];
   }
   _qeWasPending = !useExact; // remembered so submitQuickEntry can double-check with the user
 
@@ -14438,8 +14608,34 @@ async function loadQuickEntry(){
   // submitted yet, and re-excludes students manually removed via "🗑️" —
   // without this, both changes were silently lost on every reload since the
   // roster above is rebuilt fresh from the database every time.
+  //
+  // This fetch and the shared-draft fetch further below used to run one
+  // after the other (await, then later await) even though neither depends
+  // on the other's result — draftKey/locked are already known up front, and
+  // the draft doesn't need the roster overrides at all. That made every
+  // grade/term switch pay for two sequential network round-trips before the
+  // sheet appeared. Kicking both off together and awaiting them as a pair
+  // cuts that wait roughly in half.
   const _qeExamKey = encodeURIComponent(selCompound);
-  const _rosterOverrides = await _qeFetchRosterOverrides(_qeExamKey);
+  const draftKey = encodeURIComponent(selCompound);
+  const rosterOverridesPromise = _qeFetchRosterOverrides(_qeExamKey);
+  const localDraft = locked ? null : _qeReadLocalDraft(draftKey);
+  // Only actually hit the network for the shared draft if there isn't a
+  // not-yet-synced local copy that should win anyway (see the offline-first
+  // note below) — otherwise this is a wasted round-trip on top of the one
+  // that matters.
+  const needsSharedDraftFetch = !locked && !(localDraft && localDraft.pendingSync) && navigator.onLine;
+  const sharedDraftPromise = needsSharedDraftFetch
+    ? (async () => {
+        try{
+          const {ref, get} = window._fb;
+          const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${draftKey}`));
+          return _qeFlattenSharedDraft(snap.exists() ? snap.val() : null);
+        }catch(e){ return null; /* no draft, or a network blip — fall through to local mirror below */ }
+      })()
+    : Promise.resolve(null);
+
+  const [_rosterOverrides, sharedDraftFlat] = await Promise.all([rosterOverridesPromise, sharedDraftPromise]);
   if(mySeq !== _qeLoadSeq) return; // a newer grade/exam selection started while we were awaiting — abandon this one
   const _removedKeys = new Set(Object.keys(_rosterOverrides.removed||{}).map(k=>{
     try{ return decodeURIComponent(k); }catch(e){ return k; }
@@ -14492,27 +14688,19 @@ async function loadQuickEntry(){
   // actually entered and the server hasn't seen it yet. If we're offline and
   // there's no pending edit, fall back to whatever was last mirrored locally
   // so the sheet still opens fully populated with no connection at all.
-  const draftKey = encodeURIComponent(selCompound);
   let draftScores = {};
   let draftTime = null;
   let draftBy = null;
   let draftFromLocalOnly = false;
   if(!locked){
-    const localDraft = _qeReadLocalDraft(draftKey);
-
     if(localDraft && localDraft.pendingSync){
       draftScores = localDraft.scores || {};
       draftTime = localDraft.updatedAt || null;
       draftFromLocalOnly = true;
-    } else if(navigator.onLine){
-      try{
-        const {ref, get} = window._fb;
-        const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${draftKey}`));
-        const flat = _qeFlattenSharedDraft(snap.exists() ? snap.val() : null);
-        draftScores = flat.scores;
-        draftTime = flat.latestT;
-        draftBy = flat.latestBy;
-      }catch(e){ /* no draft, or a network blip — fall through to local mirror below */ }
+    } else if(sharedDraftFlat){
+      draftScores = sharedDraftFlat.scores;
+      draftTime = sharedDraftFlat.latestT;
+      draftBy = sharedDraftFlat.latestBy;
     }
     if(!draftTime && localDraft){
       draftScores = localDraft.scores || {};
@@ -14533,8 +14721,28 @@ async function loadQuickEntry(){
 
   const banner = document.getElementById('qe-draft-banner');
   const lockBanner = document.getElementById('qe-lock-banner');
+  const pendingBanner = document.getElementById('qe-pending-banner');
   const submitBtn = document.getElementById('qe-submit-btn');
   const statusEl = document.getElementById('qe-save-status');
+
+  // This exam has zero submitted records yet — the roster shown is either
+  // borrowed from the latest existing term for this grade (a starting
+  // suggestion, so the teacher isn't typing names from scratch) or, if no
+  // prior term exists at all, genuinely empty. Either way this can LOOK
+  // identical to whatever term the teacher was just viewing (same students,
+  // same blank scores) even though it's already correctly switched to this
+  // new exam — the banner makes that explicit instead of leaving it to
+  // guesswork.
+  if(pendingBanner){
+    if(_qeWasPending){
+      pendingBanner.style.display = 'block';
+      pendingBanner.innerHTML = _qeBorrowedFromTerm
+        ? `🆕 "${selCompound}" has no scores yet — showing the roster from <strong>${_qeBorrowedFromTerm}</strong> as a starting point. Scores you enter here are saved separately, under this exam only.`
+        : `🆕 "${selCompound}" has no scores yet, and no prior term was found for this grade to suggest a roster from — use "➕ Add Student" below to build the sheet.`;
+    } else {
+      pendingBanner.style.display = 'none';
+    }
+  }
 
   if(locked){
     lockBanner.style.display = 'block';
@@ -14752,6 +14960,21 @@ window._qeRefreshTableRealtime = _qeRefreshTableRealtime;
 function renderQuickEntryTable(draftScores, locked){
   const thead = document.getElementById('qe-thead-row');
   const tbody = document.getElementById('qe-tbody');
+  // Destroy any live DataTables instance from the PREVIOUS exam/term BEFORE
+  // touching thead/tbody's HTML below. DataTables (with scrollY +
+  // fixedColumns here) wraps/clones the table into extra DOM structure and
+  // keeps internal references to the exact nodes it initialised on; if we
+  // overwrite thead/tbody's innerHTML while that instance is still attached,
+  // its node references go stale and the later destroy()/re-init() in
+  // _qeInitDataTable() (both wrapped in swallowing try/catch) can silently
+  // fail — leaving the frozen-column clone showing the OLD exam's data even
+  // though the real thead/tbody were updated underneath it. Easy to miss
+  // because it's masked on first load (_qeDataTable is null) and on a GRADE
+  // change (_qeClearLoadedSheet already destroys it beforehand) — it only
+  // bites when switching Exam/Term within the SAME class, which goes
+  // straight from "previous table is live" into "overwrite its HTML" with
+  // nothing in between.
+  if(_qeDataTable){ try{ _qeDataTable.destroy(); }catch(e){} _qeDataTable = null; }
   // On a PENDING exam (first-time entry), subject columns are auto-picked
   // from the latest existing term's real data as a starting suggestion —
   // Advanced Admins can prune ones that don't apply to this new exam right
@@ -15604,11 +15827,15 @@ async function submitQuickEntry(){
 }
 window.submitQuickEntry = submitQuickEntry;
 
-/** Returns the Quick Entry section to its pre-load state after a successful
- *  submit — clears the score sheet, resets the grade/term pickers, and hides
- *  the table card, instead of leaving the just-submitted (now stale) sheet
- *  on screen. */
-function _qeResetToDefault(){
+/** Clears whatever Quick Entry sheet is currently on screen, without
+ *  touching the grade/term dropdown values — used when the GRADE changes
+ *  (see _populateQuickEntrySelectors) since the on-screen roster belongs to
+ *  whatever grade/exam was loaded before, and needs to disappear rather than
+ *  keep showing next to a newly-selected grade it no longer matches. Also
+ *  bumps _qeLoadSeq so a loadQuickEntry() call still in flight for the old
+ *  grade can't finish later and repopulate the table out from under this. */
+function _qeClearLoadedSheet(){
+  ++_qeLoadSeq;
   _qeStopPresence();
   _qeStopWatchingSharedDraft();
   _qeStudents = [];
@@ -15619,10 +15846,6 @@ function _qeResetToDefault(){
   _qeLocked = false;
   _qeDirtyCells = new Set();
   _qePendingCells = new Set();
-  const gradeEl = document.getElementById('qe-grade');
-  const termEl = document.getElementById('qe-term');
-  if(gradeEl) gradeEl.value = '';
-  if(termEl) termEl.value = '';
   if(_qeDataTable){ try{ _qeDataTable.destroy(); }catch(e){} _qeDataTable = null; }
   const thead = document.getElementById('qe-thead-row');
   const tbody = document.getElementById('qe-tbody');
@@ -15634,10 +15857,23 @@ function _qeResetToDefault(){
   if(statusEl) statusEl.textContent = '';
   const finalStatusEl = document.getElementById('qe-final-status');
   if(finalStatusEl) finalStatusEl.textContent = '';
-  ['qe-offline-banner','qe-draft-banner','qe-lock-banner'].forEach(id=>{
+  ['qe-offline-banner','qe-pending-banner','qe-draft-banner','qe-lock-banner'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.style.display = 'none';
   });
+}
+window._qeClearLoadedSheet = _qeClearLoadedSheet;
+
+/** Returns the Quick Entry section to its pre-load state after a successful
+ *  submit — clears the score sheet, resets the grade/term pickers, and hides
+ *  the table card, instead of leaving the just-submitted (now stale) sheet
+ *  on screen. */
+function _qeResetToDefault(){
+  _qeClearLoadedSheet();
+  const gradeEl = document.getElementById('qe-grade');
+  const termEl = document.getElementById('qe-term');
+  if(gradeEl) gradeEl.value = '';
+  if(termEl) termEl.value = '';
   // Re-populate the dropdowns fresh so the just-submitted exam no longer
   // shows as "pending" and reflects current record counts immediately.
   if(typeof _populateQuickEntrySelectors === 'function') _populateQuickEntrySelectors();
