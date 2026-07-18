@@ -13335,7 +13335,7 @@ let _qeDataTable = null;   // live DataTables instance wrapping #qe-table (sort/
 let _qeCompound  = '';     // the full compound Grade string (exam identity)
 let _qeGrade     = '';     // plain grade label
 let _qeSaveTimer = null;
-let _qeDrawTimer = null;  // debounces the deferred DataTables re-sort/re-filter after leaving a score field
+let _qeLoadSeq = 0;       // bumped on every loadQuickEntry() call — lets a call detect it's been superseded
 let _qeLocked    = false;  // true when the currently loaded exam is term-locked (view-only)
 let _qeWasPending = false; // true when the loaded exam had zero records yet (first-time entry) —
                             // used to prompt an extra "no mistakes?" confirmation before submit
@@ -14370,6 +14370,17 @@ async function loadQuickEntry(){
   const selCompound = termEl ? termEl.value.trim() : '';
   if(!selCompound){ notify('⚠️ Please select an exam/term first.','warn'); return; }
 
+  // This call's ticket number. loadQuickEntry does two separate network
+  // round-trips below (roster overrides, then the shared draft) — if the
+  // teacher picks a different grade/exam before those resolve, a SECOND
+  // call to loadQuickEntry starts and bumps _qeLoadSeq again. Without this
+  // guard, whichever call's awaits happen to resolve LAST wins and paints
+  // its roster on screen — which could be the older, now-abandoned
+  // selection, showing the previous exam's students under the new
+  // grade/exam dropdown value. Checked right after each await below; a
+  // stale call bails out quietly instead of touching shared state or the DOM.
+  const mySeq = ++_qeLoadSeq;
+
   // ── Lock check — locked exams still load, but in view-only mode ──────────
   const lockData = _lockedTerms[_lockKeyFor(selCompound)];
   const locked = !!(lockData && lockData.locked);
@@ -14429,6 +14440,7 @@ async function loadQuickEntry(){
   // roster above is rebuilt fresh from the database every time.
   const _qeExamKey = encodeURIComponent(selCompound);
   const _rosterOverrides = await _qeFetchRosterOverrides(_qeExamKey);
+  if(mySeq !== _qeLoadSeq) return; // a newer grade/exam selection started while we were awaiting — abandon this one
   const _removedKeys = new Set(Object.keys(_rosterOverrides.removed||{}).map(k=>{
     try{ return decodeURIComponent(k); }catch(e){ return k; }
   }));
@@ -14514,6 +14526,8 @@ async function loadQuickEntry(){
   const mergedScores = {};
   Object.keys(existingScores).forEach(k => mergedScores[k] = {...existingScores[k]});
   Object.keys(draftScores).forEach(k => mergedScores[k] = {...(mergedScores[k]||{}), ...draftScores[k]});
+
+  if(mySeq !== _qeLoadSeq) return; // superseded again while awaiting the draft fetch — don't paint stale students on screen
 
   renderQuickEntryTable(mergedScores, viewOnly);
 
@@ -14644,7 +14658,7 @@ function _qeComputeScrollY(){
 /** Tells DataTables to re-read a score cell's data (sort/filter caches are
  *  otherwise only computed once) — call after any code writes a new value
  *  into a score <input>, whether from the teacher typing or a live sync. */
-function _qeDtInvalidateInput(inputEl, redraw=true){
+function _qeDtInvalidateInput(inputEl){
   if(!_qeDataTable || !inputEl) return;
   try{
     const tr = inputEl.closest('tr');
@@ -14652,18 +14666,14 @@ function _qeDtInvalidateInput(inputEl, redraw=true){
     if(!tr || !td) return;
     const rowIdx = _qeDataTable.row(tr).index();
     const cellIdx = Array.prototype.indexOf.call(tr.children, td);
-    if(rowIdx > -1 && cellIdx > -1){
-      const cell = _qeDataTable.cell(rowIdx, cellIdx);
-      cell.invalidate('dom'); // refresh DataTables' cached value for this cell...
-      // ...but only actually re-sort/re-filter (which repositions <tr> nodes in
-      // the DOM) when it's safe to. Doing this on every keystroke was the bug:
-      // if the sheet was sorted by a score column (or state-restored into one),
-      // typing a digit re-ranked the row immediately and moved its <tr> out from
-      // under the focused input — mobile browsers treat that DOM move as a
-      // blur, which is what closed the keyboard and made the row seem to vanish
-      // (it had jumped elsewhere in the sorted/scrolled table).
-      if(redraw) _qeDataTable.draw(false);
-    }
+    // invalidate('dom') only — refreshes DataTables' cached value for this
+    // cell so a later MANUAL sort (clicking a column header) reads the
+    // current score. Deliberately never chained with .draw(): redrawing
+    // automatically here used to re-sort/re-filter the whole table on every
+    // keystroke or every incoming live update, physically moving rows out
+    // from under the teacher mid-edit. Now a cell simply updates in place —
+    // the table only reorders when the teacher explicitly clicks a header.
+    if(rowIdx > -1 && cellIdx > -1) _qeDataTable.cell(rowIdx, cellIdx).invalidate('dom');
   }catch(e){ /* table mid-rebuild or row not found yet — safe to ignore */ }
 }
 
@@ -14740,7 +14750,6 @@ function _qeRefreshTableRealtime(){
 window._qeRefreshTableRealtime = _qeRefreshTableRealtime;
 
 function renderQuickEntryTable(draftScores, locked){
-  clearTimeout(_qeDrawTimer); // table is being rebuilt — any pending deferred redraw is now stale
   const thead = document.getElementById('qe-thead-row');
   const tbody = document.getElementById('qe-tbody');
   // On a PENDING exam (first-time entry), subject columns are auto-picked
@@ -14788,7 +14797,7 @@ function renderQuickEntryTable(draftScores, locked){
         if(!canEnterSubject(s)){
           return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly title="🔒 You're not assigned ${s} for ${gradeForPerms}" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.6;cursor:not-allowed"></td>`;
         }
-        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" onblur="_qeOnScoreBlur(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
+        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
       }).join('')}
       ${locked ? '' : `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>`}
     </tr>`;
@@ -15294,11 +15303,10 @@ function _qeValidateScoreInput(inputEl){
  *  submit) and "pending" (queued to actually be written next autosave). */
 function _qeOnScoreInput(inputEl){
   if(inputEl) _qeValidateScoreInput(inputEl);
-  // redraw:false — don't re-sort/re-filter (and move this row's DOM node)
-  // while the person is still typing in it; that was blurring the input
-  // (closing the mobile keyboard) and making the row jump out of view.
-  // The actual re-sort is deferred to _qeOnScoreBlur, once it's safe.
-  if(inputEl) _qeDtInvalidateInput(inputEl, false);
+  // Updates DataTables' cached value for this cell only — never triggers a
+  // redraw, so the table never reorders rows while (or after) someone types.
+  // Sorting only ever happens if the teacher explicitly clicks a header.
+  if(inputEl) _qeDtInvalidateInput(inputEl);
   if(inputEl){
     const key = inputEl.getAttribute('data-student');
     const subj = inputEl.getAttribute('data-subject');
@@ -15315,30 +15323,6 @@ function _qeOnScoreInput(inputEl){
   _qeUpdateFinalSubmitStatus();
 }
 window._qeOnScoreInput = _qeOnScoreInput;
-
-/** Fires when a score input loses focus. This is where the DataTables
- *  re-sort/re-filter we skip on every keystroke (see _qeOnScoreInput) finally
- *  happens — deferred and debounced rather than immediate, for two reasons:
- *   1. Debounced: tabbing across several cells in the same row would
- *      otherwise trigger a redraw on every single field left behind.
- *   2. Focus-aware: blur fires just before the browser moves focus to
- *      wherever's next, so by the time the debounce timer actually runs we
- *      re-check document.activeElement — if it landed on another score
- *      input, the teacher is still actively working the sheet, so skip the
- *      redraw and let that field's own blur reschedule it later. Only once
- *      focus has genuinely left the score grid do we let DataTables reorder
- *      rows — at that point there's no focused input left to disturb. */
-function _qeOnScoreBlur(inputEl){
-  if(!_qeDataTable) return;
-  clearTimeout(_qeDrawTimer);
-  _qeDrawTimer = setTimeout(()=>{
-    const active = document.activeElement;
-    const stillEditing = active && active.matches && active.matches('input[data-student][data-subject]');
-    if(stillEditing) return; // focus moved to another score cell — not done yet
-    try{ _qeDataTable.draw(false); }catch(e){ /* table mid-rebuild — ignore */ }
-  }, 150);
-}
-window._qeOnScoreBlur = _qeOnScoreBlur;
 
 /** Writes ONLY the cell(s) changed since the last save into the SHARED draft,
  *  as a single Firebase multi-path update — this is what lets two teachers
