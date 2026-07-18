@@ -99,6 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <script defer src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script defer src="https://cdn.datatables.net/2.3.8/js/dataTables.min.js"></script>
 <script defer src="https://cdn.datatables.net/columncontrol/1.2.1/js/dataTables.columnControl.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/fixedcolumns/5.0.4/css/fixedColumns.dataTables.min.css">
+<script defer src="https://cdn.datatables.net/fixedcolumns/5.0.4/js/dataTables.fixedColumns.min.js"></script>
 <style>
 /* ══════════════════════════════════════════
    CSS VARIABLES
@@ -353,12 +355,22 @@ body::before{
 .data-table tbody tr:hover{background:rgba(41,128,185,.05);}
 .data-table td{padding:10px 14px;color:var(--text);}
 .data-table td:first-child{color:var(--text3);font-size:11px;font-family:'JetBrains Mono',monospace;}
-/* Quick Entry: freeze the #/Student Name columns so they stay visible while
-   scrolling horizontally through subject columns. */
-#qe-table th:nth-child(1),#qe-table td:nth-child(1){position:sticky;left:0;z-index:2;width:34px;min-width:34px;max-width:34px;box-sizing:border-box;background:var(--surface);}
-#qe-table th:nth-child(2),#qe-table td:nth-child(2){position:sticky;left:34px;z-index:2;background:var(--surface);box-shadow:2px 0 4px rgba(0,0,0,.15);}
-#qe-table tbody tr:hover td:nth-child(1),#qe-table tbody tr:hover td:nth-child(2){background:linear-gradient(rgba(41,128,185,.05),rgba(41,128,185,.05)),var(--surface);}
-#qe-table thead th:nth-child(1),#qe-table thead th:nth-child(2){z-index:3;background:linear-gradient(rgba(41,128,185,.1),rgba(41,128,185,.1)),var(--surface);}
+/* Quick Entry: the frozen #/Student Name columns and the frozen header row
+   are handled natively by DataTables (scrollX/scrollY + the FixedColumns
+   extension) in _qeInitDataTable — not hand-rolled CSS sticky here. Manual
+   position:sticky on individual cells kept fighting DataTables' own nested
+   scroll wrapper, which is exactly what caused the header/column
+   misalignment bugs; letting the library's own tested mechanism own this
+   is far more robust than us re-deriving it in CSS. */
+
+/* Pin the whole #qe-table-card panel (toolbar + table) near the top of the
+   screen as the page scrolls. --qe-card-top is the app's topbar height,
+   measured from JS since it differs by breakpoint — this just positions
+   the card; DataTables' own scrollY (sized against this same measurement)
+   handles the actual internal scrolling of the student rows. */
+#qe-table-card{position:sticky;top:var(--qe-card-top,0px);z-index:10;}
+#qe-table-card .card-hdr{background:var(--surface);padding:8px 0;}
+
 
 /* Highlight whichever column is currently sorted, so it's obvious at a
    glance what the sheet is ordered by (DataTables tags cells in the
@@ -14597,6 +14609,37 @@ function _qeFindExisting(r){
 
 function _qeCellKey(student, subject){ return student + '||' + subject; }
 
+/** Keeps #qe-table-card's sticky top offset in sync with the app's real
+ *  topbar height (so the card doesn't hide behind it) — this differs by
+ *  breakpoint (mobile topbar is shorter), so it's measured, not hardcoded. */
+function _qeSyncStickyOffsets(){
+  const topbar = document.querySelector('.topbar');
+  const topbarH = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--qe-card-top', topbarH + 'px');
+}
+window.addEventListener('load', _qeSyncStickyOffsets);
+window.addEventListener('resize', _qeSyncStickyOffsets);
+if(typeof ResizeObserver !== 'undefined'){
+  document.addEventListener('DOMContentLoaded', () => {
+    const topbar = document.querySelector('.topbar');
+    if(topbar) new ResizeObserver(_qeSyncStickyOffsets).observe(topbar);
+  });
+}
+_qeSyncStickyOffsets(); // best-effort immediate call too, in case DOMContentLoaded already fired
+
+/** How tall DataTables' own internal scrolling row-area (scrollY) should
+ *  be — the rest of the viewport after the topbar and this card's own
+ *  toolbar, so the whole sticky panel fits on screen without the page
+ *  needing to scroll past it to reach the last student. Returns a CSS
+ *  length string (DataTables accepts one directly for scrollY). */
+function _qeComputeScrollY(){
+  const topbar = document.querySelector('.topbar');
+  const hdr = document.querySelector('#qe-table-card .card-hdr');
+  const topbarH = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
+  const hdrH = hdr ? Math.ceil(hdr.getBoundingClientRect().height) : 0;
+  return 'calc(100vh - ' + (topbarH + hdrH + 32) + 'px)';
+}
+
 /** Tells DataTables to re-read a score cell's data (sort/filter caches are
  *  otherwise only computed once) — call after any code writes a new value
  *  into a score <input>, whether from the teacher typing or a live sync. */
@@ -14756,6 +14799,7 @@ function renderQuickEntryTable(draftScores, locked){
   if(emptyMsgEl) emptyMsgEl.style.display = 'none';
 
   _qeInitDataTable(locked);
+  _qeSyncStickyOffsets();
 }
 
 /** Reads the live value out of an editable score <input> for a given
@@ -14771,6 +14815,10 @@ function _qeCellInputValue(meta){
 /** (Re)builds the DataTables wrapper around #qe-table right after its
  *  thead/tbody HTML has been (re)written. Destroys any previous instance
  *  first — DataTables can't be initialised twice on the same table. Adds:
+ *   - a frozen "#"/Student Name pair (FixedColumns) and a frozen header
+ *     row (native scrollY) — these use DataTables' own tested mechanisms
+ *     rather than hand-rolled CSS position:sticky, which kept fighting the
+ *     library's internal scroll wrapper and misaligning the header/columns
  *   - sortable columns (click a header to order by it) — the actively
  *     sorted column also gets a subtle tint down the whole table
  *   - ColumnControl's per-column "searchList" toggle picker (Select all /
@@ -14782,10 +14830,12 @@ function _qeCellInputValue(meta){
  *   - the existing #qe-search box rewired to drive DataTables' own search
  *  Paging is left off so every student row stays in the DOM at once — the
  *  live Firebase patch/autosave code (_qePatchScoresIntoTable) depends on
- *  being able to find every input on the sheet by CSS selector. One
- *  consequence: while a search/filter is active, rows it hides are detached
- *  from the DOM like normal DataTables filtering, so live syncs from other
- *  devices for a filtered-out student won't visibly land until the filter
+ *  being able to find every input on the sheet by CSS selector; scrollY
+ *  (unlike paging) doesn't remove rows from the DOM, so this still holds.
+ *  One consequence: while a search/filter is active, rows it hides are
+ *  detached from the DOM like normal DataTables filtering, so live syncs
+ *  from other devices for a filtered-out student won't visibly land until
+ *  the filter
  *  is cleared (they're still saved server-side either way). */
 function _qeInitDataTable(locked){
   if(_qeDataTable){ try{ _qeDataTable.destroy(); }catch(e){} _qeDataTable = null; }
@@ -14824,6 +14874,10 @@ function _qeInitDataTable(locked){
       info: false,
       searching: true,
       ordering: true,
+      scrollX: true,
+      scrollY: _qeComputeScrollY(),
+      scrollCollapse: true, // shrink to fit if there are only a few students, instead of always reserving full scrollY height
+      fixedColumns: { start: 2 }, // freezes "#" and "Student Name" while scrolling subject columns horizontally
       stateSave: true,
       stateDuration: -1, // -1 = persist in localStorage indefinitely (not just for the browser session)
       stateSaveCallback: (settings, data) => { try{ localStorage.setItem(stateKey, JSON.stringify(data)); }catch(e){} },
