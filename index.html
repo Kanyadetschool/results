@@ -367,6 +367,13 @@ body::before{
      row only has one score box in view — the whole point of this mode. */
   #qe-table input[data-student]{min-height:40px;font-size:16px!important;width:64px!important;padding:6px 4px!important;text-align:center;}
   #qe-table th, #qe-table td{padding:8px 6px!important;}
+  /* The table normally carries min-width:700px (inline) so DataTables'
+     horizontal scroll has room for every subject column. In one-subject
+     mode there are only 3-4 columns left, so that min-width just forces a
+     pointless sideways scroll that clips the frozen Name column instead of
+     letting the table size to the screen. */
+  #qe-table{min-width:unset!important;width:100%!important;}
+  #qe-table-wrap{overflow-x:visible!important;}
 }
 .data-table{width:100%;border-collapse:collapse;font-size:12px;}
 .data-table thead tr{background:rgba(41,128,185,.1);border-bottom:1px solid var(--border);}
@@ -3466,7 +3473,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
           </div>
           <div id="qe-search-empty" style="display:none;padding:14px 4px;font-size:12px;color:var(--text2)">No students match your search.</div>
-          <div class="table-wrap"><table class="data-table" id="qe-table" style="min-width:700px">
+          <div class="table-wrap" id="qe-table-wrap"><table class="data-table" id="qe-table" style="min-width:700px">
             <thead><tr id="qe-thead-row"></tr></thead>
             <tbody id="qe-tbody"></tbody>
           </table></div>
@@ -16707,16 +16714,25 @@ function _qeInitDataTable(locked){
   // with 8 subjects would misapply to a grade with 6 and hide the wrong ones.
   const stateKey = 'qe-dt-state-' + (_qeCompound || 'default');
 
+  // On mobile the sheet only ever shows "#" + Name + ONE subject at a time
+  // (see _qeApplyMobileColumnView) — there's nothing left to horizontally
+  // scroll, so scrollX/fixedColumns (built for the full multi-subject
+  // desktop table) actively hurt here: FixedColumns clones/measures the
+  // table assuming the wider desktop column set, which is what produced
+  // the clipped, sideways-offset table on phones. Skip both on mobile and
+  // let the 3-ish remaining columns lay out as a normal 100%-width table.
+  const mobileInit = _qeIsMobileQE();
+
   try{
     _qeDataTable = new DataTable('#qe-table', {
       paging: false,
       info: false,
       searching: true,
       ordering: true,
-      scrollX: true,
+      scrollX: !mobileInit,
       scrollY: _qeComputeScrollY(),
       scrollCollapse: true, // shrink to fit if there are only a few students, instead of always reserving full scrollY height
-      fixedColumns: { start: 2 }, // freezes "#" and "Student Name" while scrolling subject columns horizontally
+      fixedColumns: mobileInit ? false : { start: 2 }, // freezes "#" and "Student Name" while scrolling subject columns horizontally — desktop only
       stateSave: true,
       stateDuration: -1, // -1 = persist in localStorage indefinitely (not just for the browser session)
       stateSaveCallback: (settings, data) => { try{ localStorage.setItem(stateKey, JSON.stringify(data)); }catch(e){} },
@@ -16730,6 +16746,7 @@ function _qeInitDataTable(locked){
     _qeDataTable = null;
     return;
   }
+  _qeLastMobileState = mobileInit;
 
 }
 window._qeInitDataTable = _qeInitDataTable;
@@ -16787,10 +16804,16 @@ function _qeApplyMobileColumnView(){
   if(countEl) countEl.textContent = idx>=0 ? `${idx+1}/${_qeSubjects.length}` : '';
   if(prevBtn) prevBtn.disabled = idx<=0;
   if(nextBtn) nextBtn.disabled = idx===-1 || idx>=_qeSubjects.length-1;
-
-  if(!_qeDataTable) return; // no DataTables (offline/failed load) — plain table stays as-is, still usable via horizontal scroll
-
   const mobile = _qeIsMobileQE();
+
+  if(!_qeDataTable){
+    // DataTables didn't load (offline / CDN blocked / ad-blocker) — fall
+    // back to hiding columns by hand so mobile still gets the one-subject
+    // view instead of reverting to the old wide, side-scrolling table.
+    _qeManualColumnVisibility(mobile, sel.value);
+    return;
+  }
+
   _qeSubjects.forEach((s,i)=>{
     const col = _qeSubjectColIndex(s);
     if(col===-1) return;
@@ -16804,6 +16827,23 @@ function _qeApplyMobileColumnView(){
   if(_qeDataTable.fixedColumns) try{ _qeDataTable.fixedColumns().relayout(); }catch(e){}
 }
 window._qeApplyMobileColumnView = _qeApplyMobileColumnView;
+
+/** Hides/shows #qe-table's UPI + subject columns by nth-child position —
+ *  used only when DataTables itself isn't available. Position mapping
+ *  matches _qeInitDataTable's layout: 1=#, 2=Name, 3=UPI, 4..=subjects. */
+function _qeManualColumnVisibility(mobile, selectedSubject){
+  const upiPos = 3;
+  document.querySelectorAll(`#qe-table th:nth-child(${upiPos}), #qe-table td:nth-child(${upiPos})`).forEach(el=>{
+    el.style.display = mobile ? 'none' : '';
+  });
+  _qeSubjects.forEach((s,i)=>{
+    const pos = 4 + i;
+    const show = !mobile || s === selectedSubject;
+    document.querySelectorAll(`#qe-table th:nth-child(${pos}), #qe-table td:nth-child(${pos})`).forEach(el=>{
+      el.style.display = show ? '' : 'none';
+    });
+  });
+}
 
 function _qeMobileSubjectChange(subject){
   _qeApplyMobileColumnView();
@@ -16820,13 +16860,27 @@ function _qeMobileSubjectStep(dir){
 }
 window._qeMobileSubjectStep = _qeMobileSubjectStep;
 
-// Re-apply the mobile/desktop column split on rotate or when the on-screen
-// keyboard opening/closing changes the viewport past the 768px breakpoint,
-// so a mid-session orientation change doesn't leave a stale column view.
+// Re-apply the mobile/desktop table setup on rotate or when the on-screen
+// keyboard opening/closing changes the viewport past the 768px breakpoint.
+// A plain visibility toggle isn't enough here — mobile vs desktop use
+// different scrollX/fixedColumns settings (see _qeInitDataTable), so
+// crossing the breakpoint needs a full destroy+rebuild, not just
+// _qeApplyMobileColumnView. Guarded so it only fires on an actual
+// mobile↔desktop crossing, not every minor resize/keyboard blip.
 let _qeMobileResizeTimer = null;
+let _qeLastMobileState = null;
 window.addEventListener('resize', ()=>{
   clearTimeout(_qeMobileResizeTimer);
-  _qeMobileResizeTimer = setTimeout(()=>{ if(_qeDataTable) _qeApplyMobileColumnView(); }, 250);
+  _qeMobileResizeTimer = setTimeout(()=>{
+    if(!_qeSubjects.length) return; // no Quick Entry sheet loaded — nothing to re-layout
+    const nowMobile = _qeIsMobileQE();
+    if(_qeLastMobileState === null) _qeLastMobileState = nowMobile;
+    if(nowMobile !== _qeLastMobileState){
+      _qeLastMobileState = nowMobile;
+      if(_qeDataTable) _qeInitDataTable(_qeLocked); // only DataTables' own scrollX/fixedColumns need a full rebuild on crossing; the manual fallback below handles the no-DataTables case either way
+    }
+    _qeApplyMobileColumnView();
+  }, 250);
 });
 
 /** Filters the Quick Entry score table by student name as the user types.
