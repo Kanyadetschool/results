@@ -1,360 +1,228 @@
-/* ============================================================
-   swalOnly.css  — Kanyadet Premium SweetAlert2 Theme v2.0
-   Glass morphism · Navy/Gold · Cinematic micro-interactions
-   ============================================================ */
-
-/* ── Fonts ── */
+/*# fonts */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-/* ── Design tokens ── */
-:root {
-  --kps-navy        : #0a0e2e;
-  --kps-navy-deep   : #060919;
-  --kps-navy-mid    : #12194a;
-  --kps-gold        : #c9a84c;
-  --kps-gold-light  : #f0d080;
-  --kps-gold-dim    : rgba(201,168,76,0.18);
-  --kps-glass-bg    : rgba(255,255,255,0.07);
-  --kps-glass-border: rgba(255,255,255,0.13);
-  --kps-glass-hover : rgba(255,255,255,0.11);
-  --kps-white       : #ffffff;
-  --kps-text-muted  : rgba(255,255,255,0.5);
-  --kps-radius      : 24px;
-  --kps-radius-sm   : 12px;
-  --kps-radius-pill : 99px;
-  --kps-blur        : blur(28px) saturate(160%);
-  --kps-shadow      :
-    0 0 0 1px rgba(255,255,255,0.04),
-    0 32px 64px rgba(0,0,0,0.55),
-    0 0 80px rgba(201,168,76,0.05);
-  --kps-anim-spring : cubic-bezier(.22,.68,0,1.2);
-  --kps-font        : "Galano Grotesque", "Poppins", "Montserrat", sans-serif;
+*{
+  font-family: "Galano Grotesque", Poppins, Montserrat, sans-serif;
+}
+.swal2-success-circular-line-left{
+    background-color:gray;
+  }
+  .swal2-success-ring{
+    background-color:gray;
+  }
+  div:where(.swal2-container) .input-field {
+    height: 2.625em;
+    padding: 1.75em; 
+    outline: none !important;
+    border: 3px solid lavender;
+    border-radius: 20px;
+    width: 100%!important;
+    margin: 0;
+    text-align: center;
+    background-color: #f7f7f7;
+    -webkit-box-shadow: inset 6px 6px 8px rgba(97, 97, 97, 0.075),
+    6px 6px 6px rgba(255, 255, 255, 0.781);
+          box-shadow: inset 6px 6px 8px rgba(97, 97, 97, 0.075),
+    6px 6px 6px rgba(255, 255, 255, 0.781);
+  text-decoration: none;
+   
+}
+.swal2-container img{
+  width: 100%!important;
+  border-radius: 20px;
+  height: 200px !important;
 }
 
-/* ── Universal font ── */
-* { font-family: var(--kps-font) !important; }
+  
+  .swal2-popup.swal2-modal.swal2-show{
 
-/* ═══════════════════════════════════════════════════════════
-   BACKDROP
-═══════════════════════════════════════════════════════════ */
-.swal2-container.swal2-backdrop-show,
-.swal2-container.swal2-noanimation {
-  background: rgba(4, 8, 28, 0.72) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  transition: background 0.35s ease !important;
-}
+      background-color: #ffffff9d;
+      border: 6px solid lavender;
+      box-shadow: 0 0 20px 1px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      /* height: 90vh; */
+  }
+  
+     .swal2-popup{
+    border: 2px solid gray;
+    background-size: cover;
+    backdrop-filter: blur(5px);
+    background-color: transparent;
+    border-radius: 20px;
+    font-family: "Galano Grotesque", Poppins, Montserrat, sans-serif;
+  
+  }
+  
 
-/* ═══════════════════════════════════════════════════════════
-   POPUP SHELL
-═══════════════════════════════════════════════════════════ */
-div:where(.swal2-container) div:where(.swal2-popup) {
-  background: var(--kps-glass-bg) !important;
-  border: 1px solid var(--kps-glass-border) !important;
-  border-radius: var(--kps-radius) !important;
-  box-shadow: var(--kps-shadow) !important;
-  backdrop-filter: var(--kps-blur) !important;
-  -webkit-backdrop-filter: var(--kps-blur) !important;
-  color: var(--kps-white) !important;
-  font-family: var(--kps-font) !important;
-  padding: 0 0 1.5em !important;
-  overflow: hidden !important;
-  position: relative;
-  /* Gold top accent bar */
-  border-top: none !important;
-}
-div:where(.swal2-container) div:where(.swal2-popup)::before {
-  content: '';
-  display: block;
-  height: 3px;
-  width: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--kps-gold) 30%,
-    var(--kps-gold-light) 50%,
-    var(--kps-gold) 70%,
-    transparent 100%
-  );
-  margin-bottom: 4px;
-}
+  h2#swal2-title.swal2-title{
+    color: #0a083d;
+   
+  
+   
+  }
+  ::placeholder{
+      color: rgb(4, 3, 31);
+  }
+  .swal2-container.swal2-backdrop-show, .swal2-container.swal2-noanimation {
+    background: rgba(117, 138, 138, 0.4)!important;
 
-/* Show state entrance */
-.swal2-popup.swal2-modal.swal2-show {
-  background: var(--kps-glass-bg) !important;
-  border: 1px solid var(--kps-glass-border) !important;
-  box-shadow: var(--kps-shadow) !important;
-  border-radius: var(--kps-radius) !important;
-  animation: kps-entrance 0.32s var(--kps-anim-spring) !important;
+    /* background: rgba(117, 138, 138, 0.4); */
+    backdrop-filter: blur(5px);
+  }
+  .swal2-content {
+    z-index: 1;
+    justify-content: center;
+    margin: 0;
+    padding: 0 1.6em;
+    color: #545454;
+    font-size: 1.125em;
+    font-weight: 400;
+    line-height: normal;
+    text-align: center;
+    word-wrap: break-word;
 }
-
-@keyframes kps-entrance {
-  from { opacity: 0; transform: translateY(-20px) scale(0.95); }
-  to   { opacity: 1; transform: translateY(0)     scale(1);    }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TITLE
-═══════════════════════════════════════════════════════════ */
-h2#swal2-title.swal2-title,
-div:where(.swal2-container) h2:where(.swal2-title) {
-  color: var(--kps-white) !important;
-  font-size: 1.2em !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.02em !important;
-  padding: 0.6em 1.4em 0.2em !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   HTML CONTENT AREA
-═══════════════════════════════════════════════════════════ */
-div:where(.swal2-container) div:where(.swal2-html-container) {
-  color: var(--kps-text-muted) !important;
-  font-size: 0.97em !important;
-  line-height: 1.65 !important;
-  padding: 0.4em 1.4em 0 !important;
-  margin: 0 !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   INPUT FIELDS
-═══════════════════════════════════════════════════════════ */
-div:where(.swal2-container) .input-field,
-div:where(.swal2-container) input:where(.swal2-input),
-div:where(.swal2-container) textarea:where(.swal2-textarea),
-div:where(.swal2-container) select:where(.swal2-select) {
-  background: rgba(255,255,255,0.06) !important;
-  border: 1px solid rgba(255,255,255,0.14) !important;
-  border-radius: var(--kps-radius-sm) !important;
-  color: var(--kps-white) !important;
-  font-family: var(--kps-font) !important;
-  font-size: 0.97em !important;
-  padding: 0.75em 1em !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  outline: none !important;
-  box-shadow: none !important;
-  transition: border-color 0.2s, background 0.2s !important;
-}
-div:where(.swal2-container) .input-field:focus,
-div:where(.swal2-container) input:where(.swal2-input):focus,
-div:where(.swal2-container) textarea:where(.swal2-textarea):focus {
-  border-color: var(--kps-gold) !important;
-  background: rgba(255,255,255,0.09) !important;
-  box-shadow: 0 0 0 3px rgba(201,168,76,0.18) !important;
-}
-div:where(.swal2-container) .input-field::placeholder,
-div:where(.swal2-container) input:where(.swal2-input)::placeholder {
-  color: rgba(255,255,255,0.3) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   BUTTONS
-═══════════════════════════════════════════════════════════ */
-/* ── Confirm ── */
-button.swal2-confirm.swal2-styled {
-  background: linear-gradient(135deg, var(--kps-gold) 0%, var(--kps-gold-light) 100%) !important;
-  color: var(--kps-navy-deep) !important;
-  border: none !important;
-  border-radius: var(--kps-radius-pill) !important;
-  font-weight: 700 !important;
-  font-size: 0.92em !important;
-  letter-spacing: 0.04em !important;
-  padding: 0.7em 2em !important;
-  box-shadow: 0 4px 18px rgba(201,168,76,0.35) !important;
-  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s !important;
-  outline: none !important;
-}
-button.swal2-confirm.swal2-styled:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 28px rgba(201,168,76,0.45) !important;
-}
-button.swal2-confirm.swal2-styled:active {
-  transform: scale(0.97) !important;
-}
-button.swal2-confirm.swal2-styled:focus {
-  box-shadow: 0 0 0 4px rgba(201,168,76,0.3) !important;
-}
-
-/* ── Cancel ── */
-button.swal2-cancel.swal2-styled {
-  background: rgba(255,255,255,0.07) !important;
-  color: rgba(255,255,255,0.75) !important;
-  border: 1px solid rgba(255,255,255,0.14) !important;
-  border-radius: var(--kps-radius-pill) !important;
-  font-size: 0.92em !important;
-  font-weight: 500 !important;
-  padding: 0.7em 2em !important;
-  transition: background 0.2s, border-color 0.2s !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-button.swal2-cancel.swal2-styled:hover {
-  background: rgba(255,255,255,0.12) !important;
-  border-color: rgba(255,255,255,0.22) !important;
-  color: var(--kps-white) !important;
-}
-
-/* ── Deny ── */
-button.swal2-deny.swal2-styled {
-  background: rgba(220, 55, 55, 0.18) !important;
-  color: #ff8080 !important;
-  border: 1px solid rgba(220,55,55,0.3) !important;
-  border-radius: var(--kps-radius-pill) !important;
-  font-size: 0.92em !important;
-  padding: 0.7em 2em !important;
-  transition: all 0.2s !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-button.swal2-deny.swal2-styled:hover {
-  background: rgba(220, 55, 55, 0.3) !important;
-}
-
-/* Actions row */
-div:where(.swal2-container) div:where(.swal2-actions) {
-  gap: 10px !important;
-  padding: 0.5em 0 0 !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   CLOSE BUTTON
-═══════════════════════════════════════════════════════════ */
-div:where(.swal2-container) button:where(.swal2-close) {
-  width: 32px !important;
-  height: 32px !important;
-  background: rgba(255,255,255,0.08) !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  color: rgba(255,255,255,0.6) !important;
-  font-size: 1.15em !important;
-  line-height: 1 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  transition: background 0.2s, color 0.2s, transform 0.2s !important;
-  margin: 10px 10px 0 auto !important;
-  cursor: pointer !important;
-  outline: none !important;
-}
-div:where(.swal2-container) button:where(.swal2-close):hover {
-  background: var(--kps-gold-dim) !important;
-  color: var(--kps-gold-light) !important;
-  transform: rotate(90deg) scale(1.12) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   IMAGE (for standard Swal imageUrl popups)
-═══════════════════════════════════════════════════════════ */
-.swal2-container img,
-div:where(.swal2-container) img:where(.swal2-image) {
-  max-width: 100% !important;
-  max-height: 70vh !important;
-  width: auto !important;
-  height: auto !important;
-  object-fit: contain !important;
-  border-radius: 14px !important;
-  display: block !important;
-  margin: 0 auto !important;
-}
-
-/* ── Image popup variants ── */
-.swal-image-popup {
-  max-width: min(92vw, 560px) !important;
-  padding: 0 !important;
-}
-.swal-image {
-  max-width: 100% !important;
-  max-height: 72vh !important;
-  object-fit: contain !important;
-  border-radius: 14px !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ICON RING OVERRIDES
-═══════════════════════════════════════════════════════════ */
-/* Success */
-.swal2-icon.swal2-success {
-  border-color: rgba(134,239,172,0.45) !important;
-  color: #86efac !important;
-}
-.swal2-icon.swal2-success [class^=swal2-success-line] {
-  background-color: #86efac !important;
-}
-.swal2-icon.swal2-success .swal2-success-ring {
-  border-color: rgba(134,239,172,0.25) !important;
-}
-.swal2-icon.swal2-success .swal2-success-fix,
-.swal2-success-circular-line-left,
-.swal2-success-circular-line-right {
-  background: transparent !important;
-}
-
-/* Error */
-.swal2-icon.swal2-error {
-  border-color: rgba(248,113,113,0.5) !important;
-}
-.swal2-icon.swal2-error [class^=swal2-x-mark-line] {
-  background-color: #f87171 !important;
-}
-
-/* Warning */
-.swal2-icon.swal2-warning {
-  border-color: rgba(251,191,36,0.45) !important;
-  color: #fbbf24 !important;
-}
-
-/* Info */
-.swal2-icon.swal2-info {
-  border-color: rgba(96,165,250,0.45) !important;
-  color: #60a5fa !important;
-}
-
-/* Question */
-.swal2-icon.swal2-question {
-  border-color: rgba(201,168,76,0.5) !important;
-  color: var(--kps-gold) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   PROGRESS STEPS
-═══════════════════════════════════════════════════════════ */
-div:where(.swal2-container) ul:where(.swal2-progress-steps) {
-  gap: 4px !important;
-}
-div:where(.swal2-container) ul:where(.swal2-progress-steps) li:where(.swal2-progress-step) {
-  background: var(--kps-gold) !important;
-  color: var(--kps-navy-deep) !important;
-  border-radius: 50% !important;
-  width: 2em !important;
-  height: 2em !important;
-  font-weight: 700 !important;
-}
-div:where(.swal2-container) ul:where(.swal2-progress-steps) li:where(.swal2-progress-step-line) {
-  background: rgba(201,168,76,0.3) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   LOADING SPINNER
-═══════════════════════════════════════════════════════════ */
-.swal2-loader {
-  border-color: var(--kps-gold) transparent var(--kps-gold) transparent !important;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   RESPONSIVE
-═══════════════════════════════════════════════════════════ */
-@media (max-width: 600px) {
+  
   div:where(.swal2-container) div:where(.swal2-popup) {
-    border-radius: 20px !important;
+    display: none;
+    position: relative;
+    box-sizing: border-box;
+    grid-template-columns: minmax(0, 100%);
+    width: 32em;
+    max-width: 100%;
+    padding: 0 0 1.25em;
+    border: none;
+    border-radius: 5px;
+    background: #c1baba;
+    color: #000000;
+    font-family: inherit;
+    font-size: 1rem;
+    
   }
-  div:where(.swal2-container) div:where(.swal2-html-container) {
-    padding: 0.3em 1em 0 !important;
+  
+  
+  
+  
+  .swal2-icon.swal2-error [class^=swal2-x-mark-line] {
+    display: block;
+    position: absolute;
+    top: 2.3125em;
+    width: 2.9375em;
+    height: 0.3125em;
+    border-radius: 0.125em;
+    background-color: #e6eeea;
+    
+  
   }
-  button.swal2-confirm.swal2-styled,
-  button.swal2-cancel.swal2-styled {
-    padding: 0.65em 1.4em !important;
-    font-size: 0.9em !important;
+  
+  
+    .swal2-icon.swal2-error {
+      border-color: gray;
+      backdrop-filter: blur(5px);
+     
+    }
+    button.swal2-cancel.swal2-styled {
+      border:2px solid gray ;
+      border-radius: 20px;
+      background: initial;
+      backdrop-filter: blur(50px);
+      color: #fff;
+      background-color: red;
+      border: 2px solid lavender;
+      width: auto !important;;
+      font-size: 1em;
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      box-shadow: 0 0 0 3px red;
+     
+    
+      
+    }
+    button.swal2-confirm.swal2-styled {
+      border:2px solid gray ;
+      border-radius: 20px;
+      background: initial;
+      backdrop-filter: blur(50px);
+      color: #fff;
+      background-color: red;
+      border: 2px solid lavender;
+      width: auto !important;;
+      font-size: 1em;
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      box-shadow: 0 0 0 3px red;
+     
+    
+      
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    div:where(.swal2-container) .swal2-html-container {
+      z-index: 1;
+      justify-content: center;
+      padding: 1.9rem 1.6rem 0.4rem;
+      margin: 0;
+      overflow: auto;
+      color: inherit;
+      font-size: 1.125em;
+      font-weight: normal;
+      line-height: normal;
+      text-align: left;
+      word-wrap: break-word;
+      word-break: break-word;
   }
-  .swal-image { max-height: 60vh !important; }
+    
+    div:where(.swal2-container) button:where(.swal2-close) {
+    /* z-index:2; */
+    /* align-items:center; */
+    /* justify-content:center; */
+    /* width:1.2em; */
+    /* height:1.2em; */
+    /* margin-top:0; */
+    /* margin-right:0; */
+    /* margin-bottom:-1.2em; */
+    /* padding:0; */
+    /* overflow:hidden; */
+    /* transition:color .1s,box-shadow .1s; */
+    /* border:none; */
+    /* border-radius:5px; */
+    /* background:rgba(0,0,0,0); */
+    color: #fff;
+    font-family: monospace;
+    /* font-size:2.5em; */
+    /* cursor:pointer; */
+    /* justify-self:end; */
 }
+  
+    @media (max-width: 850px){
+      .swal2-content {
+        z-index: 1;
+        justify-content: center;
+        margin: 0;
+        padding: 0px !important;
+        color: #545454;
+        font-size: 1.125em;
+        font-weight: 400;
+        line-height: normal;
+        text-align: center;
+        word-wrap: break-word;
+    }
+    .swal2-popup.swal2-modal.swal2-show{
+
+      background-color: #ffffff9d;
+      border: 1px solid lavender !important;
+      box-shadow: 0 0 20px 1px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+  }
+    }
+    
