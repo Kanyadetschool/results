@@ -5976,7 +5976,7 @@ async function _eauthForgotPassword() {
   try {
     const { sendPasswordResetEmail } = window._fb;
     await sendPasswordResetEmail(auth, email);
-    notify('📧 Password reset email sent to ' + email + '. Check your inbox.', 'success', 7000);
+    notify('📧 Password reset email sent to ' + email + '. Check your spam folder if this is first time pasword reset or inbox.', 'success', 7000);
     // Inline confirmation too — the toast above can end up hidden behind
     // full-screen overlays like the login card, so don't rely on it alone.
     const errEl = document.getElementById('login-err-email');
