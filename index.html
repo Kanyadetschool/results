@@ -372,7 +372,14 @@ body::before{
      mode there are only 3-4 columns left, so that min-width just forces a
      pointless sideways scroll that clips the frozen Name column instead of
      letting the table size to the screen. */
-  #qe-table{min-width:unset!important;width:100%!important;}
+  #qe-table{min-width:unset!important;width:auto!important;max-width:100%!important;}
+  /* Student Name is the only column with no explicit width (# / score box /
+     delete button all get one). When the table is forced to width:100% the
+     browser dumps ALL of that leftover space into this one column, shoving
+     the score box far away to the right. Letting the table size to its own
+     content (above) fixes most of it; capping this column too keeps really
+     long names from doing the same thing on their own. */
+  #qe-table th:nth-child(2), #qe-table td:nth-child(2){max-width:52vw;}
   #qe-table-wrap{overflow-x:visible!important;}
 
   /* ── Pinch-to-zoom (see _qeZoomTouchStart/Move/End in JS) ──────────────
