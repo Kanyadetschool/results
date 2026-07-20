@@ -372,46 +372,8 @@ body::before{
      mode there are only 3-4 columns left, so that min-width just forces a
      pointless sideways scroll that clips the frozen Name column instead of
      letting the table size to the screen. */
-  #qe-table{min-width:unset!important;width:auto!important;max-width:100%!important;}
-  /* Student Name is the only column with no explicit width (# / score box /
-     delete button all get one). When the table is forced to width:100% the
-     browser dumps ALL of that leftover space into this one column, shoving
-     the score box far away to the right. Letting the table size to its own
-     content (above) fixes most of it; capping this column too keeps really
-     long names from doing the same thing on their own. */
-  #qe-table th:nth-child(2), #qe-table td:nth-child(2){max-width:52vw;}
+  #qe-table{min-width:unset!important;width:100%!important;}
   #qe-table-wrap{overflow-x:visible!important;}
-
-  /* ── Pinch-to-zoom (see _qeZoomTouchStart/Move/End in JS) ──────────────
-     Two-finger pinch scales the whole DataTables-rendered block (header +
-     rows together, via .dt-container) so long subject names and score
-     boxes get genuinely bigger and easier to tap — not just a font-size
-     bump that fights the table's own column layout. touch-action:pan-x
-     pan-y tells the browser "handle single-finger scroll natively, but
-     leave 2-finger pinch to our JS" instead of the OS trying to zoom the
-     whole page. Once zoomed (.qe-zoomed), the wrap itself becomes the
-     scrollable viewport onto the enlarged content, so a finger can pan
-     around it; DataTables' own internal scrollY (student rows) keeps
-     working independently inside that, scroll-chaining to the wrap once
-     it hits its own end. */
-  #qe-table-wrap{touch-action:pan-x pan-y;}
-  #qe-table-wrap .dt-container{transform-origin:0 0;}
-  /* Horizontal-only scroll once zoomed — vertical scrolling of rows is
-     already handled by DataTables' own scrollY inside .dt-container, so
-     capping this wrap's height too (e.g. max-height:70vh) would shrink the
-     visible viewport the instant zoom starts, which looks like "zooming in
-     made it smaller" even though the content itself is genuinely bigger.
-     No vertical cap here means the enlarged table just takes more space in
-     the normal page flow, scrolled like any tall content. */
-  #qe-table-wrap.qe-zoomed{overflow-x:auto!important;overflow-y:visible!important;-webkit-overflow-scrolling:touch;}
-  #qe-zoom-reset-btn{
-    display:none;position:sticky;top:6px;left:6px;z-index:6;margin:6px 0 0 6px;
-    padding:6px 12px;font-size:12px;font-weight:700;border-radius:999px;
-    border:1px solid var(--border);background:var(--surface);color:var(--text);
-    box-shadow:0 2px 8px rgba(0,0,0,.15);
-  }
-  #qe-table-wrap.qe-zoomed + #qe-zoom-reset-btn,
-  #qe-zoom-reset-btn.visible{display:inline-flex;align-items:center;gap:4px;}
 }
 .data-table{width:100%;border-collapse:collapse;font-size:12px;}
 .data-table thead tr{background:rgba(41,128,185,.1);border-bottom:1px solid var(--border);}
@@ -3515,7 +3477,6 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <thead><tr id="qe-thead-row"></tr></thead>
             <tbody id="qe-tbody"></tbody>
           </table></div>
-          <button type="button" id="qe-zoom-reset-btn" onclick="_qeResetZoom()">⤾ Reset Zoom</button>
         </div>
       </div>
 
@@ -17091,74 +17052,6 @@ function _qeMobileSubjectStep(dir){
   _qeApplyMobileColumnView();
 }
 window._qeMobileSubjectStep = _qeMobileSubjectStep;
-
-/* ══════════════════════════════════════════
-   QUICK ENTRY — PINCH TO ZOOM (mobile only)
-   ── Two-finger pinch scales the whole rendered table (header + rows
-   together, via DataTables' own .dt-container) so long subject names and
-   the score boxes get genuinely bigger and easier to tap. Only active
-   ≤768px — on desktop the browser's own pinch/ctrl-scroll zoom already
-   works fine and there's no need to intercept it. Bound once at load;
-   #qe-table-wrap itself is static markup that DataTables renders inside,
-   so the listeners survive every DataTables (re)init. ─────────────────── */
-let _qeZoomLevel = 1;          // committed zoom after the last gesture ends
-let _qeZoomGestureStartDist = 0;
-let _qeZoomGestureStartLevel = 1;
-const QE_ZOOM_MIN = 0.5, QE_ZOOM_MAX = 2.5;
-
-function _qeZoomIsMobile(){ return window.matchMedia('(max-width:768px)').matches; }
-
-function _qeZoomDist(touches){
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.hypot(dx, dy);
-}
-
-function _qeApplyZoom(level){
-  _qeZoomLevel = Math.min(QE_ZOOM_MAX, Math.max(QE_ZOOM_MIN, level));
-  const wrap = document.getElementById('qe-table-wrap');
-  const inner = wrap ? wrap.querySelector('.dt-container') : null;
-  if(inner) inner.style.transform = `scale(${_qeZoomLevel})`;
-  const isZoomed = Math.abs(_qeZoomLevel - 1) > 0.02; // any real deviation, smaller or bigger
-  if(wrap) wrap.classList.toggle('qe-zoomed', isZoomed);
-  const btn = document.getElementById('qe-zoom-reset-btn');
-  if(btn){
-    btn.classList.toggle('visible', isZoomed);
-    btn.textContent = `⤾ Reset Zoom (${Math.round(_qeZoomLevel*100)}%)`;
-  }
-}
-
-function _qeResetZoom(){ _qeApplyZoom(1); }
-window._qeResetZoom = _qeResetZoom;
-
-function _qeZoomTouchStart(e){
-  if(!_qeZoomIsMobile() || e.touches.length !== 2) return;
-  _qeZoomGestureStartDist = _qeZoomDist(e.touches);
-  _qeZoomGestureStartLevel = _qeZoomLevel;
-}
-function _qeZoomTouchMove(e){
-  if(!_qeZoomIsMobile() || e.touches.length !== 2 || !_qeZoomGestureStartDist) return;
-  e.preventDefault(); // this is our gesture now, not the browser's page zoom
-  const ratio = _qeZoomDist(e.touches) / _qeZoomGestureStartDist;
-  _qeApplyZoom(_qeZoomGestureStartLevel * ratio);
-}
-function _qeZoomTouchEnd(e){
-  if(e.touches.length < 2) _qeZoomGestureStartDist = 0; // next 2-finger touch starts a fresh gesture
-}
-
-(function _qeBindZoomListeners(){
-  const wrap = document.getElementById('qe-table-wrap');
-  if(!wrap) return;
-  wrap.addEventListener('touchstart', _qeZoomTouchStart, {passive:true});
-  wrap.addEventListener('touchmove', _qeZoomTouchMove, {passive:false});
-  wrap.addEventListener('touchend', _qeZoomTouchEnd, {passive:true});
-  wrap.addEventListener('touchcancel', _qeZoomTouchEnd, {passive:true});
-})();
-
-// Reset zoom when leaving mobile one-subject mode (rotate to landscape,
-// desktop breakpoint, etc.) or when the sheet reloads — a stale scale
-// factor on a freshly-rendered .dt-container would look broken.
-window.addEventListener('resize', () => { if(!_qeZoomIsMobile() && _qeZoomLevel !== 1) _qeResetZoom(); });
 
 // Re-apply the mobile/desktop table setup on rotate or when the on-screen
 // keyboard opening/closing changes the viewport past the 768px breakpoint.
