@@ -3682,13 +3682,13 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 
 <!-- LIVE QUICK ENTRY SESSIONS MODAL (Advanced Admin only) -->
 <div class="modal-overlay" id="qe-live-sessions-modal" onclick="if(event.target===this)_qeCloseLiveSessionsModal()">
-  <div class="modal-box" style="max-width:480px">
+  <div class="modal-box" style="max-width:520px">
     <div class="modal-hdr">
       <h3>👀 Live Score Entry Sessions</h3>
       <button class="modal-close" onclick="_qeCloseLiveSessionsModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Teachers currently have these sheets open in Quick Entry. Click one to jump straight into it and watch scores come in live.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Teachers currently have these sheets open in Quick Entry, along with the student/subject/score they last typed into. Click a card to jump straight into that sheet and watch scores come in live.</div>
       <div id="qe-live-sessions-list" style="display:grid;gap:8px;max-height:min(50vh,420px);overflow-y:auto"></div>
     </div>
   </div>
@@ -15738,8 +15738,9 @@ function _qeRealId(v){
 ══════════════════════════════════════════════════════════════════════════ */
 let _qeMySessionKey = null;   // encoded compound key of the session we currently own, if any
 let _qeHeartbeatTimer = null;
-let _qeActiveSessions = {};   // flattened: { "uid|compound": {name,uid,grade,compound,startedAt,lastActive} }
+let _qeActiveSessions = {};   // flattened: { "uid|compound": {name,uid,grade,compound,startedAt,lastActive,cell:{studentKey,studentName,subject,value,updatedAt}} }
 let _qeActiveSessionsUnsub = null;
+let _qeLastEditedCell = null; // {studentKey,studentName,subject,value} — mirrored into presence on the next debounced save
 
 // Live listener on the SHARED draft node for whichever exam is currently
 // open on this device — every teacher/admin editing the same grade/exam
@@ -15754,6 +15755,7 @@ function _qeStartPresence(compound, grade){
   if(isAdvancedAdmin) return; // admins watch, they don't need to appear in their own list
   if(!window._currentUser?.uid || !compound) return;
   _qeStopPresence(); // clear any previous session first (switching exams)
+  _qeLastEditedCell = null; // don't carry a stale cell reference into the new session
 
   const { ref: fref, set: fset, onDisconnect: fdisc } = window._fb;
   const uid = window._currentUser.uid;
@@ -16252,15 +16254,38 @@ function _qeRenderLiveSessionsList(){
     const mins = Math.max(0, Math.round((Date.now() - (s.startedAt||Date.now())) / 60000));
     const since = mins < 1 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago` : `${Math.round(mins/60)}h ago`;
     const _av = makePhotoAvatar(s.name||'Teacher', s.grade||'', 'stu-av-sm', 'flex-shrink:0');
+
+    // ── Cell-level detail: which student/subject/score this teacher is on ──
+    // Populated once they've typed into at least one cell (mirrored into
+    // presence by _qeSaveDraft on the same 1.2s debounce as the draft save).
+    const cell = s.cell || null;
+    let cellBlock = `<div style="font-size:11px;color:var(--text3);font-style:italic">Hasn't entered a score yet</div>`;
+    if(cell){
+      const cellMins = Math.max(0, Math.round((Date.now() - (cell.updatedAt||Date.now())) / 60000));
+      const cellSince = cellMins < 1 ? 'just now' : cellMins === 1 ? '1 min ago' : `${cellMins} min ago`;
+      const _studentAv = makePhotoAvatar(cell.studentName||'Student', s.grade||'', 'stu-av-sm', 'flex-shrink:0');
+      const valDisplay = (cell.value===undefined || cell.value==='') ? '<em style="color:var(--text3)">empty</em>' : `<strong style="color:var(--blue)">${cell.value}</strong>`;
+      cellBlock = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:6px 8px;background:var(--surface3);border-radius:8px">
+        ${_studentAv}
+        <div style="flex:1;min-width:0;font-size:11px">
+          <div style="font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cell.studentName||'Student'}</div>
+          <div style="color:var(--text3)">${cell.subject||'—'} · ${valDisplay} · ${cellSince}</div>
+        </div>
+      </div>`;
+    }
+
     return `<div onclick="_qeJumpToSession('${(s.compound||'').replace(/'/g,"\\'")}','${(s.grade||'').replace(/'/g,"\\'")}','${(s.uid||'').replace(/'/g,"\\'")}','${(s.name||'Teacher').replace(/'/g,"\\'")}')"
-        style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:var(--transition)"
+        style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:var(--transition)"
         onmouseenter="this.style.borderColor='var(--blue-lt)'" onmouseleave="this.style.borderColor='var(--border)'">
-      ${_av}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">${s.name||'Teacher'}</div>
-        <div style="font-size:11px;color:var(--text3)">${s.compound||'—'} · started ${since}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${_av}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--text)">${s.name||'Teacher'}</div>
+          <div style="font-size:11px;color:var(--text3)">${s.compound||'—'} · started ${since}</div>
+        </div>
+        <span style="flex-shrink:0;font-size:10px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:4px">🟢 live</span>
       </div>
-      <span style="flex-shrink:0;font-size:10px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:4px">🟢 live</span>
+      ${cellBlock}
     </div>`;
   }).join('');
 }
@@ -17473,6 +17498,16 @@ function _qeOnScoreInput(inputEl){
       const ck = _qeCellKey(key, subj);
       _qeDirtyCells.add(ck);
       _qePendingCells.add(ck);
+      // Remember what's being typed right now so the debounced save below
+      // can mirror it into this teacher's presence record — that's what
+      // powers the detailed view in the Advanced Admin "Live Sessions" modal.
+      const row = _qeStudents.find(r => _qeStudentKey(r) === key);
+      _qeLastEditedCell = {
+        studentKey: key,
+        studentName: row ? (row['Official Student Name'] || 'Student') : 'Student',
+        subject: subj,
+        value: inputEl.value
+      };
     }
   }
   clearTimeout(_qeSaveTimer);
@@ -17507,6 +17542,20 @@ async function _qeSaveDraft(){
     const {ref, update} = window._fb;
     if(!ref || !update) throw new Error('firebase-not-ready');
     const updates = _qeBuildSharedDraftUpdates(draftKey, scores, {onlyCells: cellsToSave, updatedAt});
+    // Piggyback the currently-edited cell onto this same write so Advanced
+    // Admins watching the Live Sessions modal see which student/subject/score
+    // this teacher is on — no extra round trip, and it only updates once
+    // typing has settled (same 1.2s debounce as the draft save itself).
+    if(_qeMySessionKey && window._currentUser?.uid && _qeLastEditedCell){
+      const cellPath = `${QE_ACTIVE_PATH}/${_qeMySessionKey}/${window._currentUser.uid}/cell`;
+      updates[cellPath] = {
+        studentKey: _qeLastEditedCell.studentKey,
+        studentName: _qeLastEditedCell.studentName,
+        subject: _qeLastEditedCell.subject,
+        value: _qeLastEditedCell.value,
+        updatedAt
+      };
+    }
     if(Object.keys(updates).length){
       const writePromise = update(ref(db), updates);
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000));
