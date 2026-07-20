@@ -6317,63 +6317,76 @@ async function _ensureUserDoc(userData){
    Signs out immediately and shows error if account is disabled.
 ══════════════════════════════════════════════════════ */
 async function _checkDisabledAndLogin(userData, auth, ui){
-  try{
-    if(firestoreDb){
-      const snap = await window._fb.getDoc(window._fb.doc(firestoreDb, 'users', userData.uid));
-      if(snap.exists() && snap.data().disabled === true){
-        // Sign them back out immediately
-        await window._fb.signOut(auth);
-        if (typeof _clearCache === 'function') _clearCache();
-        const msg = '🚫 Your account has been disabled. Please contact the administrator.';
-        if(ui && ui.err){
-          ui.err.textContent = msg;
-          ui.err.classList.add('on');
-          ui.btn.disabled = false;
-          ui.btn.textContent = ui.btnLabel;
-        } else {
-          notify(msg, 'error', 8000);
-        }
-        logActivity('🚫 Blocked login attempt (disabled): ' + userData.name + ' (' + userData.user + ')', 'act-red', 'System', { category:'system' });
-        return;
+  // Both permission checks used to run one-after-another — two full
+  // Firestore round trips stacked in series before the app (and its
+  // instant cached-data render) ever got a chance to show. Running them
+  // concurrently with Promise.all cuts that wait roughly in half without
+  // changing the fail-open behavior of either check.
+  const [disabledSnap, whitelistBlock] = await Promise.all([
+    (async () => {
+      try{
+        if(!firestoreDb) return null;
+        const snap = await window._fb.getDoc(window._fb.doc(firestoreDb, 'users', userData.uid));
+        return (snap.exists() && snap.data().disabled === true) ? snap : null;
+      }catch(e){
+        console.warn('[DisabledCheck] Could not verify account status:', e.message);
+        return null; // fail open so a Firestore outage doesn't lock everyone out
       }
+    })(),
+    (async () => {
+      try{
+        if(!firestoreDb) return null;
+        const wSnap = await window._fb.getDoc(window._fb.doc(firestoreDb, 'config', 'loginAccessControl'));
+        if(wSnap.exists() && wSnap.data().enabled === true){
+          const allowed = Array.isArray(wSnap.data().allowedEmails)
+            ? wSnap.data().allowedEmails.map(e => String(e).toLowerCase().trim())
+            : [];
+          const myEmail = (userData.user || '').toLowerCase().trim();
+          if(!myEmail || !allowed.includes(myEmail)) return true;
+        }
+        return false;
+      }catch(e){
+        console.warn('[LoginAccessControl] Could not verify email whitelist:', e.message);
+        return false; // fail open so a Firestore outage doesn't lock everyone out
+      }
+    })()
+  ]);
+
+  if(disabledSnap){
+    // Sign them back out immediately
+    await window._fb.signOut(auth);
+    if (typeof _clearCache === 'function') _clearCache();
+    const msg = '🚫 Your account has been disabled. Please contact the administrator.';
+    if(ui && ui.err){
+      ui.err.textContent = msg;
+      ui.err.classList.add('on');
+      ui.btn.disabled = false;
+      ui.btn.textContent = ui.btnLabel;
+    } else {
+      notify(msg, 'error', 8000);
     }
-  }catch(e){
-    console.warn('[DisabledCheck] Could not verify account status:', e.message);
-    // On error, let them through — fail open so a Firestore outage doesn't lock everyone out
+    logActivity('🚫 Blocked login attempt (disabled): ' + userData.name + ' (' + userData.user + ')', 'act-red', 'System', { category:'system' });
+    return;
   }
 
   // ── Login Access Control: authorized-email whitelist ────────────────
   // See config/loginAccessControl (managed from Settings → Login Access
   // Control, Advanced Admin only). Fails open on Firestore errors so an
   // outage never locks everyone out.
-  try{
-    if(firestoreDb){
-      const wSnap = await window._fb.getDoc(window._fb.doc(firestoreDb, 'config', 'loginAccessControl'));
-      if(wSnap.exists() && wSnap.data().enabled === true){
-        const allowed = Array.isArray(wSnap.data().allowedEmails)
-          ? wSnap.data().allowedEmails.map(e => String(e).toLowerCase().trim())
-          : [];
-        const myEmail = (userData.user || '').toLowerCase().trim();
-        if(!myEmail || !allowed.includes(myEmail)){
-          await window._fb.signOut(auth);
-          if (typeof _clearCache === 'function') _clearCache();
-          const msg = '🚫 This email is not authorized to access this portal. Please contact the administrator.';
-          if(ui && ui.err){
-            ui.err.textContent = msg;
-            ui.err.classList.add('on');
-            ui.btn.disabled = false;
-            ui.btn.textContent = ui.btnLabel;
-          } else {
-            notify(msg, 'error', 8000);
-          }
-          logActivity('🚫 Blocked login attempt (not authorized): ' + userData.name + ' (' + userData.user + ')', 'act-red', 'System', { category:'system' });
-          return;
-        }
-      }
+  if(whitelistBlock){
+    await window._fb.signOut(auth);
+    if (typeof _clearCache === 'function') _clearCache();
+    const msg = '🚫 This email is not authorized to access this portal. Please contact the administrator.';
+    if(ui && ui.err){
+      ui.err.textContent = msg;
+      ui.err.classList.add('on');
+      ui.btn.disabled = false;
+      ui.btn.textContent = ui.btnLabel;
+    } else {
+      notify(msg, 'error', 8000);
     }
-  }catch(e){
-    console.warn('[LoginAccessControl] Could not verify email whitelist:', e.message);
-    // On error, let them through — fail open so a Firestore outage doesn't lock everyone out
+    logActivity('🚫 Blocked login attempt (not authorized): ' + userData.name + ' (' + userData.user + ')', 'act-red', 'System', { category:'system' });
+    return;
   }
 
   showApp(userData);
