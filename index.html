@@ -15860,6 +15860,29 @@ function _qeRealId(v){
   return s;
 }
 
+// Escapes text pulled from student/subject data (names, subjects, UPI, etc.)
+// before it's dropped into innerHTML. These values are teacher/admin-entered
+// free text, not code — without this, a name or subject containing HTML
+// (even accidentally, e.g. a pasted "<3" or ">90") could break the row markup
+// or, worst case, run as script in another user's browser.
+function _qeEsc(v){
+  return String(v==null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Shortens a subject name for Quick Entry's table header to keep columns
+// narrow — first 4 letters + ".." (e.g. "English" → "Engl.."). Short names
+// that already fit in 4 letters or fewer are left as-is (no point
+// truncating "Art" into "Art.."). The full name is still shown via the
+// header's title attribute, so nothing is actually lost — just hidden
+// until hover.
+function _qeAbbrevSubject(s){
+  const name = String(s==null ? '' : s).trim();
+  if(name.length <= 4) return _qeEsc(name);
+  return _qeEsc(name.slice(0,4)) + '..';
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    LIVE QUICK ENTRY SESSIONS — presence tracking + Advanced Admin notification
    Whenever someone loads a Quick Entry sheet, we write a small presence
@@ -16940,16 +16963,25 @@ function renderQuickEntryTable(draftScores, locked){
   thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>{
     const mine = canEnterSubject(s);
     const lockNote = (!locked && !mine) ? ' 🔒' : '';
-    const title = (!locked && !mine) ? ` title="You're not assigned this subject for ${gradeForPerms} — view only"` : '';
     // Column-wide status accent: green underline = you can enter this subject,
     // red underline = you can't (no allocation). Skipped once the whole sheet
     // is locked, since that's a different state (already submitted), not a
     // per-subject permission.
     const statusBorder = locked ? '' : `border-bottom:3px solid ${mine ? 'var(--green)' : 'var(--red)'};`;
     const thStyle = `min-width:90px;${statusBorder}`;
+    const shortLabel = _qeAbbrevSubject(s);
+    // Full subject name isn't shown on hover — it's shown on click, via a
+    // toast (notify()). The click handler lives on the inner span (not the
+    // th itself) with stopPropagation, so it doesn't also trigger the
+    // table's column-sort click handler. notify() renders its argument as
+    // HTML, so the subject name is HTML-escaped first, then that escaped
+    // string is JS-string-escaped to sit safely inside the onclick attribute.
+    const subjForToast = _qeEsc(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const lockTitle = (!locked && !mine) ? ` title="You're not assigned this subject for ${gradeForPerms} — view only"` : '';
+    const nameSpan = `<span onclick="event.stopPropagation();notify('${subjForToast}','info',3000)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px">${shortLabel}</span>`;
     return canEditSubjects
-      ? `<th style="${thStyle}"${title}>${s}${lockNote} <button onclick="event.stopPropagation();_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
-      : `<th style="${thStyle}"${title}>${s}${lockNote}</th>`;
+      ? `<th style="${thStyle}">${nameSpan}<span${lockTitle}>${lockNote}</span> <button onclick="event.stopPropagation();_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
+      : `<th style="${thStyle}">${nameSpan}<span${lockTitle}>${lockNote}</span></th>`;
   }).join('')}${locked?'':'<th style="width:44px"></th>'}`;
   tbody.innerHTML = _qeStudents.map((r,i)=>{
     const key = _qeStudentKey(r);
@@ -16959,15 +16991,15 @@ function renderQuickEntryTable(draftScores, locked){
       ? `<span title="Already has a submitted record for this exam — Submit will update it" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(39,174,96,.12);color:var(--green);font-size:10px;font-weight:700;vertical-align:middle">✓ submitted</span>`
       : `<span title="No record yet for this exam — Submit will create one" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.12);color:var(--orange);font-size:10px;font-weight:700;vertical-align:middle">new</span>`;
     const _qeAv = makePhotoAvatar(r['Official Student Name']||'', r['Grade']||_qeGrade||'', 'stu-av-sm', 'flex-shrink:0', r.id||'');
-    return `<tr data-name="${(r['Official Student Name']||'').toLowerCase()}">
+    return `<tr data-name="${_qeEsc((r['Official Student Name']||'').toLowerCase())}">
       <td>${i+1}</td>
       <td style="font-size:12px;font-weight:600">
         <div style="display:flex;align-items:center;gap:8px">
           ${_qeAv}
-          <span>${r['Official Student Name']||'—'}${badge}</span>
+          <span>${_qeEsc(r['Official Student Name']||'—')}${badge}</span>
         </div>
       </td>
-      <td style="font-size:11px;color:var(--text3)">${r['UPI']||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${_qeEsc(r['UPI']||'—')}</td>
       ${_qeSubjects.map(s=>{
         const val = draft[s]!==undefined ? draft[s] : '';
         if(locked){
@@ -17138,7 +17170,7 @@ function _qePopulateMobileSubjectBar(){
   if(!sel || !bar) return;
   if(!_qeSubjects.length){ bar.style.display = 'none'; return; }
   const prevChoice = sel.value;
-  sel.innerHTML = _qeSubjects.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join('');
+  sel.innerHTML = _qeSubjects.map(s=>`<option value="${_qeEsc(s)}">${_qeEsc(s)}</option>`).join('');
   sel.value = _qeSubjects.includes(prevChoice) ? prevChoice : _qeSubjects[0];
   _qeApplyMobileColumnView();
 }
@@ -17495,7 +17527,7 @@ function _qeSearchExistingStudent(){
       : 'cursor:pointer;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px';
     return `<div style="${rowStyle}" ${clickAttr}>
       ${_av}
-      <span style="flex:1;min-width:0"><strong>${m.name}</strong> <span style="color:var(--text3)">· ${m.grade||'Grade N/A'} · UPI: ${m.upi||'N/A'} · Adm: ${m.asm||'N/A'}</span></span>
+      <span style="flex:1;min-width:0"><strong>${_qeEsc(m.name)}</strong> <span style="color:var(--text3)">· ${_qeEsc(m.grade||'Grade N/A')} · UPI: ${_qeEsc(m.upi||'N/A')} · Adm: ${_qeEsc(m.asm||'N/A')}</span></span>
       ${badge}
     </div>`;
   }).join('');
@@ -17525,7 +17557,7 @@ function _qeSelectExistingStudentMatch(name, upi, asm, grade){
   // "Jane Mwangi" out of several before submitting.
   const avBox = document.getElementById('qe-add-match-badge-av');
   if(avBox){
-    avBox.innerHTML = `<div class="stu-av-wrap stu-av-md" id="qe-add-match-badge-av-inner">${(name||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?'}</div>`;
+    avBox.innerHTML = `<div class="stu-av-wrap stu-av-md" id="qe-add-match-badge-av-inner">${_qeEsc((name||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?')}</div>`;
     injectPhoto('qe-add-match-badge-av-inner', name, grade||'', '');
   }
   document.getElementById('qe-add-match-badge').style.display = 'flex';
