@@ -6755,14 +6755,14 @@ function _teacherCanSeeGrade(grade){
 /* ─── Helper: can the current teacher enter/edit scores for this SUBJECT
  *  within this GRADE? Advanced Admins always can. A grade with no subject
  *  list configured yet (assignedSubjects[grade] missing or empty) is fully
- *  open, same permissive default the grade-level gate already uses — this
- *  only actually restricts once an admin has explicitly picked subjects for
- *  that teacher in that grade via the assignment panel. ─────── */
+ *  LOCKED — a teacher with no subject allocation for a grade cannot enter
+ *  any score there until an Advanced Admin explicitly ticks at least one
+ *  subject for them in that grade via the assignment panel. ─────── */
 function _teacherCanEnterSubject(grade, subject){
   if(isAdvancedAdmin) return true;
   const g = gShort ? gShort(grade) : grade;
   const list = currentAssignedSubjects && currentAssignedSubjects[g];
-  if(!Array.isArray(list) || !list.length) return true; // not locked down for this grade
+  if(!Array.isArray(list) || !list.length) return false; // no subject allocation for this grade — no entry
   return list.includes(subject);
 }
 
@@ -8397,7 +8397,7 @@ function _renderGradeAssignmentPanel(){
       <button class="btn btn-outline btn-sm" onclick="loadGradeAssignments()">🔄 Refresh</button>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8;padding:10px 14px;background:rgba(41,128,185,.06);border-radius:var(--radius-md);border:1px solid var(--border)">
-      Assign each teacher to one or more grades. Teachers will only see students from their assigned grades across the entire portal. Optionally, tick specific subjects under a grade to limit that teacher to entering scores only for those subjects in that class (leave none ticked for full access to every subject in that grade). Tick <strong>👑 Class Teacher</strong> under a grade to give that teacher sole final-submission authority in Quick Entry for it — other teachers assigned there can still enter scores, but only the Class Teacher (or an Advanced Admin) can submit them to the official record, and only once every score in the sheet is filled in. <em>Assign only one Class Teacher per grade</em> — this isn't enforced automatically. Only Advanced Admins can change these assignments.
+      Assign each teacher to one or more grades. Teachers will only see students from their assigned grades across the entire portal. Tick specific subjects under a grade to allow that teacher to enter scores for those subjects only — <strong>a teacher with no subjects ticked for a grade cannot enter any score there</strong> until at least one is assigned. Tick <strong>👑 Class Teacher</strong> under a grade to give that teacher sole final-submission authority in Quick Entry for it — other teachers assigned there can still enter scores, but only the Class Teacher (or an Advanced Admin) can submit them to the official record, and only once every score in the sheet is filled in. <em>Assign only one Class Teacher per grade</em> — this isn't enforced automatically. Only Advanced Admins can change these assignments.
     </p>
     <div id="grade-assignments-list">
       <p style="font-size:12px;color:var(--text3)">Loading accounts…</p>
@@ -16923,16 +16923,23 @@ function renderQuickEntryTable(draftScores, locked){
   // an Advanced Admin can enter every subject; a regular teacher only sees an
   // editable box for subjects an admin has assigned them in this class (via
   // Teacher Grade Assignments → per-grade subject checklist). A grade with no
-  // subjects configured for this teacher yet stays fully open.
+  // subjects allocated to this teacher yet is fully locked — no score box is
+  // editable until at least one subject is ticked for them there.
   const gradeForPerms = _qeGrade || gShort(_qeCompound);
   const canEnterSubject = s => !locked && _teacherCanEnterSubject(gradeForPerms, s);
   thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>{
     const mine = canEnterSubject(s);
     const lockNote = (!locked && !mine) ? ' 🔒' : '';
     const title = (!locked && !mine) ? ` title="You're not assigned this subject for ${gradeForPerms} — view only"` : '';
+    // Column-wide status accent: green underline = you can enter this subject,
+    // red underline = you can't (no allocation). Skipped once the whole sheet
+    // is locked, since that's a different state (already submitted), not a
+    // per-subject permission.
+    const statusBorder = locked ? '' : `border-bottom:3px solid ${mine ? 'var(--green)' : 'var(--red)'};`;
+    const thStyle = `min-width:90px;${statusBorder}`;
     return canEditSubjects
-      ? `<th style="min-width:90px"${title}>${s}${lockNote} <button onclick="event.stopPropagation();_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
-      : `<th style="min-width:90px"${title}>${s}${lockNote}</th>`;
+      ? `<th style="${thStyle}"${title}>${s}${lockNote} <button onclick="event.stopPropagation();_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
+      : `<th style="${thStyle}"${title}>${s}${lockNote}</th>`;
   }).join('')}${locked?'':'<th style="width:44px"></th>'}`;
   tbody.innerHTML = _qeStudents.map((r,i)=>{
     const key = _qeStudentKey(r);
@@ -16954,12 +16961,12 @@ function renderQuickEntryTable(draftScores, locked){
       ${_qeSubjects.map(s=>{
         const val = draft[s]!==undefined ? draft[s] : '';
         if(locked){
-          return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.75;cursor:not-allowed"></td>`;
+          return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly style="width:70px;padding:4px 6px;border:1.5px solid var(--border-strong);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.75;cursor:not-allowed"></td>`;
         }
         if(!canEnterSubject(s)){
-          return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly title="🔒 You're not assigned ${s} for ${gradeForPerms}" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.6;cursor:not-allowed"></td>`;
+          return `<td><input type="number" value="${val}" data-student="${key}" data-subject="${s}" disabled readonly title="🔒 You're not assigned ${s} for ${gradeForPerms}" style="width:70px;padding:4px 6px;border:1.5px solid var(--red);border-radius:6px;background:rgba(231,76,60,.08);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;opacity:.7;cursor:not-allowed"></td>`;
         }
-        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
+        return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1.5px solid var(--green);border-radius:6px;background:rgba(39,174,96,.07);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
       }).join('')}
       ${locked ? '' : `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>`}
     </tr>`;
