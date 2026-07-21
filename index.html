@@ -4984,12 +4984,22 @@ function getLatestStudentRecord(name, studentId){
  *  for the given short grade (e.g. "Grade 3"), or null if that grade has no
  *  results on file at all yet. Used to seed a brand-new/pending exam's roster
  *  from the latest class list instead of merging every past term together. */
-function _qeLatestTermForGrade(grade){
+function _qeLatestTermForGrade(grade, beforeCompound){
+  // beforeCompound (optional): the exam identity being opened. When given,
+  // terms chronologically AFTER it are excluded — otherwise a stray/preloaded
+  // future term already on file (e.g. next term's exam created early, or a
+  // couple of scores entered ahead of time) gets treated as "latest" and its
+  // roster gets borrowed instead of the actual latest-so-far class list,
+  // wrongly flagging students as "already on sheet" for a term they were
+  // never really rostered into.
+  const beforeKey = beforeCompound ? _qeCompoundOrderKey(beforeCompound) : null;
   const compounds = new Set();
   allData.forEach(r => {
     if(gShort(r['Grade']) !== grade) return;
     const t = getRecordTerm(r);
-    if(t && t !== 'Unknown') compounds.add(t);
+    if(!t || t === 'Unknown') return;
+    if(beforeKey && _qeCompoundOrderKey(t).localeCompare(beforeKey) > 0) return;
+    compounds.add(t);
   });
   if(!compounds.size) return null;
   return [...compounds].sort((a,b) => _qeCompoundOrderKey(b).localeCompare(_qeCompoundOrderKey(a)))[0];
@@ -16519,7 +16529,7 @@ async function loadQuickEntry(){
   let rosterRows = exactRows;
   let _qeBorrowedFromTerm = null; // set below if this pending exam's roster was copied from an existing term
   if(!useExact){
-    _qeBorrowedFromTerm = _qeLatestTermForGrade(pendingGrade);
+    _qeBorrowedFromTerm = _qeLatestTermForGrade(pendingGrade, selCompound);
     rosterRows = _qeBorrowedFromTerm ? allData.filter(r => getRecordTerm(r) === _qeBorrowedFromTerm) : [];
   }
   _qeWasPending = !useExact; // remembered so submitQuickEntry can double-check with the user
