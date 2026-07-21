@@ -6575,6 +6575,20 @@ function checkAdvancedAdmin(uid){
 
 /* ─── Apply teacher profile data (called on every Firestore update) ─── */
 function _applyTeacherProfile(data, uid){
+  // ── LIVE DISABLE ENFORCEMENT ─────────────────────────────────────────
+  // _checkDisabledAndLogin() only gates entry at sign-in time, so an admin
+  // disabling someone who is ALREADY signed in previously had no effect
+  // until that person's next page reload — a real security gap (same class
+  // of bug the LAC whitelist enforcement listener already fixes for
+  // unauthorized emails). This listener already re-fires on every remote
+  // change to users/{uid}, so we piggyback on it: the instant `disabled`
+  // flips true, force sign-out immediately, no reload required.
+  if(data && data.disabled === true){
+    notify('🚫 Your account has been disabled by an administrator. Signing you out…', 'error', 8000);
+    logActivity('🚫 Live-disabled — force sign-out: ' + (currentAdminName||'') + ' (' + (currentAdminEmail||'') + ')', 'act-red', 'System', { category:'system' });
+    setTimeout(function(){ if(typeof doSignOut === 'function') doSignOut(); }, 1200);
+    return;
+  }
   window._teacherProfileResolved = true; // first call = we now know isAdvancedAdmin/classTeacherGrades for real
   const importNav    = document.querySelector('.nav-item[data-label="Import Data"]');
   const qlinksSection = document.querySelector('.qlinks-section');
