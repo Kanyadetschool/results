@@ -7592,9 +7592,43 @@ function _startAdvRoleListener(){
     },
     function(err){
       var c = document.getElementById('adv-role-list');
+      if(err.code === 'permission-denied'){
+        if(_advRoleUnsubscribe){ try{ _advRoleUnsubscribe(); }catch(e){} _advRoleUnsubscribe = null; }
+        _arpHandleAccessLost();
+        return;
+      }
       if(c) c.innerHTML = '<p class="arp-empty" style="color:var(--red)">Real-time error: ' + err.message + '</p>';
     }
   );
+}
+
+// Called when the live 'users' listener is denied mid-session — this means
+// the security rules no longer see this account as Teacher/Advanced Admin,
+// almost always because another Advanced Admin just revoked this account's
+// Advancedadmin flag (or this account's users/{uid} doc is gone). The panel
+// was already open from a stale client-side check made at sign-in, so we
+// re-verify against the server directly and react instead of leaving a
+// confusing raw "permission-denied" message on screen.
+async function _arpHandleAccessLost(){
+  var c = document.getElementById('adv-role-list');
+  if(c) c.innerHTML = '<p class="arp-empty">Checking your access…</p>';
+  try{
+    var uid = window._currentUser && window._currentUser.uid;
+    var snap = uid ? await window._fb.getDoc(window._fb.doc(firestoreDb, 'users', uid)) : null;
+    var stillAdv = !!(snap && snap.exists() && snap.data().Advancedadmin === true);
+    if(stillAdv){
+      // Transient error (e.g. a brief network hiccup) — access is actually
+      // still valid server-side, so just restart the listener.
+      _startAdvRoleListener();
+      return;
+    }
+  } catch(e){ /* fall through to the revoked message below */ }
+
+  isAdvancedAdmin = false;
+  var tile = document.getElementById('tile-adv-role');
+  if(tile) tile.style.display = 'none';
+  if(c) c.innerHTML = '<p class="arp-empty" style="color:var(--red)">Your Advanced Admin access has been revoked. Reloading…</p>';
+  setTimeout(function(){ location.reload(); }, 2000);
 }
 
 function _arpRenderCards(allUsers){
