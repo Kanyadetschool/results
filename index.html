@@ -830,50 +830,6 @@ body::before{
   border:2px solid rgba(41,128,185,.2);border-top-color:var(--blue-lt);
   animation:ldpSpin .7s linear infinite;
 }
-/* Blurs the currently-visible Quick Entry score table while a new
-   grade/exam selection is being loaded in behind it, so it's visually
-   obvious the on-screen scores are stale and not yet interactive. */
-#view-quickentry{perspective:1200px;}
-#qe-table-card{
-  transition:filter .35s cubic-bezier(.4,.0,.2,1), opacity .35s ease, transform .4s cubic-bezier(.34,1.4,.64,1);
-  transform-style:preserve-3d;
-  transform-origin:50% 0%;
-}
-#qe-table-card.qe-blurred{
-  filter:blur(3px) saturate(1.3);
-  opacity:.4;
-  pointer-events:none;
-  transform:rotateX(8deg) translateY(10px) scale(.97);
-}
-
-/* ── Quick Entry: playful animations ─────────────────────────────────── */
-@keyframes qeRowPop{
-  0%{opacity:0;transform:translateY(10px) scale(.97);}
-  60%{opacity:1;transform:translateY(-1px) scale(1.002);}
-  100%{opacity:1;transform:translateY(0) scale(1);}
-}
-.qe-row-pop{animation:qeRowPop .42s cubic-bezier(.22,1.15,.36,1) both;}
-
-@keyframes qeShake{
-  10%,90%{transform:translateX(-1px);}
-  20%,80%{transform:translateX(2px);}
-  30%,50%,70%{transform:translateX(-4px);}
-  40%,60%{transform:translateX(4px);}
-}
-.qe-shake{animation:qeShake .5s cubic-bezier(.36,.07,.19,.97) both;}
-
-@keyframes qePulseRing{
-  0%{box-shadow:0 0 0 0 rgba(39,174,96,.55);}
-  100%{box-shadow:0 0 0 14px rgba(39,174,96,0);}
-}
-@keyframes qeSuccessBounce{
-  0%{transform:scale(1);}
-  30%{transform:scale(1.12) rotate(-2deg);}
-  55%{transform:scale(.96) rotate(1.5deg);}
-  75%{transform:scale(1.04) rotate(-.5deg);}
-  100%{transform:scale(1) rotate(0);}
-}
-.qe-success-pop{animation:qeSuccessBounce .55s cubic-bezier(.34,1.56,.64,1) both, qePulseRing 1.1s ease-out both;border-radius:8px;}
 
 /* ══════════════════════════════════════════
    NOTIFICATIONS
@@ -9109,13 +9065,6 @@ window.doSignOut=doSignOut;
 ══════════════════════════════════════════ */
 let _realtimeUnsubscribe = null; // holds the Firebase unsubscribe function
 let _firstLoad = true;           // distinguish initial load from live updates
-// _firstLoad flips false the instant a local cache hit renders (see Phase 1
-// below) — that's fine for the main table, but Quick Entry's Grade/Exam
-// dropdowns need to know when the actual LIVE Firebase payload has arrived,
-// not just cache, or they can enable themselves off a stale/incomplete
-// cached list before the real data (and pending-exam / extra-subject
-// listeners) have synced. This flag only flips true on the real payload.
-let _qeLiveDataReady = false;
 
 // ── localStorage cache helpers ───────────────────────────────────────────────
 const CACHE_KEY = 'kanyadet_students_cache';
@@ -9160,7 +9109,6 @@ function loadAllData(){
     _realtimeUnsubscribe = null;
   }
   _firstLoad = true;
-  _qeLiveDataReady = false;
 
   try{
     const detailEl3 = document.getElementById('ldp-d3');
@@ -9180,16 +9128,6 @@ function loadAllData(){
       renderAll(); // instant render — user sees data immediately
       window._perfTimeEnd('⏱ Stage: renderAll() from cache');
       window._perfMark && window._perfMark('renderAll() from cache done — loader should be dismissed now');
-      // Safety fallback: if the live Firebase payload never arrives (e.g. a
-      // stalled connection or a permissions hiccup), don't leave Quick
-      // Entry's Grade/Exam dropdowns disabled forever — fall back to the
-      // cached data after a short wait.
-      setTimeout(()=>{
-        if(!_qeLiveDataReady){
-          _qeLiveDataReady = true;
-          if(document.getElementById('view-quickentry')?.classList.contains('active') && typeof _qeScheduleSelectorsRefresh === 'function') _qeScheduleSelectorsRefresh();
-        }
-      }, 6000);
     } else {
       if (detailEl3) detailEl3.textContent = 'Fetching records from Firebase…';
       window._perfMark && window._perfMark('No cache — waiting on live Firebase fetch for first paint');
@@ -9204,7 +9142,6 @@ function loadAllData(){
         window._perfTimeEnd('⏱ Stage: Firebase students fetch (onValue first payload)');
         window._perfMark && window._perfMark('First onValue payload received from Firebase');
       }
-      _qeLiveDataReady = true;
       const data = snap.val();
       if(!data){
         if(_firstLoad){
@@ -15761,32 +15698,8 @@ window._qeScheduleSelectorsRefresh = _qeScheduleSelectorsRefresh;
 function _qeShowSheetLoading(show){
   const el = document.getElementById('qe-sheet-loading-card');
   if(el) el.style.display = show ? 'block' : 'none';
-  const tableCard = document.getElementById('qe-table-card');
-  if(tableCard && tableCard.style.display !== 'none'){
-    tableCard.classList.toggle('qe-blurred', show);
-  } else if(tableCard){
-    tableCard.classList.remove('qe-blurred');
-  }
 }
 window._qeShowSheetLoading = _qeShowSheetLoading;
-
-function _qeShakeSubmitBtn(){
-  const btn = document.getElementById('qe-submit-btn');
-  if(!btn) return;
-  btn.classList.remove('qe-shake'); void btn.offsetWidth; // restart animation if already mid-shake
-  btn.classList.add('qe-shake');
-  setTimeout(()=>btn.classList.remove('qe-shake'), 550);
-}
-window._qeShakeSubmitBtn = _qeShakeSubmitBtn;
-
-function _qeCelebrateSubmitBtn(){
-  const btn = document.getElementById('qe-submit-btn');
-  if(!btn) return;
-  btn.classList.remove('qe-success-pop'); void btn.offsetWidth;
-  btn.classList.add('qe-success-pop');
-  setTimeout(()=>btn.classList.remove('qe-success-pop'), 1200);
-}
-window._qeCelebrateSubmitBtn = _qeCelebrateSubmitBtn;
 
 function _populateQuickEntrySelectors(){
   const gradeEl = document.getElementById('qe-grade');
@@ -15794,19 +15707,11 @@ function _populateQuickEntrySelectors(){
   if(!gradeEl || !termEl) return;
 
   // ── Data hasn't arrived from Firebase yet — show a loading state instead
-  //    of silently leaving the dropdowns looking empty. _firstLoad alone
-  //    isn't enough here: it flips false the instant a local cache hit
-  //    renders (see loadAllData Phase 1), well before the live Firebase
-  //    payload — and the pending-exams / extra-subjects listeners it feeds
-  //    on — have actually synced. Requiring _qeLiveDataReady too means the
-  //    dropdowns only unlock once real, current data backs them (falling
-  //    back to cache automatically while offline, since no live payload
-  //    will ever arrive in that case). The onValue listeners re-invoke this
-  //    function once the live payload lands, which will fall through past
-  //    this guard and populate normally. ─────────────────────────────────
-  const stillSyncing = (typeof _firstLoad !== 'undefined' && _firstLoad) ||
-    (navigator.onLine && typeof _qeLiveDataReady !== 'undefined' && !_qeLiveDataReady);
-  if(stillSyncing){
+  //    of silently leaving the dropdowns looking empty. The onValue listener
+  //    re-invokes this function once the first load (or a live update)
+  //    completes, which will fall through past this guard and populate
+  //    normally. ─────────────────────────────────────────────────────────
+  if(typeof _firstLoad !== 'undefined' && _firstLoad){
     _qeSetSelectorsLoading(true);
     return;
   }
@@ -17146,7 +17051,7 @@ function renderQuickEntryTable(draftScores, locked){
       ? `<span title="Already has a submitted record for this exam — Submit will update it" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(39,174,96,.12);color:var(--green);font-size:10px;font-weight:700;vertical-align:middle">✓ submitted</span>`
       : `<span title="No record yet for this exam — Submit will create one" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.12);color:var(--orange);font-size:10px;font-weight:700;vertical-align:middle">new</span>`;
     const _qeAv = makePhotoAvatar(r['Official Student Name']||'', r['Grade']||_qeGrade||'', 'stu-av-sm', 'flex-shrink:0', r.id||'');
-    return `<tr class="qe-row-pop" style="animation-delay:${Math.min(i,24)*22}ms" data-name="${_qeEsc((r['Official Student Name']||'').toLowerCase())}">
+    return `<tr data-name="${_qeEsc((r['Official Student Name']||'').toLowerCase())}">
       <td>${i+1}</td>
       <td style="font-size:12px;font-weight:600">
         <div style="display:flex;align-items:center;gap:8px">
@@ -17986,7 +17891,6 @@ async function submitQuickEntry(){
   const gradeForCT = _qeGrade || gShort(_qeCompound);
   if(!_isClassTeacherOfGrade(gradeForCT)){
     notify(`🔒 Only the Class Teacher of <strong>${gradeForCT}</strong> can submit final scores. Your entries are saved — ask the Class Teacher (or an Advanced Admin) to finalize.`,'error',7000);
-    _qeShakeSubmitBtn();
     return;
   }
 
@@ -17998,7 +17902,6 @@ async function submitQuickEntry(){
   const { missing, total } = _qeCountMissingScores();
   if(total > 0 && missing > 0){
     notify(`⚠️ ${missing} of ${total} score(s) are still empty. All fields must have a score before final submission.`,'error',7000);
-    _qeShakeSubmitBtn();
     const firstEmpty = [...document.querySelectorAll('#qe-tbody input[data-student]')].find(inp=>inp.value.trim()==='');
     if(firstEmpty){ firstEmpty.focus(); firstEmpty.scrollIntoView({behavior:'smooth', block:'center'}); }
     return;
@@ -18009,7 +17912,6 @@ async function submitQuickEntry(){
   const flagged = document.querySelectorAll('#qe-tbody input.qe-invalid-score');
   if(flagged.length){
     notify(`⚠️ ${flagged.length} score(s) are out of the 0–100 range (shown in red) — fix them before submitting.`,'error',6000);
-    _qeShakeSubmitBtn();
     flagged[0].focus();
     flagged[0].scrollIntoView({behavior:'smooth', block:'center'});
     return;
@@ -18020,14 +17922,12 @@ async function submitQuickEntry(){
   // online) until the teacher can actually submit it for real.
   if(!navigator.onLine){
     notify("📴 You're offline — your scores are saved on this device as a draft and will sync automatically. Submit once you're back online.",'warn',6000);
-    _qeShakeSubmitBtn();
     return;
   }
 
   // ── Lock guard (re-check at submit time too — lock state can change) ─────
   if(_lockedTerms[_lockKeyFor(_qeCompound)] && _lockedTerms[_lockKeyFor(_qeCompound)].locked){
     notify(`🔒 "${_qeCompound}" is locked. Ask an Advanced Admin to unlock it before submitting.`,'error',6000);
-    _qeShakeSubmitBtn();
     return;
   }
 
@@ -18144,7 +18044,6 @@ async function submitQuickEntry(){
   logActivity(`⚡ Quick Entry: ${created} created, ${updated} updated for ${_qeCompound}`,'act-green',currentAdminName,{category:'import'});
 
   btn.disabled=false; btn.textContent='✅ Submit Final to Database';
-  _qeCelebrateSubmitBtn();
   document.getElementById('qe-draft-banner').style.display='none';
   _qeResetToDefault();
   setTimeout(refreshData, 1200);
