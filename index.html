@@ -17321,6 +17321,11 @@ async function loadQuickEntry(){
   _qeUpdateOnlineBanner();
   const addSubjectBtn = document.getElementById('qe-add-subject-btn');
   if(addSubjectBtn) addSubjectBtn.style.display = (isAdvancedAdmin && _qeWasPending && !viewOnly) ? '' : 'none';
+  const addStudentBtn = document.getElementById('qe-add-student-btn');
+  if(addStudentBtn){
+    const canAddStudent = !viewOnly && _isClassTeacherOfGrade(selGrade || gShort(selCompound));
+    addStudentBtn.style.display = canAddStudent ? '' : 'none';
+  }
   document.getElementById('qe-table-card').style.display='block';
   _qeShowSheetLoading(false);
 
@@ -17545,6 +17550,10 @@ function renderQuickEntryTable(draftScores, locked){
   // editable until at least one subject is ticked for them there.
   const gradeForPerms = _qeGrade || gShort(_qeCompound);
   const canEnterSubject = s => !locked && _teacherCanEnterSubject(gradeForPerms, s);
+  // Removing a student from the sheet is the same Class Teacher authority
+  // as adding one — a subject teacher with score-entry access shouldn't be
+  // able to drop a classmate off the roster.
+  const canRemoveStudents = !locked && _isClassTeacherOfGrade(gradeForPerms);
   thead.innerHTML = `<th style="width:30px">#</th><th>Student Name</th><th>UPI</th>${_qeSubjects.map(s=>{
     const mine = canEnterSubject(s);
     const lockNote = (!locked && !mine) ? ' 🔒' : '';
@@ -17567,7 +17576,7 @@ function renderQuickEntryTable(draftScores, locked){
     return canEditSubjects
       ? `<th style="${thStyle}">${nameSpan}<span${lockTitle}>${lockNote}</span> <button onclick="event.stopPropagation();_qeRemoveSubjectFromSheet('${s.replace(/'/g,"\\'")}')" title="Remove this subject from the sheet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 0 0 2px">✕</button></th>`
       : `<th style="${thStyle}">${nameSpan}<span${lockTitle}>${lockNote}</span></th>`;
-  }).join('')}${locked?'':'<th style="width:44px"></th>'}`;
+  }).join('')}${canRemoveStudents?'<th style="width:44px"></th>':''}`;
   tbody.innerHTML = _qeStudents.map((r,i)=>{
     const key = _qeStudentKey(r);
     const draft = draftScores[key] || {};
@@ -17595,7 +17604,7 @@ function renderQuickEntryTable(draftScores, locked){
         }
         return `<td><input type="number" min="0" max="100" step="0.1" value="${val}" data-student="${key}" data-subject="${s}" oninput="_qeOnScoreInput(this)" style="width:70px;padding:4px 6px;border:1.5px solid var(--green);border-radius:6px;background:rgba(39,174,96,.07);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px"></td>`;
       }).join('')}
-      ${locked ? '' : `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>`}
+      ${canRemoveStudents ? `<td><button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="_qeRemoveStudentRow('${key}')" title="Remove from this sheet">🗑️</button></td>` : ''}
     </tr>`;
   }).join('');
 
@@ -17692,7 +17701,7 @@ function _qeInitDataTable(locked){
 
   const subjectStart = 3; // columns: # , Student Name , UPI , ...subjects... , (actions)
   const subjectEnd = subjectStart + _qeSubjects.length - 1;
-  const hasActionsCol = !locked;
+  const hasActionsCol = !locked && _isClassTeacherOfGrade(_qeGrade || gShort(_qeCompound));
   const columnDefs = [
     { targets: 0, orderable: false, columnControl: [] }, // "#" row number column
   ];
@@ -18070,6 +18079,14 @@ function _qeOpenAddStudentModal(){
     notify('⚠️ Load a grade/exam first.','warn'); return;
   }
   if(_qeLocked){ notify('🔒 This exam is locked — cannot add students.','warn'); return; }
+  // ── Class Teacher guard — same authority as the Student Directory's Add
+  // Student, and as final submission: only the Class Teacher of THIS grade
+  // (or an Advanced Admin) may add a student to the roster, not any subject
+  // teacher who happens to have score-entry access to the sheet.
+  if(!_isClassTeacherOfGrade(_qeGrade || gShort(_qeCompound))){
+    notify(`🔒 Only the Class Teacher of <strong>${_qeGrade || gShort(_qeCompound)}</strong> (or an Advanced Admin) can add a student to this class.`,'error',6000);
+    return;
+  }
   document.getElementById('qe-add-name').value = '';
   document.getElementById('qe-add-asm').value = '';
   document.getElementById('qe-add-upi').value = '';
@@ -18191,6 +18208,14 @@ function _qeClearExistingMatch(){
 window._qeClearExistingMatch = _qeClearExistingMatch;
 
 function _qeConfirmAddStudent(){
+  // ── Class Teacher guard (defense-in-depth — the modal shouldn't have
+  // opened at all for a non-class-teacher, but re-check here too in case
+  // the modal was left open across a grade/exam switch). ──────────────────
+  if(!_isClassTeacherOfGrade(_qeGrade || gShort(_qeCompound))){
+    notify(`🔒 Only the Class Teacher of <strong>${_qeGrade || gShort(_qeCompound)}</strong> (or an Advanced Admin) can add a student to this class.`,'error',6000);
+    _qeCloseAddStudentModal();
+    return;
+  }
   const name = document.getElementById('qe-add-name').value.trim();
   const asm = document.getElementById('qe-add-asm').value.trim();
   const upi = document.getElementById('qe-add-upi').value.trim();
@@ -18227,6 +18252,11 @@ window._qeConfirmAddStudent = _qeConfirmAddStudent;
 
 async function _qeRemoveStudentRow(key){
   if(_qeLocked){ notify('🔒 This exam is locked — cannot remove students.','warn'); return; }
+  // ── Class Teacher guard — same authority as adding a student.
+  if(!_isClassTeacherOfGrade(_qeGrade || gShort(_qeCompound))){
+    notify(`🔒 Only the Class Teacher of <strong>${_qeGrade || gShort(_qeCompound)}</strong> (or an Advanced Admin) can remove a student from this class.`,'error',6000);
+    return;
+  }
   const r = _qeStudents.find(x=>_qeStudentKey(x)===key);
   if(!r) return;
   const ok = await showConfirm(
