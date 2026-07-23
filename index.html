@@ -12258,6 +12258,110 @@ function _waNormalizePhone(raw){
   return p;
 }
 
+/** Live missing-scores detector for a specific grade + exam identity —
+ *  replicates loadQuickEntry()'s OWN roster/score pipeline exactly, instead
+ *  of only checking allData (final submitted records). Quick Entry's real
+ *  state for a pending exam is: (exact-exam records, or a borrowed prior
+ *  term's roster if none exist yet) + persisted roster overrides (manual
+ *  Add/Remove Student, removed subject columns) + the live collaborative
+ *  SHARED DRAFT (quickEntrySharedDrafts) that holds scores teachers have
+ *  typed but not yet submitted. Checking allData alone misses all of that,
+ *  which is exactly why the reminder's names/counts didn't match what's
+ *  actually on the sheet. Returns { students, subjects, missingBySubject }. */
+async function computeLiveMissingScoresForExam(grade, compound){
+  // ── Roster: exact-exam records, or the single most recent PRIOR exam for
+  //    this grade if none exist yet — identical source Quick Entry borrows. ──
+  const exactRows = allData.filter(r => getRecordTerm(r) === compound);
+  const useExact = exactRows.length > 0;
+  let rosterRows = exactRows;
+  if(!useExact){
+    const borrowedFromTerm = _qeLatestTermForGrade(grade, compound);
+    rosterRows = borrowedFromTerm ? allData.filter(r => getRecordTerm(r) === borrowedFromTerm) : [];
+  }
+
+  // Dedup exactly like loadQuickEntry: Assessment No → UPI → name.
+  const seenAsmNo = new Set(), seenUPI = new Set(), seenNoIdName = new Set();
+  const students = [];
+  rosterRows.forEach(r => {
+    const asmNo = _qeRealId(r['Assessment No']);
+    const upi = _qeRealId(r['UPI']);
+    const name = String(r['Official Student Name']||'').trim().toLowerCase();
+    if(!name) return;
+    if(asmNo){ if(seenAsmNo.has(asmNo)) return; seenAsmNo.add(asmNo); }
+    else if(upi){ if(seenUPI.has(upi)) return; seenUPI.add(upi); }
+    else { if(seenNoIdName.has(name)) return; seenNoIdName.add(name); }
+    students.push(r);
+  });
+
+  // ── Apply this exam's persisted roster overrides (Add/Remove Student) ──────
+  const examKeyEnc = encodeURIComponent(compound);
+  const overrides = await _qeFetchRosterOverrides(examKeyEnc);
+  const removedKeys = new Set(Object.keys(overrides.removed||{}).map(k=>{ try{ return decodeURIComponent(k); }catch(e){ return k; } }));
+  let finalStudents = students.filter(r => !removedKeys.has(_qeStudentKey(r)));
+  const presentKeys = new Set(finalStudents.map(r=>_qeStudentKey(r)));
+  Object.values(overrides.added||{}).forEach(stu=>{
+    const k = _qeStudentKey(stu);
+    if(!presentKeys.has(k)){ finalStudents.push(stu); presentKeys.add(k); }
+  });
+
+  // ── Subject columns: same source as loadQuickEntry, minus any subject
+  //    removed from THIS specific exam's sheet. ──────────────────────────────
+  const subjSet = new Set();
+  rosterRows.forEach(r => getSubjects(r).forEach(s => subjSet.add(s)));
+  if(!subjSet.size) getAllSubjectsForGrade(grade).forEach(s => subjSet.add(s));
+  getExtraSubjectsForGrade(grade).forEach(s => subjSet.add(s));
+  const removedSubjects = new Set(Object.keys(overrides.removedSubjects||{}).map(k=>{ try{ return decodeURIComponent(k); }catch(e){ return k; } }));
+  removedSubjects.forEach(s => subjSet.delete(s));
+
+  // ── Already-submitted scores for THIS exam, per student ─────────────────────
+  const rAsm = r => _qeRealId(r['Assessment No']);
+  const rUpi = r => _qeRealId(r['UPI']);
+  const existingScores = {};
+  finalStudents.forEach(r=>{
+    const key = _qeStudentKey(r);
+    const asmNo = rAsm(r), upi = rUpi(r);
+    const existing = allData.find(x =>
+      getRecordTerm(x) === compound &&
+      ((asmNo && rAsm(x) === asmNo) || (!asmNo && upi && rUpi(x) === upi) || (!asmNo && !upi && x['Official Student Name'] === r['Official Student Name']))
+    );
+    if(!existing) return;
+    const subjMap = {};
+    subjSet.forEach(s=>{ const v = existing[s]; if(v !== undefined && v !== null && v !== '') subjMap[s] = v; });
+    if(Object.keys(subjMap).length) existingScores[key] = subjMap;
+  });
+
+  // ── The live SHARED draft: scores typed by any teacher but not yet
+  //    submitted. This is the piece that made the reminder's names look
+  //    wrong — it never existed in allData at all. ─────────────────────────
+  let draftScores = {};
+  try{
+    const {ref, get} = window._fb;
+    const snap = await get(ref(db, `${QE_DRAFTS_PATH}/${examKeyEnc}`));
+    draftScores = _qeFlattenSharedDraft(snap.exists() ? snap.val() : null).scores;
+  }catch(e){ /* offline/blip — proceed with submitted scores only */ }
+
+  const mergedScores = {};
+  Object.keys(existingScores).forEach(k => mergedScores[k] = {...existingScores[k]});
+  Object.keys(draftScores).forEach(k => mergedScores[k] = {...(mergedScores[k]||{}), ...draftScores[k]});
+
+  // ── Missing = this student's MERGED (submitted + draft) value is blank ──────
+  const missingBySubject = {};
+  subjSet.forEach(s => missingBySubject[s] = []);
+  finalStudents.forEach(r=>{
+    const key = _qeStudentKey(r);
+    const name = r['Official Student Name'] || r['Name'] || 'Unnamed';
+    subjSet.forEach(s=>{
+      const v = mergedScores[key] ? mergedScores[key][s] : undefined;
+      const blank = v===undefined||v===null||v===''||isNaN(parseFloat(v));
+      if(blank) missingBySubject[s].push(name);
+    });
+  });
+  Object.keys(missingBySubject).forEach(s => { if(!missingBySubject[s].length) delete missingBySubject[s]; });
+
+  return { students: finalStudents, subjects: [...subjSet], missingBySubject };
+}
+window.computeLiveMissingScoresForExam = computeLiveMissingScoresForExam;
+
 async function remindPendingExamTeachers(key){
   const pe = _pendingExams?.[key];
   if(!pe){ notify('Pending exam not found.','error'); return; }
@@ -12265,42 +12369,8 @@ async function remindPendingExamTeachers(key){
   const grade = pe.grade || gShort(compound) || '';
   if(!firestoreDb){ notify('Firestore not ready.','error'); return; }
 
-  // ── Figure out exactly which STUDENTS are missing which SUBJECT for this
-  //    exam, using real score records — not just "this subject has zero
-  //    entries". A pending exam can be partially filled (some students
-  //    already scored), so we must check per-student, per-subject, the same
-  //    way the Data Quality → Missing Marks panel does. ───────────────────
-  const examKey = _normTermStr(compound);
-  const examRecs = allData.filter(r => _normTermStr(getRecordTerm(r)) === examKey);
-
-  // Union of subjects known for this exam (from records that exist) plus any
-  // subjects pre-registered for the grade (covers a fully-empty pending exam
-  // where no records exist for any subject yet).
-  const subjectsInScope = new Set();
-  examRecs.forEach(r => getSubjects(r).forEach(s => subjectsInScope.add(s)));
-  getAllSubjectsForGrade(grade).forEach(s => subjectsInScope.add(s));
-
-  // Roster for this exam: records that exist for it, OR — if truly nothing
-  // has been entered yet — every active student in the grade (so we can
-  // still name names instead of just "nothing entered").
-  let roster = examRecs;
-  if(!roster.length){
-    roster = allData.filter(r => gShort(r['Grade']) === grade);
-  }
-
-  // missingBySubject: subject -> [student names]
-  const missingBySubject = {};
-  subjectsInScope.forEach(s => missingBySubject[s] = []);
-  roster.forEach(r => {
-    const name = r['Official Student Name'] || r['Name'] || 'Unnamed';
-    subjectsInScope.forEach(s => {
-      const v = r[s];
-      const blank = v===undefined||v===null||v===''||isNaN(parseFloat(v));
-      if(blank) missingBySubject[s].push(name);
-    });
-  });
-  // Drop subjects with nothing missing
-  Object.keys(missingBySubject).forEach(s => { if(!missingBySubject[s].length) delete missingBySubject[s]; });
+  notify('⏳ Checking current Quick Entry sheet…','info',2500);
+  const { missingBySubject } = await computeLiveMissingScoresForExam(grade, compound);
 
   if(!Object.keys(missingBySubject).length){
     notify(`✅ No missing scores found for ${grade} · "${compound}" — every subject is fully entered.`,'success');
@@ -12336,9 +12406,22 @@ async function remindPendingExamTeachers(key){
     };
   }).filter(t => t.owed.length); // drop teachers with nothing missing
 
-  if(!teachers.length){
-    notify(`No assigned teacher matches the subjects still missing scores for ${grade}. Check subject assignments in Settings.`,'warn');
+  // A subject can have missing scores yet match NO teacher above (nobody's
+  // assignedSubjects covers it for this grade). Those subjects used to just
+  // vanish from the modal with no trace — making it look like everything
+  // missing was handled when a whole subject's worth of scores had nobody
+  // to remind. Surface them explicitly instead.
+  const coveredSubjects = new Set();
+  teachers.forEach(t => t.owed.forEach(o => coveredSubjects.add(o.subject)));
+  const unassignedSubjects = Object.keys(missingBySubject).filter(s => !coveredSubjects.has(s));
+
+  if(!teachers.length && !unassignedSubjects.length){
+    notify(`✅ No missing scores found for ${grade} · "${compound}" — every subject is fully entered.`,'success');
     return;
+  }
+
+  if(!teachers.length){
+    notify(`⚠️ ${unassignedSubjects.length} subject(s) still have missing scores for ${grade}, but no teacher is assigned to them. Check subject assignments in Settings.`,'warn',6000);
   }
 
   const deadlineMs = pe.deadline || null;
@@ -12378,17 +12461,29 @@ async function remindPendingExamTeachers(key){
         <button onclick="document.getElementById('pe-remind-modal').remove()" style="border:none;background:#e74c3c;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer">✕</button>
       </div>
       <p style="font-size:12px;color:#7f8c8d;margin:0 0 14px">${grade} · "${compound}" — ${teachers.length} teacher(s) with missing scores${dlInfo?` · <span class="pe-countdown-badge" data-deadline="${deadlineMs}" style="font-weight:700;color:${dlInfo.color}">${dlInfo.text}</span>`:''}</p>
+      ${unassignedSubjects.length ? `<div style="background:#fff4e5;border:1px solid #ffb84d;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#8a5a00">
+        ⚠️ <strong>${unassignedSubjects.length} subject(s) have missing scores but no assigned teacher</strong> to remind — nobody will get pinged for these unless you assign a teacher in Settings:
+        <ul style="margin:6px 0 0;padding-left:18px">
+          ${unassignedSubjects.map(s=>`<li>${s} — ${missingBySubject[s].length} student(s) missing</li>`).join('')}
+        </ul>
+      </div>` : ''}
       <div style="display:flex;flex-direction:column;gap:10px">
         ${teachers.map(t=>{
           const phone = _waNormalizePhone(t.phone);
           const link = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(msgFor(t))}` : `https://wa.me/?text=${encodeURIComponent(msgFor(t))}`;
           const subjSummary = t.owed.map(o=>`${o.subject} (${o.students.length})`).join(', ');
+          // Apostrophes in the message (e.g. "isn't delayed") are valid inside
+          // JSON.stringify's double-quoted output but would otherwise close
+          // this single-quoted onclick attribute early, spilling the rest of
+          // the button's own markup out as visible text. Escape them as an
+          // HTML entity — the browser decodes it back to ' before running the JS.
+          const copyPayload = JSON.stringify(msgFor(t)).replace(/'/g, '&#39;');
           return `<div style="border:1px solid #eee;border-radius:10px;padding:10px 12px">
             <div style="font-weight:700;font-size:13px;color:#2c3e50">${t.name}</div>
             <div style="font-size:11px;color:#7f8c8d;margin-bottom:8px">${subjSummary}${t.phone?' · '+t.phone:' · ⚠️ No phone on file'}</div>
             <div style="display:flex;gap:8px">
               <a href="${link}" target="_blank" style="flex:1;background:#25D366;color:#fff;text-decoration:none;border-radius:8px;padding:8px;text-align:center;font-weight:bold;font-size:12px">💬 WhatsApp</a>
-              <button onclick='navigator.clipboard.writeText(${JSON.stringify(msgFor(t))}).then(()=>notify("📋 Copied!","success",2000))' style="flex:1;background:#3498db;color:#fff;border:none;border-radius:8px;padding:8px;cursor:pointer;font-weight:bold;font-size:12px">📋 Copy</button>
+              <button onclick='navigator.clipboard.writeText(${copyPayload}).then(()=>notify("📋 Copied!","success",2000))' style="flex:1;background:#3498db;color:#fff;border:none;border-radius:8px;padding:8px;cursor:pointer;font-weight:bold;font-size:12px">📋 Copy</button>
             </div>
           </div>`;
         }).join('')}
