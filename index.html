@@ -2858,6 +2858,14 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               </span>
               <span class="settings-tile-arrow">›</span>
             </button>
+            <button class="settings-tile" id="tile-fix-gender" style="display:none" onclick="openSettingsModal('fix-gender-section','🩹 Fix Missing Gender')">
+              <span class="settings-tile-icon">🩹</span>
+              <span class="settings-tile-body">
+                <span class="settings-tile-title">Fix Missing Gender</span>
+                <span class="settings-tile-desc">Backfill Gender on records that were saved without it</span>
+              </span>
+              <span class="settings-tile-arrow">›</span>
+            </button>
             <button class="settings-tile" onclick="openSettingsModal('admin-account-section','👤 Admin Account')">
               <span class="settings-tile-icon">👤</span>
               <span class="settings-tile-body">
@@ -3025,6 +3033,20 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </div>
             <div id="extra-subjects-list" style="display:grid;gap:8px">
               <p style="font-size:12px;color:var(--text3)">Loading…</p>
+            </div>
+          </div>
+
+          <div class="settings-section" id="fix-gender-section" style="display:none">
+            <h3 class="settings-section-title">🩹 Fix Missing Gender</h3>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
+              Finds records with no Gender value and backfills it from that same student's other terms on file (matched by Assessment No, then UPI, then name — most recent match wins). Only records a confident match is found for are touched; anything left over needs a manual edit.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+              <button class="btn btn-blue btn-sm" onclick="scanMissingGender()">🔍 Scan for Missing Gender</button>
+              <button class="btn btn-green btn-sm" id="fix-gender-apply-btn" style="display:none" onclick="applyMissingGenderFixes()">✅ Apply Fixes</button>
+            </div>
+            <div id="fix-gender-results">
+              <p style="font-size:12px;color:var(--text3)">Click "Scan" to check every record for a missing Gender value.</p>
             </div>
           </div>
 
@@ -9330,6 +9352,7 @@ function renderAll(){
     renderTermLockSettings();
     renderPendingExamsSettings();
     renderExtraSubjectsSettings();
+    renderMissingGenderTile();
   };
   if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(_runDeferred, { timeout: 1500 });
@@ -11747,7 +11770,7 @@ function _applyLockBadges(){
   // Re-render results table rows to reflect new lock state
   if(document.getElementById('view-results')?.classList.contains('active')) filterResults();
   // Refresh settings panel if open
-  if(document.getElementById('view-settings')?.classList.contains('active')){ renderTermLockSettings(); renderPendingExamsSettings(); }
+  if(document.getElementById('view-settings')?.classList.contains('active')){ renderTermLockSettings(); renderPendingExamsSettings(); renderMissingGenderTile(); }
 }
 
 // Keys the user has ticked in the Term Lock settings list, for bulk lock/unlock.
@@ -12592,6 +12615,135 @@ function renderExtraSubjectsSettings(){
 }
 window.renderExtraSubjectsSettings=renderExtraSubjectsSettings;
 
+/* ── Fix Missing Gender repair tool ────────────────────────────────────────
+   Backfills the Gender field on records that were saved without it — e.g.
+   Quick Entry submissions made before Gender was wired into that flow.
+   For each record missing Gender, looks across ALL of allData for another
+   record belonging to the SAME student (matched by Assessment No, then UPI,
+   then name — whichever identifier that record actually has) that DOES have
+   a Gender on file, preferring that student's most recent such record. Only
+   ever writes the single 'Gender' field — nothing else on the record is
+   touched. */
+let _genderFixCandidates = [];
+
+function renderMissingGenderTile(){
+  const tile = document.getElementById('tile-fix-gender');
+  if(tile) tile.style.display = isAdvancedAdmin ? '' : 'none';
+  const section = document.getElementById('fix-gender-section');
+  if(section) section.style.display = isAdvancedAdmin ? '' : 'none';
+}
+window.renderMissingGenderTile = renderMissingGenderTile;
+
+function _findGenderForRecord(rec){
+  const asm  = _qeRealId(rec['Assessment No']);
+  const upi  = _qeRealId(rec['UPI']);
+  const name = String(rec['Official Student Name']||'').trim().toLowerCase();
+  if(!asm && !upi && !name) return '';
+  let best = null;
+  for(const r of allData){
+    if(r === rec) continue;
+    const g = String(r['Gender']||'').trim();
+    if(!g) continue;
+    const rAsm  = _qeRealId(r['Assessment No']);
+    const rUpi  = _qeRealId(r['UPI']);
+    const rName = String(r['Official Student Name']||'').trim().toLowerCase();
+    const isMatch = asm ? (rAsm === asm) : upi ? (rUpi === upi) : (rName === name);
+    if(!isMatch) continue;
+    if(!best || _qeCompoundOrderKey(getRecordTerm(r)).localeCompare(_qeCompoundOrderKey(getRecordTerm(best))) > 0) best = r;
+  }
+  return best ? String(best['Gender']||'').trim() : '';
+}
+
+function scanMissingGender(){
+  if(!isAdvancedAdmin){ notify('⛔ Advanced Admin only.','error'); return; }
+  const box = document.getElementById('fix-gender-results');
+  const applyBtn = document.getElementById('fix-gender-apply-btn');
+  if(!box) return;
+  box.innerHTML = '<p style="font-size:12px;color:var(--text3)">Scanning…</p>';
+
+  const missing = allData.filter(r => !String(r['Gender']||'').trim());
+  _genderFixCandidates = missing
+    .map(r => ({ rec:r, found:_findGenderForRecord(r) }))
+    .filter(x => x.found);
+  const unresolvedRecs = missing.filter(r => !_findGenderForRecord(r));
+
+  if(!missing.length){
+    box.innerHTML = '<p style="font-size:12px;color:var(--green)">✅ No records with a missing Gender were found.</p>';
+    if(applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+
+  const rows = _genderFixCandidates.map(({rec,found}) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--border);flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${rec['Official Student Name']||'Unknown'} <span class="bdg blue" style="margin-left:6px">${gShort(rec['Grade']||'')||'—'}</span></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">${getRecordTerm(rec)||'—'} · Asm: ${rec['Assessment No']||'N/A'} · UPI: ${rec['UPI']||'N/A'}</div>
+      </div>
+      <span class="bdg" style="background:rgba(52,199,89,.15);color:var(--green)">${found==='M'?'♂ Male':found==='F'?'♀ Female':found}</span>
+    </div>`).join('');
+
+  const unresolvedRows = unresolvedRecs.map(rec => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--orange);flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${rec['Official Student Name']||'Unknown'} <span class="bdg blue" style="margin-left:6px">${gShort(rec['Grade']||'')||'—'}</span></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">${getRecordTerm(rec)||'—'} · Asm: ${rec['Assessment No']||'N/A'} · UPI: ${rec['UPI']||'N/A'}</div>
+      </div>
+      <span style="font-size:10px;color:var(--orange);font-weight:700">no other term has Gender either</span>
+    </div>`).join('');
+
+  const unresolvedNote = unresolvedRecs.length
+    ? `<p style="font-size:12px;color:var(--orange);margin:16px 0 8px">⚠️ ${unresolvedRecs.length} record(s) below need a <strong>manual</strong> Gender edit — no other term for that student has it on file either (Student Directory → search their name → Edit):</p>
+       <div style="display:grid;gap:8px">${unresolvedRows}</div>`
+    : '';
+
+  box.innerHTML = `<p style="font-size:12px;color:var(--text2);margin-bottom:10px">Found <strong>${_genderFixCandidates.length}</strong> record(s) that can be auto-fixed:</p>
+    <div style="display:grid;gap:8px">${rows || '<p style="font-size:12px;color:var(--text3)">None.</p>'}</div>${unresolvedNote}`;
+
+  if(applyBtn) applyBtn.style.display = _genderFixCandidates.length ? '' : 'none';
+}
+window.scanMissingGender = scanMissingGender;
+
+async function applyMissingGenderFixes(){
+  if(!isAdvancedAdmin){ notify('⛔ Advanced Admin only.','error'); return; }
+  if(!_genderFixCandidates.length){ notify('Nothing to apply — scan first.','warn'); return; }
+
+  const ok = await showConfirm(
+    '🩹 Apply Gender Fixes?',
+    `This will set the Gender field on <strong>${_genderFixCandidates.length}</strong> record(s) using their matched value from another term. This cannot be automatically undone.`,
+    '🩹','Yes, Apply','btn-green'
+  );
+  if(!ok) return;
+
+  const btn = document.getElementById('fix-gender-apply-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Applying…'; }
+
+  // Single multi-path write instead of one round-trip per record — much
+  // faster for a bigger batch, and avoids a slow connection making the
+  // button look "stuck" for minutes while records get updated one by one.
+  const updates = {};
+  _genderFixCandidates.forEach(({rec, found}) => {
+    if(rec.id) updates[`${DB_PATH}/${rec.id}/Gender`] = found;
+  });
+
+  try{
+    const {ref, update} = window._fb;
+    await update(ref(db), updates);
+    const fixed = Object.keys(updates).length;
+    notify(`✅ Gender backfilled on ${fixed} record(s).`,'success',6000);
+    logActivity(`🩹 Backfilled missing Gender on ${fixed} record(s)`,'act-blue',currentAdminName,{category:'import'});
+    setTimeout(refreshData, 1000);
+  }catch(e){
+    // Surfaced instead of leaving the button spinning forever with no
+    // explanation — e.g. a permission_denied means the Firebase rules for
+    // this path need to allow writing 'Gender'.
+    notify('❌ Error applying fixes: '+e.message,'error',8000);
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = '✅ Apply Fixes'; }
+  }
+}
+window.applyMissingGenderFixes = applyMissingGenderFixes;
+
+
 async function addExtraSubject(){
   if(!isAdvancedAdmin){notify('⛔ Advanced Admin only.','error');return;}
   const gradeEl = document.getElementById('extra-subj-grade');
@@ -12785,7 +12937,7 @@ function navTo(view,el){
   if(view==='messages') msgInit();
   if(view==='dataquality') renderDataQuality();
   if(view==='duplicates') renderDuplicates();
-  if(view==='settings'){ renderTermLockSettings(); renderPendingExamsSettings(); renderExtraSubjectsSettings(); }
+  if(view==='settings'){ renderTermLockSettings(); renderPendingExamsSettings(); renderExtraSubjectsSettings(); renderMissingGenderTile(); }
   if(view==='progressrecords') _prInit();
   if(window.innerWidth<768) closeSidebar();
 }
@@ -18230,6 +18382,12 @@ window._qeAddSubjectToSheet = _qeAddSubjectToSheet;
 // These edits only affect the in-memory _qeStudents list for this session —
 // nothing is written to the database until scores are entered and Submit is
 // pressed (for an add), and a remove never touches any already-saved record.
+// Gender of whichever existing-student match the teacher picked in the Add
+// Student modal (see _qeSearchExistingStudent / _qeSelectExistingStudentMatch)
+// — the modal itself has no Gender field, so this is what carries the value
+// through to _qeConfirmAddStudent.
+let _qeAddStudentGenderVal = '';
+
 function _qeOpenAddStudentModal(){
   if(!document.getElementById('qe-table-card') || document.getElementById('qe-table-card').style.display==='none'){
     notify('⚠️ Load a grade/exam first.','warn'); return;
@@ -18248,6 +18406,7 @@ function _qeOpenAddStudentModal(){
   document.getElementById('qe-add-upi').value = '';
   document.getElementById('qe-add-asm').readOnly = false;
   document.getElementById('qe-add-upi').readOnly = false;
+  _qeAddStudentGenderVal = '';
   document.getElementById('qe-add-name-matches').style.display = 'none';
   document.getElementById('qe-add-name-matches').innerHTML = '';
   document.getElementById('qe-add-match-badge').style.display = 'none';
@@ -18290,7 +18449,12 @@ function _qeSearchExistingStudent(){
     const key = upi || (name.toLowerCase()+'|'+asm);
     if(seen.has(key)) continue;
     seen.add(key);
-    matches.push({ name, upi, asm, grade: r['Grade']||'' });
+    // Pull Gender from the student's LATEST term on file (not just whichever
+    // record the allData scan happens to land on first) — same lookup the
+    // photo lightbox already relies on for "current" grade/gender.
+    const latestRec = (typeof getLatestStudentRecord === 'function') ? getLatestStudentRecord(name, r.id) : null;
+    const gender = (latestRec && latestRec['Gender']) || r['Gender'] || '';
+    matches.push({ name, upi, asm, grade: r['Grade']||'', gender });
     if(matches.length >= 8) break;
   }
 
@@ -18309,7 +18473,7 @@ function _qeSearchExistingStudent(){
     const badge = onSheet
       ? `<span style="flex-shrink:0;padding:1px 6px;border-radius:10px;background:rgba(255,159,10,.15);color:var(--orange);font-size:10px;font-weight:700">already on sheet</span>`
       : '';
-    const clickAttr = onSheet ? '' : `onmousedown="_qeSelectExistingStudentMatch('${m.name.replace(/'/g,"\\'")}','${m.upi.replace(/'/g,"\\'")}','${m.asm.replace(/'/g,"\\'")}','${m.grade.replace(/'/g,"\\'")}')"`;
+    const clickAttr = onSheet ? '' : `onmousedown="_qeSelectExistingStudentMatch('${m.name.replace(/'/g,"\\'")}','${m.upi.replace(/'/g,"\\'")}','${m.asm.replace(/'/g,"\\'")}','${m.grade.replace(/'/g,"\\'")}','${(m.gender||'').replace(/'/g,"\\'")}')"`;
     const rowStyle = onSheet
       ? 'cursor:not-allowed;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px;opacity:.5'
       : 'cursor:pointer;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:8px';
@@ -18330,10 +18494,14 @@ function _qeHideNameMatchesDelayed(){
 }
 window._qeHideNameMatchesDelayed = _qeHideNameMatchesDelayed;
 
-function _qeSelectExistingStudentMatch(name, upi, asm, grade){
+function _qeSelectExistingStudentMatch(name, upi, asm, grade, gender){
   document.getElementById('qe-add-name').value = name;
   document.getElementById('qe-add-asm').value = asm;
   document.getElementById('qe-add-upi').value = upi;
+  // Remembered so _qeConfirmAddStudent can write it onto the new roster
+  // entry — the Add Student form has no visible Gender field, so this is
+  // the only place that value survives to final submission.
+  _qeAddStudentGenderVal = gender || '';
   // Lock these — they came from the existing record, so they shouldn't be
   // hand-edited into a mismatch. "clear match" below undoes this.
   document.getElementById('qe-add-asm').readOnly = true;
@@ -18357,6 +18525,7 @@ function _qeClearExistingMatch(){
   document.getElementById('qe-add-upi').readOnly = false;
   document.getElementById('qe-add-asm').value = '';
   document.getElementById('qe-add-upi').value = '';
+  _qeAddStudentGenderVal = '';
   document.getElementById('qe-add-match-badge').style.display = 'none';
   const avBox = document.getElementById('qe-add-match-badge-av');
   if(avBox) avBox.innerHTML = '';
@@ -18390,7 +18559,8 @@ function _qeConfirmAddStudent(){
     'Official Student Name': name,
     'Assessment No': asm,
     'UPI': upi,
-    'Grade': _qeCompound
+    'Grade': _qeCompound,
+    'Gender': _qeAddStudentGenderVal || ''
   };
   _qeStudents.push(newStudent);
   _qeStudents.sort((a,b)=>(a['Official Student Name']||'').localeCompare(b['Official Student Name']||''));
@@ -18781,6 +18951,7 @@ async function submitQuickEntry(){
         'Official Student Name': r['Official Student Name']||'',
         'UPI': r['UPI']||'',
         'Assessment No': r['Assessment No']||'',
+        'Gender': r['Gender']||'',
         'Grade': _qeCompound,
         'Term': suffixedVal,
         ...parsed
