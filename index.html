@@ -8796,6 +8796,15 @@ window.saveGradeAssignment = async function(uid){
       : 'full subject access on every assigned grade';
     const ctLabel = classTeacherGrades.length ? ` · 👑 Class Teacher of ${classTeacherGrades.join(', ')}` : '';
     notify(`✅ Grades saved: ${label} (${subjLabel})${ctLabel}`,'success');
+    // Refresh the read-only tag chips on the collapsed card, then close the
+    // editor — a successful save is a natural "done" point, so auto-collapse
+    // this teacher's card back to its compact view instead of leaving the
+    // full checklist open.
+    _renderGradeTags(uid);
+    const editBody = document.getElementById(`edit-body-${uid}`);
+    const editBtn  = document.getElementById(`edit-toggle-${uid}`);
+    if(editBody) editBody.style.display = 'none';
+    if(editBtn)  editBtn.textContent = '✏️ Edit Assignment';
     // Fetch email from Firestore doc for readable audit log
     try{
       const snap2 = await window._fb.getDoc(window._fb.doc(firestoreDb,'users',uid));
