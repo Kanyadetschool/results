@@ -8584,7 +8584,8 @@ window.loadGradeAssignments = async function(){
             return `
               <div class="tac-subj-panel" id="subj-panel-${u.uid}-${gi}" style="display:${currentGrades.includes(g)?'block':'none'}">
                 <label class="tac-chk-label" style="margin-bottom:8px;background:rgba(243,156,18,.12);border-color:var(--orange)">
-                  <input type="checkbox" class="ct-chk-${u.uid}-${gi}" value="${g}" ${classTeacherGrades.includes(g)?'checked':''}>
+                  <input type="checkbox" class="ct-chk-${u.uid}-${gi}" value="${g}" ${classTeacherGrades.includes(g)?'checked':''}
+                    onchange="_ctCheckToggled('${u.uid}',${gi},this.checked)">
                   👑 Class Teacher of ${g} — can do final submission in Quick Entry
                 </label>
                 <div class="tac-label" style="margin-top:6px">${g} subjects (none ticked = full access)</div>
@@ -8746,6 +8747,17 @@ window._toggleSubjectPanel = function(uid, gradeIndex){
   if(!panel) return;
   const gradeChk = [...document.querySelectorAll(`.grade-chk-${uid}`)][gradeIndex];
   panel.style.display = (gradeChk && gradeChk.checked) ? 'block' : 'none';
+};
+
+/* ─── Ticking "Class Teacher of <grade>" auto-selects every subject checkbox
+ *  for that grade — she has full subject access in her own class anyway
+ *  (see _teacherCanEnterSubject), so the assignment panel should reflect
+ *  that instead of leaving them unticked. Unticking Class Teacher leaves
+ *  the subject picks as-is (doesn't clear them) so an Advanced Admin can
+ *  still hand-pick a subset for a non-class-teacher assignment. ─────── */
+window._ctCheckToggled = function(uid, gradeIndex, isChecked){
+  if(!isChecked) return;
+  document.querySelectorAll(`.subj-chk-${uid}-${gradeIndex}`).forEach(chk => { chk.checked = true; });
 };
 
 /* ─── Save multi-grade + per-grade subject assignment for one teacher ─── */
