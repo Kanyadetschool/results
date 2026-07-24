@@ -5097,7 +5097,7 @@ function getUniqueTerms(){
 function _prSubjectsForGrade(grade){
   if(!grade) return [];
   const g = gShort(grade) || grade;
-  if(!isAdvancedAdmin){
+  if(!isAdvancedAdmin && !_isClassTeacherOfGrade(g)){
     const list = currentAssignedSubjects && currentAssignedSubjects[g];
     if(Array.isArray(list) && list.length) return list.slice().sort();
   }
@@ -5261,7 +5261,7 @@ function _prGatherReportData(){
   if(!grade || !subject) return null;
   const g = gShort(grade) || grade;
   if(!_teacherCanSeeGrade(g)) return { error: '⛔ You do not have access to this class.' };
-  if(!isAdvancedAdmin){
+  if(!isAdvancedAdmin && !_isClassTeacherOfGrade(g)){
     const list = currentAssignedSubjects && currentAssignedSubjects[g];
     if(Array.isArray(list) && list.length && !list.includes(subject)){
       return { error: '⛔ You are not assigned to teach this subject in this class.' };
@@ -6843,6 +6843,7 @@ function _teacherCanSeeGrade(grade){
 function _teacherCanEnterSubject(grade, subject){
   if(isAdvancedAdmin) return true;
   const g = gShort ? gShort(grade) : grade;
+  if(_isClassTeacherOfGrade(g)) return true; // class teacher: full access to every subject in her own class
   const list = currentAssignedSubjects && currentAssignedSubjects[g];
   if(!Array.isArray(list) || !list.length) return false; // no subject allocation for this grade — no entry
   return list.includes(subject);
@@ -18878,9 +18879,13 @@ async function submitQuickEntry(){
   // rendered disabled (so a teacher can never type into them), strip any
   // such subject out here too before anything gets written — belt-and-braces
   // in case a cell was enabled earlier in the session and permissions since
-  // tightened. Advanced Admins are never restricted.
-  if(!isAdvancedAdmin){
-    const gradeForPerms = _qeGrade || gShort(_qeCompound);
+  // tightened. Advanced Admins are never restricted, and neither is the
+  // Class Teacher of this grade — by the time we reach this line they've
+  // already passed the Class Teacher gate above, and a Class Teacher has
+  // full authority (veto) to finalize every subject for their own class,
+  // not just whichever subject(s) they personally teach.
+  if(!isAdvancedAdmin && !_isClassTeacherOfGrade(gradeForCT)){
+    const gradeForPerms = gradeForCT;
     let stripped = 0;
     Object.values(scores).forEach(subjMap=>{
       Object.keys(subjMap).forEach(s=>{
@@ -18923,6 +18928,12 @@ async function submitQuickEntry(){
   let created=0, updated=0;
   const idxTracker = createIndexTracker(); // seeds from existing -INDxx in allData
 
+  // Build ONE multi-path payload for the whole sheet instead of writing
+  // record-by-record — a single atomic round-trip instead of N sequential
+  // ones, so a big class doesn't sit there for ages (or look "stuck") while
+  // each row goes to the server one at a time.
+  const dbUpdates = {};
+
   for(const r of _qeStudents){
     const key = _qeStudentKey(r);
     const subjMap = scores[key];
@@ -18938,7 +18949,12 @@ async function submitQuickEntry(){
     const existing = _qeFindExisting(r);
 
     if(existing){
-      await update(ref(db, `${DB_PATH}/${existing.id}`), parsed);
+      // Leaf-level paths so only these specific subject fields are touched —
+      // every other field already on the record (Name, UPI, Gender, other
+      // subjects, ...) is left completely untouched by this write.
+      Object.keys(parsed).forEach(s=>{
+        dbUpdates[`${DB_PATH}/${existing.id}/${s}`] = parsed[s];
+      });
       updated++;
     } else {
       // New record — assign the next available -INDxx for this exam identity.
@@ -18947,7 +18963,10 @@ async function submitQuickEntry(){
       // Term  = same compound WITH the unique per-student suffix, matching
       // the convention already used by the bulk-template import path.
       const suffixedVal = `${_qeCompound}-${idxTracker.next(_qeCompound)}`;
-      await push(ref(db, DB_PATH), {
+      // push(ref) with no data just reserves a unique key locally — no
+      // network round-trip happens until the batched update() below fires.
+      const newKey = push(ref(db, DB_PATH)).key;
+      dbUpdates[`${DB_PATH}/${newKey}`] = {
         'Official Student Name': r['Official Student Name']||'',
         'UPI': r['UPI']||'',
         'Assessment No': r['Assessment No']||'',
@@ -18955,15 +18974,39 @@ async function submitQuickEntry(){
         'Grade': _qeCompound,
         'Term': suffixedVal,
         ...parsed
-      });
+      };
       created++;
     }
   }
 
-  // ── Clear the SHARED draft now that it's been committed for everyone ──────
+  if(Object.keys(dbUpdates).length){
+    try{
+      await update(ref(db), dbUpdates);
+    }catch(e){
+      notify('❌ Error submitting to database: '+e.message,'error',8000);
+      btn.disabled=false; btn.textContent='✅ Submit Final to Database';
+      return;
+    }
+  }
+
+  // ── Clear the SHARED draft, but only the parts that were actually
+  // committed to the database. `scores` has already had every stripped
+  // (permission-blocked) and invalid entry deleted from it above, so what's
+  // left here is exactly what got written — anything excluded for any
+  // reason stays in the shared draft instead of being wiped out, so it's
+  // never silently lost and can still be recovered/resubmitted later. ──────
   try{
-    const {ref:ref2, remove} = window._fb;
-    await remove(ref2(db, `${QE_DRAFTS_PATH}/${encodeURIComponent(_qeCompound)}`));
+    const {ref:ref2, update:update2} = window._fb;
+    const draftRemovals = {};
+    const examKeyEnc = encodeURIComponent(_qeCompound);
+    Object.keys(scores).forEach(key=>{
+      const subjMap = scores[key];
+      if(!subjMap) return;
+      Object.keys(subjMap).forEach(s=>{
+        draftRemovals[`${QE_DRAFTS_PATH}/${examKeyEnc}/${_qeFbKey(key)}/${_qeFbKey(s)}`] = null;
+      });
+    });
+    if(Object.keys(draftRemovals).length) await update2(ref2(db), draftRemovals);
   }catch(e){}
   _qeClearLocalDraft(encodeURIComponent(_qeCompound));
 
