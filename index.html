@@ -1484,11 +1484,12 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
   box-shadow:0 32px 100px rgba(0,0,0,.55);
   animation:mIn .28s cubic-bezier(.34,1.56,.64,1);
   padding:28px 24px 20px;text-align:center;
+  max-height:min(85vh,640px);display:flex;flex-direction:column;
 }
-.confirm-icon{font-size:40px;margin-bottom:12px;}
-.confirm-title{font-size:16px;font-weight:900;color:var(--text);margin-bottom:8px;}
-.confirm-msg{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px;}
-.confirm-btns{display:flex;gap:10px;justify-content:center;}
+.confirm-icon{font-size:40px;margin-bottom:12px;flex-shrink:0;}
+.confirm-title{font-size:16px;font-weight:900;color:var(--text);margin-bottom:8px;flex-shrink:0;}
+.confirm-msg{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px;overflow-y:auto;flex:1 1 auto;min-height:0;}
+.confirm-btns{display:flex;gap:10px;justify-content:center;flex-shrink:0;}
 .confirm-btns .btn{min-width:100px;justify-content:center;}
 
 /* ══════════════════════════════════════════
@@ -5439,7 +5440,7 @@ function downloadSubjectProgressCSV(){
     `Term(s): ${data.terms.join(', ')}`,
     ''
   ].join('\n');
-  const csv = headerLines+'\n'+keys.join(',')+'\n'+data.rows.map(r=>keys.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const csv = headerLines+'\n'+keys.join(',')+'\n'+data.rows.map(r=>keys.map(k=>'"'+_csvSafe(r[k]??'').replace(/"/g,'""')+'"').join(',')).join('\n');
   const filename = _prFilename(data,'csv');
   const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -9649,8 +9650,8 @@ function renderTopStudents(){
       <div class="rank-num ${numClass}">${i+1}</div>
       ${_rkAv}
       <div style="flex:1;min-width:0">
-        <div class="rank-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r['Official Student Name']||'—'}${termInfo}</div>
-        <div class="rank-sub">${r['Grade']||'N/A'} · Assessment No ${r['Assessment No']||'N/A'}</div>
+        <div class="rank-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_qeEsc(r['Official Student Name']||'—')}${termInfo}</div>
+        <div class="rank-sub">${_qeEsc(r['Grade']||'N/A')} · Assessment No ${_qeEsc(r['Assessment No']||'N/A')}</div>
       </div>
       <div class="rank-score" style="color:${color}">${st.avg}%</div>
       <span class="gp ${gradePillClass(st.cls)}">${st.level}</span>
@@ -9741,14 +9742,17 @@ function renderActivityLog(){
   if(logCard) logCard.style.display = '';
   // ─────────────────────────────────────────────────────────────────────
   if(!activities.length){container.innerHTML='<p style="font-size:12px;color:var(--text3)">No activity yet.</p>';return;}
-  container.innerHTML=activities.slice(0,8).map(a=>`
+  container.innerHTML=activities.slice(0,8).map(a=>{
+    const safeText = _qeEsc(a.text||'');
+    return `
     <div class="activity-item">
-      <div class="act-icon ${a.iconClass||'act-blue'}">${a.text.split(' ')[0]}</div>
+      <div class="act-icon ${a.iconClass||'act-blue'}">${safeText.split(' ')[0]}</div>
       <div class="act-body">
-        <div class="act-text">${a.text.replace(/^[^\s]+\s/,'')}</div>
-        <div class="act-time">${a.actor||'Admin'}${a.email?' &lt;'+a.email+'&gt;':''} · ${timeAgo(a.time)}</div>
+        <div class="act-text">${safeText.replace(/^[^\s]+\s/,'')}</div>
+        <div class="act-time">${_qeEsc(a.actor||'Admin')}${a.email?' &lt;'+_qeEsc(a.email)+'&gt;':''} · ${timeAgo(a.time)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 let auditSearchVal='', auditFilterActor='', auditFilterCat='';
@@ -9779,7 +9783,7 @@ function _buildDiffHTML(entry){
       html+=`<table class="audit-diff-table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>`;
       changed.forEach(k=>{
         const bv=entry.before[k]??'—'; const av=entry.after[k]??'—';
-        html+=`<tr><td class="field-name">${k}</td><td><span class="val-before">${bv}</span></td><td><span class="val-after">${av}</span></td></tr>`;
+        html+=`<tr><td class="field-name">${_qeEsc(k)}</td><td><span class="val-before">${_qeEsc(bv)}</span></td><td><span class="val-after">${_qeEsc(av)}</span></td></tr>`;
       });
       html+=`</tbody></table>`;
     }
@@ -9787,18 +9791,18 @@ function _buildDiffHTML(entry){
     html+=`<div class="audit-section-lbl">New Record Created</div>`;
     html+=`<table class="audit-diff-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>`;
     Object.entries(entry.after).filter(([,v])=>v!=null&&v!=='').forEach(([k,v])=>{
-      html+=`<tr><td class="field-name">${k}</td><td class="val-only">${v}</td></tr>`;
+      html+=`<tr><td class="field-name">${_qeEsc(k)}</td><td class="val-only">${_qeEsc(v)}</td></tr>`;
     });
     html+=`</tbody></table>`;
   } else if(cat==='delete' && entry.before){
     html+=`<div class="audit-section-lbl">Deleted Record Snapshot</div>`;
     html+=`<div class="audit-snapshot">`;
     Object.entries(entry.before).filter(([k])=>k!=='id').forEach(([k,v])=>{
-      if(v!=null&&v!=='') html+=`<div><strong>${k}:</strong> ${v}</div>`;
+      if(v!=null&&v!=='') html+=`<div><strong>${_qeEsc(k)}:</strong> ${_qeEsc(v)}</div>`;
     });
     html+=`</div>`;
   } else if(entry.extra){
-    html+=`<div class="audit-section-lbl">Details</div><div class="audit-snapshot">${entry.extra}</div>`;
+    html+=`<div class="audit-section-lbl">Details</div><div class="audit-snapshot">${_qeEsc(entry.extra)}</div>`;
   } else {
     html+=`<div class="audit-no-diff">No additional detail available for this action.</div>`;
   }
@@ -9858,8 +9862,9 @@ function renderAuditView(){
     const timeStr=d.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const cat=a.category||_inferCategory(a.text||'');
     const catCfg=_AUDIT_CAT[cat]||_AUDIT_CAT.system;
-    const emoji=a.text?a.text.split(' ')[0]:catCfg.icon;
-    const summary=a.text?a.text.replace(/^[^\s]+\s/,''):'(no description)';
+    const safeAuditText=_qeEsc(a.text||'');
+    const emoji=a.text?safeAuditText.split(' ')[0]:catCfg.icon;
+    const summary=a.text?safeAuditText.replace(/^[^\s]+\s/,''):'(no description)';
 
     let changePill='';
     if(cat==='edit'&&a.before&&a.after){
@@ -9876,9 +9881,9 @@ function renderAuditView(){
         <div class="audit-main">
           <div class="audit-action">${summary}</div>
           <div class="audit-meta">
-            <span>👤 <strong style="color:var(--blue-lt)">${a.actor||'Admin'}</strong>${a.email?' &lt;'+a.email+'&gt;':''}</span>
+            <span>👤 <strong style="color:var(--blue-lt)">${_qeEsc(a.actor||'Admin')}</strong>${a.email?' &lt;'+_qeEsc(a.email)+'&gt;':''}</span>
             <span>🕐 ${dateStr} &nbsp;${timeStr}</span>
-            ${a.targetName?`<span>🎯 ${a.targetName}</span>`:''}
+            ${a.targetName?`<span>🎯 ${_qeEsc(a.targetName)}</span>`:''}
           </div>
           <div style="margin-top:5px">${changePill}<span class="audit-badge ${catCfg.cls}">${catCfg.label}</span></div>
         </div>
@@ -10084,7 +10089,7 @@ window.exportAuditCSV=function(){
       a.before?JSON.stringify(a.before):'',
       a.after ?JSON.stringify(a.after) :'',
       a.extra ||'',
-    ].map(v=>`"${String(v).replace(/"/g,'""')}"`);
+    ].map(v=>`"${_csvSafe(v).replace(/"/g,'""')}"`);
   });
   const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
@@ -10289,8 +10294,9 @@ function renderDashboardAuditWidget(){
       const d   = new Date(a.time);
       const cat = a.category || _inferCategory(a.text||'');
       const catCfg = _AUDIT_CAT[cat] || _AUDIT_CAT.system;
-      const emoji  = (a.text||'').split(' ')[0] || catCfg.icon;
-      const summary= (a.text||'').replace(/^[^\s]+\s/,'') || '(no description)';
+      const safeDashText = _qeEsc(a.text||'');
+      const emoji  = safeDashText.split(' ')[0] || catCfg.icon;
+      const summary= safeDashText.replace(/^[^\s]+\s/,'') || '(no description)';
       const dateStr= d.toLocaleDateString('en-KE',{day:'2-digit',month:'short'});
       const timeStr= d.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'});
 
@@ -10307,9 +10313,9 @@ function renderDashboardAuditWidget(){
         <div class="dash-audit-body">
           <div class="dash-audit-action">${summary}</div>
           <div class="dash-audit-meta">
-            <span>👤 <strong style="color:var(--blue-lt)">${a.actor||'Admin'}</strong>${a.email?` &lt;${a.email}&gt;`:''}</span>
+            <span>👤 <strong style="color:var(--blue-lt)">${_qeEsc(a.actor||'Admin')}</strong>${a.email?` &lt;${_qeEsc(a.email)}&gt;`:''}</span>
             <span>🕐 ${dateStr} ${timeStr}</span>
-            ${a.targetName?`<span>🎯 ${a.targetName}</span>`:''}
+            ${a.targetName?`<span>🎯 ${_qeEsc(a.targetName)}</span>`:''}
           </div>
           <div style="margin-top:4px">${changePill}<span class="dash-audit-badge ${catCfg.cls}">${catCfg.label}</span></div>
           <div class="dash-audit-expand">${diffHTML}</div>
@@ -10537,14 +10543,14 @@ function renderStudentsTable(){
         <div style="display:flex;align-items:center;gap:9px">
           ${_avHtml}
           <div>
-            <div style="font-size:12px;font-weight:700;color:var(--text)">${r['Official Student Name']||'—'}</div>
-            <div style="font-size:10px;color:var(--text3)">UPI: ${r['UPI']||'N/A'} · <span style="color:var(--blue-lt);font-weight:700">${recCount} record${recCount===1?'':'s'}</span></div>
+            <div style="font-size:12px;font-weight:700;color:var(--text)">${_qeEsc(r['Official Student Name']||'—')}</div>
+            <div style="font-size:10px;color:var(--text3)">UPI: ${_qeEsc(r['UPI']||'N/A')} · <span style="color:var(--blue-lt);font-weight:700">${recCount} record${recCount===1?'':'s'}</span></div>
           </div>
         </div>
       </td>
-      <td>${r['Assessment No']||'—'}</td>
-      <td style="font-size:10px;max-width:160px;word-break:break-word">${r['Grade']||'—'}</td>
-      <td>${r['Gender']||'—'}</td>
+      <td>${_qeEsc(r['Assessment No']||'—')}</td>
+      <td style="font-size:10px;max-width:160px;word-break:break-word">${_qeEsc(r['Grade']||'—')}</td>
+      <td>${_qeEsc(r['Gender']||'—')}</td>
       <td style="font-weight:800;font-family:'JetBrains Mono',monospace;color:${color}" id="rec-avg-${r.id}">${st.avg}%</td>
       <td id="rec-lvl-${r.id}"><span class="gp ${gradePillClass(st.cls)}">${st.level}</span></td>
       <td id="rec-pos-${r.id}">${getComputedPosition(r)}</td>
@@ -10612,7 +10618,7 @@ function viewStudent(id){
       <div class="stu-av-wrap stu-av-lg" id="${_modalAvId}">${(rec['Official Student Name']||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?'}</div>
       <div>
         <div class="student-meta">
-          <div class="s-name">${rec['Official Student Name']||'—'}${rec['Official Student Name']?' <span style="font-size:11px;opacity:.5;font-weight:400;">📋</span>':''}</div>
+          <div class="s-name">${_qeEsc(rec['Official Student Name']||'—')}${rec['Official Student Name']?' <span style="font-size:11px;opacity:.5;font-weight:400;">📋</span>':''}</div>
           <div class="s-detail">UPI: ${rec['UPI']||'N/A'} · Assessment No <span id="${_modalAdmId}">${rec['Assessment No']||'N/A'}${rec['Assessment No']?' <span style="font-size:10px;opacity:.5;">📋</span>':''}</span> · ${rec['Gender']||'N/A'}</div>
         </div>
         <div class="badge-row">
@@ -11000,7 +11006,7 @@ async function deleteStudent(id){
   // ─────────────────────────────────────────────────────────────────────────
   const ok=await showConfirm(
     'Delete Record',
-    `Delete record for ${rec['Official Student Name']} (${getRecordTerm(rec)})? This cannot be undone.`,
+    `Delete record for ${_qeEsc(rec['Official Student Name'])} (${getRecordTerm(rec)})? This cannot be undone.`,
     '🗑️','Delete','btn-red'
   );
   if(!ok) return;
@@ -11054,7 +11060,7 @@ function renderResultsTable(){
     const _rtAv=makePhotoAvatar(r['Official Student Name']||'', r['Grade']||'', 'stu-av-sm', '', r.id||'');
     return `<tr>
       <td>${start+i+1}</td>
-      <td><div style="display:flex;align-items:center;gap:9px">${_rtAv}<span style="font-weight:700;color:var(--text)">${r['Official Student Name']||'—'}</span></div></td>
+      <td><div style="display:flex;align-items:center;gap:9px">${_rtAv}<span style="font-weight:700;color:var(--text)">${_qeEsc(r['Official Student Name']||'—')}</span></div></td>
       <td style="font-size:10px;max-width:160px;word-break:break-word">${gShort(r['Grade'])||'—'}</td>
       <td style="font-size:10px;color:var(--text2)">${r['Term']||r['Grade']||'—'}</td>
       <td style="font-weight:800;font-family:'JetBrains Mono',monospace;color:${color}">${st.avg}%</td>
@@ -11635,11 +11641,11 @@ function renderDuplicates(){
         <td><div style="display:flex;align-items:center;gap:8px">
           <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
           <div>
-            <div style="font-size:12px;font-weight:700">${r['Official Student Name']||'—'}</div>
-            <div style="font-size:10px;color:var(--text3)">UPI: ${r['UPI']||'N/A'}</div>
+            <div style="font-size:12px;font-weight:700">${_qeEsc(r['Official Student Name']||'—')}</div>
+            <div style="font-size:10px;color:var(--text3)">UPI: ${_qeEsc(r['UPI']||'N/A')}</div>
           </div>
         </div></td>
-        <td style="font-size:11px">${r['Assessment No']||'—'}</td>
+        <td style="font-size:11px">${_qeEsc(r['Assessment No']||'—')}</td>
         <td style="font-size:10px;max-width:150px;word-break:break-word">${r['Grade']||'—'}</td>
         <td style="font-size:11px">${getRecordTerm(r)}</td>
         <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${barColor(st.avg)}">${st.avg}%</td>
@@ -11667,7 +11673,7 @@ function exportDuplicatesCSV(){
   let csv='Group,Match Type,Student Name,UPI,Adm No,Grade,Term,Average\n';
   groups.forEach((g,gi)=>g.recs.forEach(r=>{
     const st=calcStats(r);
-    csv+=`${gi+1},${g.type},"${r['Official Student Name']||''}",${r['UPI']||''},${r['Assessment No']||''},"${r['Grade']||''}",${getRecordTerm(r)},${st.avg}\n`;
+    csv+=`${gi+1},${g.type},"${_csvSafe(r['Official Student Name']||'')}",${_csvSafe(r['UPI']||'')},${_csvSafe(r['Assessment No']||'')},"${_csvSafe(r['Grade']||'')}",${getRecordTerm(r)},${st.avg}\n`;
   }));
   const blob=new Blob([csv],{type:'text/csv'});
   const url=URL.createObjectURL(blob);
@@ -12700,8 +12706,8 @@ function scanMissingGender(){
   const rows = _genderFixCandidates.map(({rec,found}) => `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--border);flex-wrap:wrap">
       <div style="flex:1;min-width:220px">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">${rec['Official Student Name']||'Unknown'} <span class="bdg blue" style="margin-left:6px">${gShort(rec['Grade']||'')||'—'}</span></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:4px">${getRecordTerm(rec)||'—'} · Asm: ${rec['Assessment No']||'N/A'} · UPI: ${rec['UPI']||'N/A'}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${_qeEsc(rec['Official Student Name']||'Unknown')} <span class="bdg blue" style="margin-left:6px">${_qeEsc(gShort(rec['Grade']||'')||'—')}</span></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">${_qeEsc(getRecordTerm(rec)||'—')} · Asm: ${_qeEsc(rec['Assessment No']||'N/A')} · UPI: ${_qeEsc(rec['UPI']||'N/A')}</div>
       </div>
       <span class="bdg" style="background:rgba(52,199,89,.15);color:var(--green)">${found==='M'?'♂ Male':found==='F'?'♀ Female':found}</span>
     </div>`).join('');
@@ -12709,8 +12715,8 @@ function scanMissingGender(){
   const unresolvedRows = unresolvedRecs.map(rec => `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-md);border:1px solid var(--orange);flex-wrap:wrap">
       <div style="flex:1;min-width:220px">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">${rec['Official Student Name']||'Unknown'} <span class="bdg blue" style="margin-left:6px">${gShort(rec['Grade']||'')||'—'}</span></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:4px">${getRecordTerm(rec)||'—'} · Asm: ${rec['Assessment No']||'N/A'} · UPI: ${rec['UPI']||'N/A'}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${_qeEsc(rec['Official Student Name']||'Unknown')} <span class="bdg blue" style="margin-left:6px">${_qeEsc(gShort(rec['Grade']||'')||'—')}</span></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">${_qeEsc(getRecordTerm(rec)||'—')} · Asm: ${_qeEsc(rec['Assessment No']||'N/A')} · UPI: ${_qeEsc(rec['UPI']||'N/A')}</div>
       </div>
       <span style="font-size:10px;color:var(--orange);font-weight:700">no other term has Gender either</span>
     </div>`).join('');
@@ -13953,11 +13959,24 @@ window.bulkGeneratePDF=bulkGeneratePDF;
 /* ══════════════════════════════════════════
    CSV EXPORT
 ══════════════════════════════════════════ */
+/** Neutralizes CSV formula injection: if a cell's value starts with a
+ *  character Excel/Sheets treats as the start of a formula (= + - @, or a
+ *  tab/CR that can smuggle one in after leading whitespace), prefix it with
+ *  a leading apostrophe. Excel/Sheets then displays the value as literal
+ *  text instead of evaluating it — so a student name, remark, or any other
+ *  free-text field someone entered as e.g. "=cmd|'/c calc'!A1" can't run
+ *  when a staff member opens the exported file. Only touches cells that
+ *  actually start with one of those characters; every other value is
+ *  returned unchanged. */
+function _csvSafe(v){
+  const s = String(v==null ? '' : v);
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
 function toCSV(rows){
   if(!rows.length) return '';
   const keys=Object.keys(rows[0]).filter(k=>k!=='id');
   const header=keys.join(',');
-  const body=rows.map(r=>keys.map(k=>{ const v=r[k]||''; return `"${String(v).replace(/"/g,'""')}"`; }).join(',')).join('\n');
+  const body=rows.map(r=>keys.map(k=>{ const v=_csvSafe(r[k]||''); return `"${v.replace(/"/g,'""')}"`; }).join(',')).join('\n');
   return header+'\n'+body;
 }
 function downloadCSV(content,filename){
@@ -14515,8 +14534,8 @@ function runSmartSearch(q){
       style="display:flex;align-items:center;gap:12px;padding:10px 18px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s">
       ${_srAv}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">${best['Official Student Name']||'—'}</div>
-        <div style="font-size:10px;color:var(--text3)">${best['Grade']||'N/A'} · Assessment No ${best['Assessment No']||'N/A'} · ${all.length} record${all.length>1?'s':''}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${_qeEsc(best['Official Student Name']||'—')}</div>
+        <div style="font-size:10px;color:var(--text3)">${_qeEsc(best['Grade']||'N/A')} · Assessment No ${_qeEsc(best['Assessment No']||'N/A')} · ${all.length} record${all.length>1?'s':''}</div>
       </div>
       <div style="font-weight:800;font-family:'JetBrains Mono',monospace;color:${color};font-size:13px">${st.avg}%</div>
       <span class="gp ${gradePillClass(st.cls)}">${st.level}</span>
@@ -15300,23 +15319,23 @@ function exportDQReport(){
   if(tab==='missing'){
     csv = 'Student Name,UPI,Adm No,Grade,Term,Missing Subjects,Entered/Total\n';
     csv += _dqMissingRows.map(({rec,missing,entered,total})=>[
-      `"${rec['Official Student Name']||''}"`,
-      rec['UPI']||'',
-      rec['Assessment No']||'',
-      `"${rec['Grade']||''}"`,
+      `"${_csvSafe(rec['Official Student Name']||'')}"`,
+      _csvSafe(rec['UPI']||''),
+      _csvSafe(rec['Assessment No']||''),
+      `"${_csvSafe(rec['Grade']||'')}"`,
       getRecordTerm(rec),
-      `"${missing.join(', ')}"`,
+      `"${_csvSafe(missing.join(', '))}"`,
       `${entered}/${total}`
     ].join(',')).join('\n');
   } else {
     csv = 'Student Name,UPI,Adm No,Grade,Term,Subject,Score,Class Avg,Difference\n';
     csv += _dqOutlierRows.map(({rec,subject,score,mean,diff})=>[
-      `"${rec['Official Student Name']||''}"`,
-      rec['UPI']||'',
-      rec['Assessment No']||'',
-      `"${rec['Grade']||''}"`,
+      `"${_csvSafe(rec['Official Student Name']||'')}"`,
+      _csvSafe(rec['UPI']||''),
+      _csvSafe(rec['Assessment No']||''),
+      `"${_csvSafe(rec['Grade']||'')}"`,
       getRecordTerm(rec),
-      `"${subject}"`,
+      `"${_csvSafe(subject)}"`,
       score, mean, diff
     ].join(',')).join('\n');
   }
@@ -15417,7 +15436,7 @@ function renderEOTPreview(){
     <div class="rank-list">${top5.map((r,i)=>{
       const st=calcStats(r);const numClass=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-rest';
       return `<div class="rank-item"><div class="rank-num ${numClass}">${i+1}</div>
-        <div style="flex:1"><div class="rank-name">${r['Official Student Name']||'—'}</div><div class="rank-sub" style="font-size:9px;word-break:break-word;max-width:120px">${r['Grade']||'N/A'}</div></div>
+        <div style="flex:1"><div class="rank-name">${_qeEsc(r['Official Student Name']||'—')}</div><div class="rank-sub" style="font-size:9px;word-break:break-word;max-width:120px">${_qeEsc(r['Grade']||'N/A')}</div></div>
         <div class="rank-score" style="color:${barColor(st.avg)}">${st.avg}%</div>
         <span class="gp ${gradePillClass(st.cls)}">${st.level}</span></div>`;
     }).join('')}</div>`;
@@ -15507,7 +15526,7 @@ async function handleImportFile(file){
     return;
   }
   window._lastImportFilename = file.name;
-  _setImportStatus(`<div style="font-size:12px;color:var(--text2)">⏳ Reading ${file.name}…</div>`);
+  _setImportStatus(`<div style="font-size:12px;color:var(--text2)">⏳ Reading ${_qeEsc(file.name)}…</div>`);
   document.getElementById('import-preview-card').style.display='none';
 
   try{
@@ -18713,7 +18732,7 @@ async function _qeRemoveStudentRow(key){
   if(!r) return;
   const ok = await showConfirm(
     'Remove From This Sheet?',
-    `Remove <strong>${r['Official Student Name']||'this student'}</strong> from this Quick Entry sheet?<br><br>
+    `Remove <strong>${_qeEsc(r['Official Student Name']||'this student')}</strong> from this Quick Entry sheet?<br><br>
      This only removes them from <strong>this list</strong> — it does <u>not</u> delete any of their scores already saved in the database.`,
     '🗑️','Remove','btn-red'
   );
@@ -21645,7 +21664,7 @@ function renderCurrentPage() {
         const avatarHtml = typeof makePhotoAvatar === 'function'
             ? makePhotoAvatar(student['Official Student Name'] || '', student['Grade'] || '', 'stu-av-sm', '', student.id||'')
             : '';
-        nameCell.innerHTML = `<div style="display:flex;align-items:center;gap:8px">${avatarHtml}<span style="font-weight:700;color:var(--text)">${student['Official Student Name'] || '—'}</span></div>`;
+        nameCell.innerHTML = `<div style="display:flex;align-items:center;gap:8px">${avatarHtml}<span style="font-weight:700;color:var(--text)">${_qeEsc(student['Official Student Name'] || '—')}</span></div>`;
 
         // Grade (short) — hidden
         const gradeCell = row.insertCell(2);
@@ -21968,7 +21987,7 @@ function createActionButtons(actionCell, student, fieldName, row) {
         if (doc) {
             const filename = `Report_Card_${student['Official Student Name']?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
             doc.save(filename);
-            NotificationManager.success(`Report card generated for ${student['Official Student Name']}`);
+            NotificationManager.success(`Report card generated for ${_qeEsc(student['Official Student Name'])}`);
         }
         
         reportBtn.disabled = false;
@@ -23106,7 +23125,7 @@ async function previewReportCard(studentId) {
     modal.innerHTML = `
         <div style="background:#fff;border-radius:12px;width:100%;max-width:820px;height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.4)">
             <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid #eee">
-                <strong style="color:#2c3e50">📄 Report Card Preview — ${student['Official Student Name'] || ''}</strong>
+                <strong style="color:#2c3e50">📄 Report Card Preview — ${_qeEsc(student['Official Student Name'] || '')}</strong>
                 <div style="display:flex;gap:8px">
                     <button onclick="window.open('${blobUrl}','_blank')" style="border:none;background:#27ae60;color:#fff;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:13px">⬇ Download</button>
                     <button onclick="document.getElementById('preview-modal').remove();URL.revokeObjectURL('${blobUrl}')" style="border:none;background:#e74c3c;color:#fff;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:13px">✕ Close</button>
