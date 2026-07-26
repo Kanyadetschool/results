@@ -2075,7 +2075,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <span class="nav-icon">📊</span> Dashboard
       </div>
       <div class="nav-item" onclick="navTo('students',this)" data-label="Students">
-        <span class="nav-icon">👨‍🎓</span> Students
+        <span class="nav-icon">👨‍🎓</span> Students Records
         <span class="nav-badge" id="nav-count">—</span>
       </div>
       <div class="nav-item" onclick="navTo('results',this)" data-label="Results & Grades">
@@ -3049,7 +3049,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             </p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
               <button class="btn btn-blue btn-sm" onclick="scanMissingGender()">🔍 Scan for Missing Gender</button>
-              <button class="btn btn-green btn-sm" id="fix-gender-apply-btn" style="display:none" onclick="applyMissingGenderFixes()">✅ Apply Fixes</button>
+              <button class="btn btn-green btn-sm" id="fix-gender-apply-btn" style="display:none" onclick="applyMissingGenderFixes()">.Apply Fixes</button>
             </div>
             <div id="fix-gender-results">
               <p style="font-size:12px;color:var(--text3)">Click "Scan" to check every record for a missing Gender value.</p>
@@ -3451,7 +3451,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <div class="card-title">👁 Preview (first 10 rows)</div>
             <div style="display:flex;gap:8px">
               <span id="import-preview-info" style="font-size:11px;color:var(--text2)"></span>
-              <button class="btn btn-green btn-sm" id="import-commit-btn" onclick="commitImport()">✅ Commit to Database</button>
+              <button class="btn btn-green btn-sm" id="import-commit-btn" onclick="commitImport()">.Commit to Database</button>
             </div>
           </div>
           <div class="table-wrap" id="import-preview-table"></div>
@@ -3545,7 +3545,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <button class="btn btn-outline btn-sm" onclick="downloadQuickEntryMarkSheet()" title="Excel mark sheet with the current roster, in the same order shown below — fill in offline, then re-enter here">⬇️ Download Mark Sheet</button>
               <button class="btn btn-outline btn-sm" id="qe-import-draft-btn" onclick="_qeTriggerDraftImport()" title="Bulk-fill scores from a completed CSV/Excel mark sheet into THIS shared draft — matches existing students on the sheet, still requires Submit Final to write to the database">📥 Import to Draft</button>
               <input type="file" id="qe-import-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="_qeHandleDraftImportFile(this.files[0])">
-              <button class="btn btn-green btn-sm" id="qe-submit-btn" onclick="submitQuickEntry()">✅ Submit Final to Database</button>
+              <button class="btn btn-green btn-sm" id="qe-submit-btn" onclick="submitQuickEntry()">.Submit Final to Database</button>
             </div>
             <div class="qe-mobile-bar" id="qe-mobile-bar">
               <button type="button" id="qe-mobile-prev" onclick="_qeMobileSubjectStep(-1)" title="Previous subject">◀</button>
@@ -5346,7 +5346,7 @@ function _prFilename(data, ext){
 }
 
 function _prExportDone(data, filename){
-  notify(`✅ Downloaded ${filename}`,'success');
+  notify(`.Downloaded ${filename}`,'success');
   if(typeof logActivity==='function'){
     const fmt = filename.split('.').pop().toUpperCase();
     logActivity(`📤 Downloaded ${data.subject} progress report for ${data.grade} (${data.rows.length} students × ${data.terms.length} terms) as ${fmt}`,'act-blue',currentAdminName,{category:'export'});
@@ -6811,7 +6811,7 @@ function _applyTeacherProfile(data, uid){
         }
         // Sync RC system immediately with new scoped data
         _bridgeReportCardSystem();
-        notify('✅ Your grade assignment has been updated — you now see <strong>' + grades.join(', ') + '</strong>.', 'success', 7000);
+        notify('Your grade assignment has been updated — you now see <strong>' + grades.join(', ') + '</strong>.', 'success', 7000);
       }
 
     } else {
@@ -7241,7 +7241,7 @@ window._atResetPassword = async function(uid, email, name){
   try{
     const auth = window._fb.getAuth();
     await window._fb.sendPasswordResetEmail(auth, email);
-    notify('✅ Password reset email sent to <strong>' + email + '</strong>.', 'success', 7000);
+    notify('Password reset email sent to <strong>' + email + '</strong>.', 'success', 7000);
     logActivity('🔑 Password reset sent to: ' + name + ' (' + email + ')', 'act-blue', currentAdminName, { category:'system' });
   }catch(e){
     notify('Error sending reset email: ' + e.message, 'error');
@@ -7577,7 +7577,7 @@ window.createTeacherAccount = async function(){
 
     // ── Success ───────────────────────────────────────────────────────────
     _atShowResult(
-      `✅ Teacher account created successfully!<br>
+      `Teacher account created successfully!<br>
        <strong>${fullName}</strong> &nbsp;·&nbsp; ${email}<br>
        ${grades.length ? `🎓 Assigned: ${grades.join(', ')}<br>` : ''}
        <span style="color:var(--text3);font-size:11px">UID: ${uid}</span>`,
@@ -7588,7 +7588,7 @@ window.createTeacherAccount = async function(){
       'act-green', currentAdminName,
       { category:'system', extra:`UID: ${uid}${grades.length ? ' · Grades: '+grades.join(', ') : ''}` }
     );
-    notify(`✅ Teacher <strong>${fullName}</strong> added successfully.`, 'success', 6000);
+    notify(`Teacher <strong>${fullName}</strong> added successfully.`, 'success', 6000);
     _atResetForm();
     _atLoadTeachers();
 
@@ -8158,7 +8158,7 @@ async function _lacAddEmail(){
   emails.push(raw);
   input.value = '';
   await _lacSave(current.enabled === true, emails, null);
-  notify('✅ Added <strong>' + raw + '</strong> to the authorized list.', 'success', 5000);
+  notify('Added <strong>' + raw + '</strong> to the authorized list.', 'success', 5000);
 }
 
 async function _lacRemoveEmail(email){
@@ -8822,7 +8822,7 @@ window.saveGradeAssignment = async function(uid){
       ? Object.entries(assignedSubjects).map(([g,ss])=>`${g}: ${ss.join('/')}`).join('; ')
       : 'full subject access on every assigned grade';
     const ctLabel = classTeacherGrades.length ? ` · 👑 Class Teacher of ${classTeacherGrades.join(', ')}` : '';
-    notify(`✅ Grades saved: ${label} (${subjLabel})${ctLabel}`,'success');
+    notify(`.Grades saved: ${label} (${subjLabel})${ctLabel}`,'success');
     // Refresh the read-only tag chips on the collapsed card, then close the
     // editor — a successful save is a natural "done" point, so auto-collapse
     // this teacher's card back to its compact view instead of leaving the
@@ -10057,7 +10057,7 @@ window.auditRestoreEdit=async function(i){
     await update(ref(db,`${DB_PATH}/${a.targetId}`),a.before);
     const idx=allData.findIndex(r=>r.id===a.targetId);
     if(idx>-1) allData[idx]={...allData[idx],...a.before};
-    notify('✅ Previous values restored.','success');
+    notify('.Previous values restored.','success');
     logActivity(`↩️ Restored previous values for ${a.targetName||a.targetId}`,'act-blue',currentAdminName,{
       category:'edit', targetId:a.targetId, targetName:a.targetName, before:a.after, after:a.before, extra:'Restored from audit log'
     });
@@ -10082,7 +10082,7 @@ window.auditRestoreDeleted=async function(i){
     const record={...a.before}; delete record.id;
     await set(ref(db,`${DB_PATH}/${a.targetId}`),record);
     allData.push({id:a.targetId,...record});
-    notify('✅ Record restored.','success');
+    notify('.Record restored.','success');
     logActivity(`♻️ Restored deleted record for ${a.targetName||a.targetId}`,'act-green',currentAdminName,{
       category:'add', targetId:a.targetId, targetName:a.targetName, after:record, extra:'Restored from audit log'
     });
@@ -10513,7 +10513,7 @@ async function toggleMissingPhotoFilter(){
   btn.style.background = 'var(--orange)';
   btn.style.color = '#fff';
   btn.style.borderColor = 'var(--orange)';
-  if(_photoMissingKeys.size === 0) notify('✅ Every student in view has a photo on file.','success');
+  if(_photoMissingKeys.size === 0) notify('.Every student in view has a photo on file.','success');
   filterStudents();
 }
 window.toggleMissingPhotoFilter = toggleMissingPhotoFilter;
@@ -11041,7 +11041,7 @@ async function saveStudentRecord(){
       await update(ref(db,`${DB_PATH}/${editingKey}`),record);
       const idx=allData.findIndex(r=>r.id===editingKey);
       if(idx>-1) allData[idx]={...allData[idx],...record};
-      notify('✅ Record updated successfully!','success');
+      notify('.Record updated successfully!','success');
       logActivity(`✏️ Updated record for ${name}`,'act-green',currentAdminName,{
         category:'edit', targetId:editingKey, targetName:name, before, after
       });
@@ -11049,7 +11049,7 @@ async function saveStudentRecord(){
       const newRef=push(ref(db,DB_PATH));
       await set(newRef,record);
       allData.push({id:newRef.key,...record});
-      notify('✅ Student record added!','success');
+      notify('.Student record added!','success');
       logActivity(`➕ Added student ${name}`,'act-green',currentAdminName,{
         category:'add', targetId:newRef.key, targetName:name, after:record
       });
@@ -11708,7 +11708,7 @@ function renderDuplicates(){
 
   const tbody=document.getElementById('dup-tbody');
   if(!groups.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">✅ No duplicates found.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No duplicates found.</td></tr>';
     return;
   }
   let rowNum=0;
@@ -11816,7 +11816,7 @@ async function recalcPositions(){
 
   try{
     await update(ref(db,'/'),updates);
-    notify(`✅ Positions recalculated and saved for ${writeCount} students.`,'success',5000);
+    notify(`.Positions recalculated and saved for ${writeCount} students.`,'success',5000);
     filterResults();
   } catch(e){
     notify('❌ Firebase write failed: '+e.message,'error',6000);
@@ -12177,7 +12177,7 @@ async function savePendingExamEdit(oldKey, inputId){
         editedAt: Date.now()
       });
     }
-    notify(`✅ Pending exam updated to "${newVal}".`,'success');
+    notify(`.Pending exam updated to "${newVal}".`,'success');
     logActivity(`✏️ Edited pending exam: "${oldVal}" → "${newVal}"`,'act-blue',currentAdminName,{category:'system'});
   }catch(e){
     notify('Error saving exam edit: '+e.message,'error');
@@ -12511,7 +12511,7 @@ async function remindPendingExamTeachers(key){
   const { missingBySubject } = await computeLiveMissingScoresForExam(grade, compound);
 
   if(!Object.keys(missingBySubject).length){
-    notify(`✅ No missing scores found for ${grade} · "${compound}" — every subject is fully entered.`,'success');
+    notify(`.No missing scores found for ${grade} · "${compound}" — every subject is fully entered.`,'success');
     return;
   }
 
@@ -12554,7 +12554,7 @@ async function remindPendingExamTeachers(key){
   const unassignedSubjects = Object.keys(missingBySubject).filter(s => !coveredSubjects.has(s));
 
   if(!teachers.length && !unassignedSubjects.length){
-    notify(`✅ No missing scores found for ${grade} · "${compound}" — every subject is fully entered.`,'success');
+    notify(`.No missing scores found for ${grade} · "${compound}" — every subject is fully entered.`,'success');
     return;
   }
 
@@ -12721,7 +12721,7 @@ function renderExtraSubjectsSettings(){
         <div style="flex:1;min-width:220px">
           <div style="font-size:12px;font-weight:700;color:var(--text)">${subject} <span class="bdg blue" style="margin-left:6px">${grade}</span></div>
           <div style="font-size:10px;color:var(--text3);margin-top:4px">
-            ${hasRealData ? '✅ Now has real score records' : '🕒 Awaiting scores'} · added by ${who}${when?' on '+when:''}
+            ${hasRealData ? '.Now has real score records' : '🕒 Awaiting scores'} · added by ${who}${when?' on '+when:''}
           </div>
         </div>
         <button class="btn btn-red btn-sm" style="flex-shrink:0" onclick="deleteExtraSubject('${key}','${subject.replace(/'/g,"\\'")}','${grade.replace(/'/g,"\\'")}')">🗑️ Remove</button>
@@ -12783,7 +12783,7 @@ function scanMissingGender(){
   const unresolvedRecs = missing.filter(r => !_findGenderForRecord(r));
 
   if(!missing.length){
-    box.innerHTML = '<p style="font-size:12px;color:var(--green)">✅ No records with a missing Gender were found.</p>';
+    box.innerHTML = '<p style="font-size:12px;color:var(--green)">.No records with a missing Gender were found.</p>';
     if(applyBtn) applyBtn.style.display = 'none';
     return;
   }
@@ -12844,7 +12844,7 @@ async function applyMissingGenderFixes(){
     const {ref, update} = window._fb;
     await update(ref(db), updates);
     const fixed = Object.keys(updates).length;
-    notify(`✅ Gender backfilled on ${fixed} record(s).`,'success',6000);
+    notify(`.Gender backfilled on ${fixed} record(s).`,'success',6000);
     logActivity(`🩹 Backfilled missing Gender on ${fixed} record(s)`,'act-blue',currentAdminName,{category:'import'});
     setTimeout(refreshData, 1000);
   }catch(e){
@@ -12853,7 +12853,7 @@ async function applyMissingGenderFixes(){
     // this path need to allow writing 'Gender'.
     notify('❌ Error applying fixes: '+e.message,'error',8000);
   }finally{
-    if(btn){ btn.disabled = false; btn.textContent = '✅ Apply Fixes'; }
+    if(btn){ btn.disabled = false; btn.textContent = '.Apply Fixes'; }
   }
 }
 window.applyMissingGenderFixes = applyMissingGenderFixes;
@@ -12901,7 +12901,7 @@ async function addExtraSubject(){
     }
 
     await set(ref(db, `${EXTRA_SUBJECTS_PATH}/${key}`), entry);
-    notify(`✅ "${subject}" added for ${grade} — visible now in Quick Entry & Results Template.`,'success',6000);
+    notify(`."${subject}" added for ${grade} — visible now in Quick Entry & Results Template.`,'success',6000);
     logActivity(`📚 Added extra subject "${subject}" for ${grade}`,'act-green',currentAdminName,{category:'system'});
     if(nameEl) nameEl.value='';
   }catch(e){
@@ -14043,7 +14043,7 @@ async function bulkGeneratePDF(){
   const suffix=(grade||'AllGrades')+'_'+(term||'AllTerms');
   doc.save(`BulkReports_${suffix}_${new Date().toISOString().split('T')[0]}.pdf`);
   clearNotifications();
-  notify(`✅ ${recs.length} report cards exported!`,'success');
+  notify(`.${recs.length} report cards exported!`,'success');
   logActivity(`📄 Bulk PDF: ${recs.length} records`,'act-orange',currentAdminName);
 }
 window.bulkGeneratePDF=bulkGeneratePDF;
@@ -15178,7 +15178,7 @@ function renderAtRisk(){
   document.getElementById('nav-atrisk-count').textContent=rows.length;
 
   const tbody=document.getElementById('atrisk-tbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">✅ No at-risk students found for this selection.</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No at-risk students found for this selection.</td></tr>';return;}
   tbody.innerHTML=rows.map(({worst,count},i)=>{
     const st=calcStats(worst);const color=barColor(st.avg);
     const subjects=getSubjects(worst);
@@ -15335,7 +15335,7 @@ function renderDataQuality(){
   // ── RENDER MISSING TABLE ─────────────────────────────────────────────
   const mTbody = document.getElementById('dq-missing-tbody');
   if(!_dqMissingRows.length){
-    mTbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--green)">✅ No missing marks found for this selection.</td></tr>';
+    mTbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--green)">.No missing marks found for this selection.</td></tr>';
   } else {
     mTbody.innerHTML = _dqMissingRows.map(({rec,missing,entered,total},i)=>{
       const name = rec['Official Student Name']||'—';
@@ -15366,7 +15366,7 @@ function renderDataQuality(){
   // ── RENDER OUTLIER TABLE ─────────────────────────────────────────────
   const oTbody = document.getElementById('dq-outlier-tbody');
   if(!_dqOutlierRows.length){
-    oTbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">✅ No score outliers detected for this selection.</td></tr>';
+    oTbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No score outliers detected for this selection.</td></tr>';
   } else {
     // Sort: biggest deviation first
     const sorted = [..._dqOutlierRows].sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
@@ -15651,7 +15651,7 @@ async function handleImportFile(file){
     const existing=new Set(allData.map(r=>String(r['Assessment No']||'').trim()).filter(Boolean));
     const dupes=rows.filter(r=>{const v=r['Assessment No']!==undefined?r['Assessment No']:(Object.values(r).find((_,i)=>_importHeaders[i]==='Assessment No')||'');return existing.has(String(v).trim());});
 
-    _setImportStatus(`<div style="font-size:12px;color:var(--green)">✅ Loaded <strong>${rows.length}</strong> rows, <strong>${_importHeaders.length}</strong> columns${dupes.length?` · <span style="color:var(--orange)">${dupes.length} possible duplicates</span>`:''}</div>`);
+    _setImportStatus(`<div style="font-size:12px;color:var(--green)">.Loaded <strong>${rows.length}</strong> rows, <strong>${_importHeaders.length}</strong> columns${dupes.length?` · <span style="color:var(--orange)">${dupes.length} possible duplicates</span>`:''}</div>`);
     buildColumnMapping();
     showImportPreview(rows,dupes);
   }catch(err){
@@ -15837,7 +15837,7 @@ async function commitImport(){
         count++;
       }
 
-      let msg = `✅ Bulk upload complete — <strong>${created}</strong> new result records created.`;
+      let msg = `.Bulk upload complete — <strong>${created}</strong> new result records created.`;
       if(skipped) msg += ` <span style="color:var(--orange)">${skipped} skipped (already exist for this exam).</span>`;
       if(invalidScoresSkipped) msg += ` <span style="color:var(--red)">${invalidScoresSkipped} invalid score cell(s) ignored (out of 0–100 range).</span>`;
       notify(msg, 'success', 7000);
@@ -15855,18 +15855,18 @@ async function commitImport(){
         await push(ref(db,DB_PATH),rec);
         count++;
       }
-      notify(`✅ Imported <strong>${count}</strong> records successfully!`,'success');
+      notify(`.Imported <strong>${count}</strong> records successfully!`,'success');
     }
 
-    btn.textContent='✅ Done!';
+    btn.textContent='.Done!';
     logActivity(`📥 Imported ${count} records via ${isTemplateUpload?'teacher bulk template':'CSV'} upload`,'act-green',currentAdminName,{
       category:'import',
       extra:`File: ${window._lastImportFilename||'unknown'} · Created: ${created}${skipped?' · Skipped (dupes): '+skipped:''}`
     });
-    setTimeout(()=>{ refreshData(); btn.disabled=false; btn.textContent='✅ Commit to Database'; },1500);
+    setTimeout(()=>{ refreshData(); btn.disabled=false; btn.textContent='.Commit to Database'; },1500);
   }catch(err){
     notify('Import error: '+err.message,'error');
-    btn.disabled=false;btn.textContent='✅ Commit to Database';
+    btn.disabled=false;btn.textContent='.Commit to Database';
   }
 }
 window.commitImport=commitImport;
@@ -16136,11 +16136,11 @@ window.downloadResultsTemplate = function(){
   } catch(e) {
     window.XLSX.writeFile(wb, filename);
   }
-  notify(`✅ Template downloaded — <strong>${students.length} students</strong>, <strong>${subjects.length} subject columns</strong>. Fill in scores then upload below.`, 'success', 7000);
+  notify(`.Template downloaded — <strong>${students.length} students</strong>, <strong>${subjects.length} subject columns</strong>. Fill in scores then upload below.`, 'success', 7000);
   logActivity(`📋 Downloaded results template: ${gradeLabel} · ${selCompound} · ${students.length} students (from results)`, 'act-blue', currentAdminName, { category:'export' });
 
   const info = document.getElementById('tpl-info');
-  if(info) info.innerHTML = `<span style="color:var(--green);font-weight:700">✅ ${students.length} students · ${subjects.length} subjects</span> — fill in scores and upload below.`;
+  if(info) info.innerHTML = `<span style="color:var(--green);font-weight:700">.${students.length} students · ${subjects.length} subjects</span> — fill in scores and upload below.`;
 };
 
 /** Call _populateTemplateSelectors whenever the import nav is opened. */
@@ -16454,7 +16454,7 @@ window._qeSyncPendingLocalDrafts = _qeSyncPendingLocalDrafts;
 
 /* ═══════════════════════════════════════════════════════════════════════
    FINAL-SUBMIT AUTO-RETRY — protects the moment a class teacher hits
-   "✅ Submit Final to Database" from an interruption (phone dies, tab
+   ".Submit Final to Database" from an interruption (phone dies, tab
    closed, connection drops mid-request) leaving the submission stuck
    half-done. The fully-resolved write payload (dbUpdates — every DB path
    and value already computed, not a reference to in-memory state that
@@ -16564,7 +16564,7 @@ function _qeUpdateOnlineBanner(){
     if(submitBtn && inQE && _qeCompound && !_qeLocked){ submitBtn.disabled = true; submitBtn.dataset.offlineDisabled = '1'; submitBtn.textContent = '📴 Offline — connect to submit'; }
   } else {
     banner.style.display = 'none';
-    if(submitBtn && submitBtn.dataset.offlineDisabled){ submitBtn.disabled = false; submitBtn.textContent = '✅ Submit Final to Database'; delete submitBtn.dataset.offlineDisabled; }
+    if(submitBtn && submitBtn.dataset.offlineDisabled){ submitBtn.disabled = false; submitBtn.textContent = '.Submit Final to Database'; delete submitBtn.dataset.offlineDisabled; }
   }
 }
 window.addEventListener('online', ()=>{
@@ -16844,7 +16844,7 @@ async function _qeUseNewExam(){
       createdAt: Date.now()
     });
     logActivity(`📤 Created exam "${compound}" for ${gradeVal} — pending teacher entry`,'act-blue',currentAdminName,{category:'import'});
-    notify(`✅ "${compound}" published — visible to ${gradeVal}'s teacher(s) in Quick Entry.`,'success',6000);
+    notify(`."${compound}" published — visible to ${gradeVal}'s teacher(s) in Quick Entry.`,'success',6000);
   }catch(e){
     notify('Error publishing exam: '+e.message,'error');
   }
@@ -17115,7 +17115,7 @@ function _esaWatchBroadcast(){
     // let the popup say so briefly, then auto-dismiss.
     if(_esaBroadcastActiveUid && !raw[_esaBroadcastActiveUid] && _esaKnownKeys.has(_esaBroadcastActiveUid)){
       const msgEl = document.getElementById('esa-broadcast-message');
-      if(msgEl) msgEl.innerHTML += '<br><span style="color:var(--green);font-size:12px">✅ Finished editing.</span>';
+      if(msgEl) msgEl.innerHTML += '<br><span style="color:var(--green);font-size:12px">.Finished editing.</span>';
       setTimeout(()=>{ if(_esaBroadcastActiveUid === null) return; _esaDismissBroadcast(); }, 2000);
     }
     _esaKnownKeys = new Set(keys);
@@ -18214,7 +18214,7 @@ function _qeJumpToMissing(){
   const candidate = _qeGetAllScoreInputs().find(inp=>
     inp.value.trim()==='' && mySubjects.includes(inp.getAttribute('data-subject'))
   );
-  if(!candidate){ notify('✅ No missing scores in your subject(s) — all filled in!','success'); return; }
+  if(!candidate){ notify('.No missing scores in your subject(s) — all filled in!','success'); return; }
   const sel = document.getElementById('qe-mobile-subject-select');
   const subj = candidate.getAttribute('data-subject');
   if(sel && subj && sel.value !== subj && [...sel.options].some(o=>o.value===subj)){
@@ -18571,7 +18571,7 @@ window.downloadQuickEntryMarkSheet = function(){
   } catch(e) {
     window.XLSX.writeFile(wb, filename);
   }
-  notify(`✅ Mark sheet downloaded — <strong>${_qeStudents.length} students</strong>, <strong>${SCORE_COLS.length} subjects</strong>, same order as on screen.`, 'success', 6000);
+  notify(`.Mark sheet downloaded — <strong>${_qeStudents.length} students</strong>, <strong>${SCORE_COLS.length} subjects</strong>, same order as on screen.`, 'success', 6000);
   logActivity(`⬇️ Downloaded Quick Entry mark sheet: ${gradeLabel} · ${_qeCompound} · ${_qeStudents.length} students`, 'act-blue', currentAdminName, { category:'export' });
 };
 
@@ -18618,7 +18618,7 @@ async function _qeAddSubjectToSheet(){
   }
   _qeSubjects = [..._qeSubjects, subject].sort();
   renderQuickEntryTable(_qeCollectScores(), _qeLocked);
-  notify(`✅ "${subject}" added to this sheet.`,'success');
+  notify(`."${subject}" added to this sheet.`,'success');
 
   // In case this subject was previously removed from THIS exam's sheet,
   // clear that so it doesn't get filtered right back out on the next load.
@@ -18831,7 +18831,7 @@ function _qeConfirmAddStudent(){
   const scores = _qeCollectScores(); // preserve whatever's already on-screen
   renderQuickEntryTable(scores, _qeLocked);
   _qeCloseAddStudentModal();
-  notify(`✅ ${name} added — enter their scores, then Submit.`,'success');
+  notify(`.${name} added — enter their scores, then Submit.`,'success');
 }
 window._qeConfirmAddStudent = _qeConfirmAddStudent;
 
@@ -18990,7 +18990,7 @@ async function _qeSaveDraft(){
  *  exact same pipeline manual typing uses, so an imported score is
  *  indistinguishable from a hand-typed one: it lands in the shared draft,
  *  respects per-subject teacher permissions and exam locks, and still
- *  waits for a deliberate "✅ Submit Final to Database" click before it
+ *  waits for a deliberate ".Submit Final to Database" click before it
  *  becomes a real record. This is the safe way to bulk-load a filled-in
  *  offline sheet (or a spreadsheet a subject teacher emailed over) without
  *  bypassing the review-before-submit step every other entry path gets.
@@ -19151,7 +19151,7 @@ function _qeCountMissingScores(){
   return { missing, total: cells.length };
 }
 
-/** Keeps the "✅ Submit Final to Database" button and its status hint in
+/** Keeps the ".Submit Final to Database" button and its status hint in
  *  sync with (a) whether this user holds Class Teacher authority for the
  *  currently loaded grade, and (b) whether every score cell is filled in.
  *  Advanced Admins bypass both checks (see _isClassTeacherOfGrade). Called
@@ -19179,7 +19179,7 @@ function _qeUpdateFinalSubmitStatus(){
         const myMissing = mine.filter(inp=>inp.value.trim()==='').length;
         hint.textContent = myMissing
           ? `🔒 ${myMissing} of your score${mine.length===1?'':'s'} missing`
-          : '✅ Your scores complete — 🔒 Class Teacher only';
+          : '.Your scores complete — 🔒 Class Teacher only';
         hint.style.color = myMissing ? 'var(--red)' : 'var(--green)';
       } else {
         hint.textContent = '🔒 Class Teacher only';
@@ -19207,7 +19207,7 @@ function _qeUpdateFinalSubmitStatus(){
   btn.style.opacity = '';
   btn.style.cursor = '';
   btn.title = '';
-  if(hint){ hint.textContent = total ? '✅ All scores complete' : ''; hint.style.color = 'var(--green)'; }
+  if(hint){ hint.textContent = total ? '.All scores complete' : ''; hint.style.color = 'var(--green)'; }
 }
 
 /** Commit all entered scores to the real database, one record per student.
@@ -19384,7 +19384,7 @@ async function submitQuickEntry(){
       await update(ref(db), dbUpdates);
     }catch(e){
       notify('❌ Error submitting to database: '+e.message,'error',8000);
-      btn.disabled=false; btn.textContent='✅ Submit Final to Database';
+      btn.disabled=false; btn.textContent='.Submit Final to Database';
       return;
     }
   }
@@ -19424,12 +19424,12 @@ async function submitQuickEntry(){
     }catch(e){}
   }
 
-  let msg = `✅ Quick Entry submitted — <strong>${created}</strong> created, <strong>${updated}</strong> updated.`;
+  let msg = `.Quick Entry submitted — <strong>${created}</strong> created, <strong>${updated}</strong> updated.`;
   if(invalidCount) msg += ` <span style="color:var(--red)">${invalidCount} invalid score(s) ignored.</span>`;
   notify(msg,'success',7000);
   logActivity(`⚡ Quick Entry: ${created} created, ${updated} updated for ${_qeCompound}`,'act-green',currentAdminName,{category:'import'});
 
-  btn.disabled=false; btn.textContent='✅ Submit Final to Database';
+  btn.disabled=false; btn.textContent='.Submit Final to Database';
   document.getElementById('qe-draft-banner').style.display='none';
   _qeResetToDefault();
   setTimeout(refreshData, 1200);
@@ -19508,7 +19508,7 @@ function saveSettings(){
   if(newPass&&newPass.length<6){notify('❌ Password must be at least 6 characters.','error');return;}
   if(name) document.getElementById('admin-name').textContent=name;
   if(name) currentAdminName=name;
-  notify('✅ Settings saved!','success');
+  notify('.Settings saved!','success');
   logActivity('⚙️ Updated portal settings','act-blue',currentAdminName);
 }
 window.saveSettings=saveSettings;
