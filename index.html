@@ -449,6 +449,19 @@ body::before{
 #qe-table thead th{position:relative;}
 #qe-table th.dt-orderable-asc:hover,#qe-table th.dt-orderable-desc:hover{background:rgba(41,128,185,.15);}
 
+/* Quick Entry: theme DataTables' own paging + info bar (bottom of the
+   sheet) to match the app's existing .pagination/.pg-btn look elsewhere. */
+#qe-table-card .dt-info{font-size:11px;color:var(--text3);padding-top:10px;}
+#qe-table-card .dt-paging{padding-top:10px;}
+#qe-table-card .dt-paging .dt-paging-button{
+  padding:6px 12px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);font-size:11px;font-weight:700;color:var(--text2);
+  cursor:pointer;transition:var(--transition);margin-left:4px;
+}
+#qe-table-card .dt-paging .dt-paging-button:hover:not(.disabled){background:var(--blue);border-color:var(--blue);color:#fff;}
+#qe-table-card .dt-paging .dt-paging-button.current{background:var(--blue);border-color:var(--blue);color:#fff;}
+#qe-table-card .dt-paging .dt-paging-button.disabled{opacity:.4;cursor:not-allowed;}
+
 /* ══════════════════════════════════════════
    GRADE PILLS
 ══════════════════════════════════════════ */
@@ -3201,8 +3214,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div class="sec-hdr">
           <h2>🚨 At-Risk Students</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select class="sel" id="atrisk-grade-sel" onchange="renderAtRisk()"><option value="all">All Grades</option></select>
-            <select class="sel" id="atrisk-term-sel" onchange="renderAtRisk()"><option value="all">All Terms</option></select>
+            <select class="sel" id="atrisk-grade-sel" onchange="atriskPage=1;renderAtRisk()"><option value="all">All Grades</option></select>
+            <select class="sel" id="atrisk-term-sel" onchange="atriskPage=1;renderAtRisk()"><option value="all">All Terms</option></select>
             <button class="btn btn-red btn-sm" onclick="exportAtRiskCSV()">📥 Export CSV</button>
             <button class="btn btn-orange btn-sm" onclick="generateAtRiskPDF()">📄 Alert PDF</button>
           </div>
@@ -3245,6 +3258,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
               <tbody id="atrisk-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
             </table>
           </div>
+          <div class="pagination" id="atrisk-pagination"></div>
         </div>
       </div>
 
@@ -3253,8 +3267,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div class="sec-hdr">
           <h2>🔍 Data Quality</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select class="sel" id="dq-grade-sel" onchange="renderDataQuality()"><option value="all">All Grades</option></select>
-            <select class="sel" id="dq-term-sel" onchange="renderDataQuality()"><option value="all">All Terms</option></select>
+            <select class="sel" id="dq-grade-sel" onchange="dqMissingPage=1;dqOutlierPage=1;renderDataQuality()"><option value="all">All Grades</option></select>
+            <select class="sel" id="dq-term-sel" onchange="dqMissingPage=1;dqOutlierPage=1;renderDataQuality()"><option value="all">All Terms</option></select>
             <button class="btn btn-outline btn-sm" onclick="renderDataQuality()">🔄 Refresh</button>
             <button class="btn btn-outline btn-sm" onclick="exportDQReport()">📥 Export CSV</button>
           </div>
@@ -3305,6 +3319,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
                 <tbody id="dq-missing-tbody"><tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
               </table>
             </div>
+            <div class="pagination" id="dq-missing-pagination"></div>
           </div>
         </div>
 
@@ -3323,6 +3338,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
                 <tbody id="dq-outlier-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
               </table>
             </div>
+            <div class="pagination" id="dq-outlier-pagination"></div>
           </div>
         </div>
       </div>
@@ -3360,6 +3376,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
             <tbody id="dup-tbody"><tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Load data first.</td></tr></tbody>
           </table>
         </div>
+        <div class="pagination" id="dup-pagination"></div>
       </div>
 
       <!-- ══════ IMPORT VIEW ══════ -->
@@ -3598,6 +3615,7 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
           <div id="audit-log-list">
             <p style="font-size:12px;color:var(--text3)">Loading audit history…</p>
           </div>
+          <div class="pagination" id="audit-log-pagination"></div>
         </div>
       </div>
 
@@ -4699,6 +4717,7 @@ const GRADE_SCALE = [
 let db, allData = [], filteredStudents = [], filteredResults = [];
 let currentPage = 1, resultsPage = 1;
 const PAGE_SIZE = 20;
+let atriskPage = 1, dqMissingPage = 1, dqOutlierPage = 1, dupPage = 1;
 let distChart, trendChart, genderChart, levelChart;
 let autoRefreshTimer = null;
 let editingKey = null;
@@ -9827,6 +9846,7 @@ function renderActivityLog(){
 }
 
 let auditSearchVal='', auditFilterActor='', auditFilterCat='';
+let auditPage=1;
 
 /* ─── Category config ─────────────────────────────── */
 const _AUDIT_CAT={
@@ -9896,6 +9916,8 @@ function renderAuditView(){
     container.innerHTML='<p style="font-size:13px;color:var(--text3);padding:20px 0">⛔ No grade assigned — Audit Log not available. Contact the ICT DEPT.</p>';
     const countEl=document.getElementById('audit-count');
     if(countEl) countEl.textContent='0 entries';
+    const auditPager0=document.getElementById('audit-log-pagination');
+    if(auditPager0) auditPager0.innerHTML='';
     return;
   }
   // ─────────────────────────────────────────────────────────────────────
@@ -9908,6 +9930,8 @@ function renderAuditView(){
   if(!filtered.length){
     container.innerHTML='<p style="font-size:13px;color:var(--text3);padding:20px 0">No audit entries match your filter.</p>';
     document.getElementById('audit-count').textContent='0 entries';
+    const auditPager1=document.getElementById('audit-log-pagination');
+    if(auditPager1) auditPager1.innerHTML='';
     return;
   }
 
@@ -9927,7 +9951,14 @@ function renderAuditView(){
   // Restore/Delete) can resolve "this entry" by its row index at click-time.
   window._auditFilteredCache = filtered;
 
-  container.innerHTML=filtered.map((a,i)=>{
+  const AUDIT_PAGE_SIZE=20;
+  const auditTotalPages=Math.max(1,Math.ceil(filtered.length/AUDIT_PAGE_SIZE));
+  if(auditPage>auditTotalPages) auditPage=auditTotalPages;
+  const auditStart=(auditPage-1)*AUDIT_PAGE_SIZE;
+  const pageEntries=filtered.slice(auditStart,auditStart+AUDIT_PAGE_SIZE);
+
+  container.innerHTML=pageEntries.map((a,pi)=>{
+    const i=auditStart+pi; // global index into window._auditFilteredCache, used by action buttons
     const d=new Date(a.time);
     const dateStr=d.toLocaleDateString('en-KE',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
     const timeStr=d.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -9965,7 +9996,20 @@ function renderAuditView(){
   }).join('');
 
   document.getElementById('audit-count').textContent=filtered.length+' entries';
+
+  const auditPager=document.getElementById('audit-log-pagination');
+  if(auditPager){
+    let html=buildPagination(auditPage,auditTotalPages,'goPageAudit');
+    auditPager.innerHTML=html;
+  }
 }
+
+function goPageAudit(p){
+  if(p<1)return;
+  auditPage=p;
+  renderAuditView();
+}
+window.goPageAudit=goPageAudit;
 
 /* ─── Per-entry action buttons: Copy / View JSON / Restore / Delete ─── */
 function _buildAuditActionsHTML(a,i){
@@ -9996,8 +10040,8 @@ function _buildAuditActionsHTML(a,i){
 }
 
 window.toggleAuditCard=function(id){const el=document.getElementById(id);if(el)el.classList.toggle('open');};
-window.auditSearch=function(v){auditSearchVal=v.toLowerCase();renderAuditView();};
-window.auditFilter=function(type,v){if(type==='actor')auditFilterActor=v;else if(type==='cat')auditFilterCat=v;renderAuditView();};
+window.auditSearch=function(v){auditSearchVal=v.toLowerCase();auditPage=1;renderAuditView();};
+window.auditFilter=function(type,v){if(type==='actor')auditFilterActor=v;else if(type==='cat')auditFilterCat=v;auditPage=1;renderAuditView();};
 
 /* ─── Resolve a cached audit entry by its rendered row index ─────────── */
 function _auditEntryAt(i){
@@ -11709,19 +11753,24 @@ function renderDuplicates(){
   const tbody=document.getElementById('dup-tbody');
   if(!groups.length){
     tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No duplicates found.</td></tr>';
+    const pager=document.getElementById('dup-pagination'); if(pager) pager.innerHTML='';
     return;
   }
-  let rowNum=0;
-  tbody.innerHTML=groups.map((g,gi)=>{
+  const DUP_PAGE_SIZE=10; // groups per page (each group can span several rows via rowspan)
+  const dupTotalPages=Math.max(1,Math.ceil(groups.length/DUP_PAGE_SIZE));
+  if(dupPage>dupTotalPages) dupPage=dupTotalPages;
+  const dupStart=(dupPage-1)*DUP_PAGE_SIZE;
+  const pageGroups=groups.slice(dupStart,dupStart+DUP_PAGE_SIZE);
+  tbody.innerHTML=pageGroups.map((g,gi)=>{
+    const globalGi=dupStart+gi;
     const bgRow=gi%2?'background:rgba(255,255,255,.02)':'';
     const typeColor='var(--red-dk)';
     return g.recs.map((r,ri)=>{
-      rowNum++;
       const st=calcStats(r);
       const ini=(r['Official Student Name']||'?').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2);
-      const avId=`dup-av-${gi}-${ri}`;
+      const avId=`dup-av-${globalGi}-${ri}`;
       return `<tr style="${bgRow}">
-        ${ri===0?`<td rowspan="${g.recs.length}" style="font-weight:800;color:${typeColor};text-align:center;border-right:2px solid var(--border)">${gi+1}</td>`:''}
+        ${ri===0?`<td rowspan="${g.recs.length}" style="font-weight:800;color:${typeColor};text-align:center;border-right:2px solid var(--border)">${globalGi+1}</td>`:''}
         ${ri===0?`<td rowspan="${g.recs.length}" style="text-align:center"><span style="background:${typeColor};color:#fff;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700">${g.type}</span></td>`:''}
         <td><div style="display:flex;align-items:center;gap:8px">
           <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
@@ -11738,9 +11787,25 @@ function renderDuplicates(){
       </tr>`;
     }).join('');
   }).join('');
-  groups.forEach((g,gi)=>g.recs.forEach((r,ri)=>injectPhoto(`dup-av-${gi}-${ri}`,r['Official Student Name']||'',r['Grade']||'',r.id||'')));
+  pageGroups.forEach((g,gi)=>{
+    const globalGi=dupStart+gi;
+    g.recs.forEach((r,ri)=>injectPhoto(`dup-av-${globalGi}-${ri}`,r['Official Student Name']||'',r['Grade']||'',r.id||''));
+  });
+  const pager=document.getElementById('dup-pagination');
+  if(pager){
+    let html=`<span class="pg-info">${groups.length} group${groups.length===1?'':'s'}</span>`;
+    html+=buildPagination(dupPage,dupTotalPages,'goPageDup');
+    pager.innerHTML=html;
+  }
 }
 window.renderDuplicates=renderDuplicates;
+
+function goPageDup(p){
+  if(p<1)return;
+  dupPage=p;
+  renderDuplicates();
+}
+window.goPageDup=goPageDup;
 
 function exportDuplicatesCSV(){
   const tbody=document.getElementById('dup-tbody');
@@ -15178,8 +15243,16 @@ function renderAtRisk(){
   document.getElementById('nav-atrisk-count').textContent=rows.length;
 
   const tbody=document.getElementById('atrisk-tbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No at-risk students found for this selection.</td></tr>';return;}
-  tbody.innerHTML=rows.map(({worst,count},i)=>{
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No at-risk students found for this selection.</td></tr>';
+    const pager=document.getElementById('atrisk-pagination'); if(pager) pager.innerHTML='';
+    return;
+  }
+  const arTotalPages=Math.max(1,Math.ceil(rows.length/PAGE_SIZE));
+  if(atriskPage>arTotalPages) atriskPage=arTotalPages;
+  const arStart=(atriskPage-1)*PAGE_SIZE;
+  const pageRows=rows.slice(arStart,arStart+PAGE_SIZE);
+  tbody.innerHTML=pageRows.map(({worst,count},i)=>{
     const st=calcStats(worst);const color=barColor(st.avg);
     const subjects=getSubjects(worst);
     const worstSubj=subjects.reduce((a,s)=>{const v=parseFloat(worst[s]);return(!isNaN(v)&&(a===null||v<parseFloat(worst[a])))?s:a;},null);
@@ -15189,7 +15262,7 @@ function renderAtRisk(){
     const ini=(name).split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
     const avId='ar-av-'+i;
     return `<tr>
-      <td>${i+1}</td>
+      <td>${arStart+i+1}</td>
       <td><div style="display:flex;align-items:center;gap:10px">
         <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
         <div>
@@ -15208,13 +15281,30 @@ function renderAtRisk(){
       </div></td>
     </tr>`;
   }).join('');
-  // Inject photos async for each avatar
-  rows.forEach(({worst},i)=>{
+  // Inject photos async for each avatar (only the rows on the current page)
+  pageRows.forEach(({worst},i)=>{
     const name=worst['Official Student Name']||'';
     const grade=worst['Grade']||'';
     injectPhoto('ar-av-'+i, name, grade, worst.id||'');
   });
+  renderAtRiskPagination(rows.length);
 }
+
+function renderAtRiskPagination(totalRows){
+  const container=document.getElementById('atrisk-pagination');
+  if(!container) return;
+  const total=Math.ceil(totalRows/PAGE_SIZE);
+  let html=`<span class="pg-info">${totalRows} student${totalRows===1?'':'s'}</span>`;
+  html+=buildPagination(atriskPage,total,'goPageAR');
+  container.innerHTML=html;
+}
+
+function goPageAR(p){
+  if(p<1)return;
+  atriskPage=p;
+  renderAtRisk();
+}
+window.goPageAR=goPageAR;
 /* ══════════════════════════════════════════
    DATA QUALITY
    1. Missing marks detector
@@ -15334,16 +15424,22 @@ function renderDataQuality(){
 
   // ── RENDER MISSING TABLE ─────────────────────────────────────────────
   const mTbody = document.getElementById('dq-missing-tbody');
+  const mPager = document.getElementById('dq-missing-pagination');
   if(!_dqMissingRows.length){
     mTbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--green)">.No missing marks found for this selection.</td></tr>';
+    if(mPager) mPager.innerHTML='';
   } else {
-    mTbody.innerHTML = _dqMissingRows.map(({rec,missing,entered,total},i)=>{
+    const mTotalPages=Math.max(1,Math.ceil(_dqMissingRows.length/PAGE_SIZE));
+    if(dqMissingPage>mTotalPages) dqMissingPage=mTotalPages;
+    const mStart=(dqMissingPage-1)*PAGE_SIZE;
+    const mPageRows=_dqMissingRows.slice(mStart,mStart+PAGE_SIZE);
+    mTbody.innerHTML = mPageRows.map(({rec,missing,entered,total},i)=>{
       const name = rec['Official Student Name']||'—';
       const ini  = name.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
       const avId = 'dq-av-m-'+i;
       const missingChips = missing.map(s=>`<span style="display:inline-block;background:rgba(231,76,60,.13);color:var(--red);border:1px solid rgba(231,76,60,.25);border-radius:6px;padding:1px 7px;font-size:10px;margin:1px">${s}</span>`).join('');
       return `<tr>
-        <td>${i+1}</td>
+        <td>${mStart+i+1}</td>
         <td><div style="display:flex;align-items:center;gap:10px">
           <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
           <div>
@@ -15360,17 +15456,28 @@ function renderDataQuality(){
         </div></td>
       </tr>`;
     }).join('');
-    _dqMissingRows.forEach(({rec},i)=>injectPhoto('dq-av-m-'+i, rec['Official Student Name']||'', rec['Grade']||'', rec.id||''));
+    mPageRows.forEach(({rec},i)=>injectPhoto('dq-av-m-'+i, rec['Official Student Name']||'', rec['Grade']||'', rec.id||''));
+    if(mPager){
+      let html=`<span class="pg-info">${_dqMissingRows.length} record${_dqMissingRows.length===1?'':'s'}</span>`;
+      html+=buildPagination(dqMissingPage,mTotalPages,'goPageDQM');
+      mPager.innerHTML=html;
+    }
   }
 
   // ── RENDER OUTLIER TABLE ─────────────────────────────────────────────
   const oTbody = document.getElementById('dq-outlier-tbody');
+  const oPager = document.getElementById('dq-outlier-pagination');
   if(!_dqOutlierRows.length){
     oTbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--green)">.No score outliers detected for this selection.</td></tr>';
+    if(oPager) oPager.innerHTML='';
   } else {
     // Sort: biggest deviation first
     const sorted = [..._dqOutlierRows].sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
-    oTbody.innerHTML = sorted.map(({rec,subject,score,mean,diff,type},i)=>{
+    const oTotalPages=Math.max(1,Math.ceil(sorted.length/PAGE_SIZE));
+    if(dqOutlierPage>oTotalPages) dqOutlierPage=oTotalPages;
+    const oStart=(dqOutlierPage-1)*PAGE_SIZE;
+    const oPageRows=sorted.slice(oStart,oStart+PAGE_SIZE);
+    oTbody.innerHTML = oPageRows.map(({rec,subject,score,mean,diff,type},i)=>{
       const name  = rec['Official Student Name']||'—';
       const ini   = name.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
       const avId  = 'dq-av-o-'+i;
@@ -15378,7 +15485,7 @@ function renderDataQuality(){
       const icon  = type==='high' ? '📈' : '📉';
       const diffDisplay = (parseFloat(diff)>0?'+':'')+diff;
       return `<tr>
-        <td>${i+1}</td>
+        <td>${oStart+i+1}</td>
         <td><div style="display:flex;align-items:center;gap:10px">
           <div class="stu-av-wrap stu-av-sm" id="${avId}" style="flex-shrink:0">${ini}</div>
           <div>
@@ -15397,9 +15504,28 @@ function renderDataQuality(){
         </div></td>
       </tr>`;
     }).join('');
-    sorted.forEach(({rec},i)=>injectPhoto('dq-av-o-'+i, rec['Official Student Name']||'', rec['Grade']||'', rec.id||''));
+    oPageRows.forEach(({rec},i)=>injectPhoto('dq-av-o-'+i, rec['Official Student Name']||'', rec['Grade']||'', rec.id||''));
+    if(oPager){
+      let html=`<span class="pg-info">${sorted.length} record${sorted.length===1?'':'s'}</span>`;
+      html+=buildPagination(dqOutlierPage,oTotalPages,'goPageDQO');
+      oPager.innerHTML=html;
+    }
   }
 }
+
+function goPageDQM(p){
+  if(p<1)return;
+  dqMissingPage=p;
+  renderDataQuality();
+}
+window.goPageDQM=goPageDQM;
+
+function goPageDQO(p){
+  if(p<1)return;
+  dqOutlierPage=p;
+  renderDataQuality();
+}
+window.goPageDQO=goPageDQO;
 window.renderDataQuality = renderDataQuality;
 
 function exportDQReport(){
@@ -18292,8 +18418,9 @@ function _qeInitDataTable(locked){
 
   try{
     _qeDataTable = new DataTable('#qe-table', {
-      paging: false,
-      info: false,
+      paging: true,
+      pageLength: 20,
+      info: true,
       searching: true,
       ordering: true,
       scrollX: !mobileInit,
@@ -18306,7 +18433,7 @@ function _qeInitDataTable(locked){
       stateLoadCallback: () => { try{ return JSON.parse(localStorage.getItem(stateKey)) || null; }catch(e){ return null; } },
       columnControl: ['order', ['searchList', 'spacer', 'search']],
       columnDefs,
-      layout: { topStart: null, topEnd: null, bottomStart: null, bottomEnd: null } // hide DataTables' own search/info bar — we keep the app's existing one
+      layout: { topStart: null, topEnd: null, bottomStart: 'info', bottomEnd: 'paging' } // hide DataTables' own search bar (we keep the app's existing one) but show info + paging
     });
   }catch(e){
     console.warn('[QuickEntry] DataTable init failed:', e);
