@@ -4716,7 +4716,7 @@ const GRADE_SCALE = [
 ══════════════════════════════════════════ */
 let db, allData = [], filteredStudents = [], filteredResults = [];
 let currentPage = 1, resultsPage = 1;
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 let atriskPage = 1, dqMissingPage = 1, dqOutlierPage = 1, dupPage = 1;
 let distChart, trendChart, genderChart, levelChart;
 let autoRefreshTimer = null;
@@ -9951,7 +9951,7 @@ function renderAuditView(){
   // Restore/Delete) can resolve "this entry" by its row index at click-time.
   window._auditFilteredCache = filtered;
 
-  const AUDIT_PAGE_SIZE=20;
+  const AUDIT_PAGE_SIZE=10;
   const auditTotalPages=Math.max(1,Math.ceil(filtered.length/AUDIT_PAGE_SIZE));
   if(auditPage>auditTotalPages) auditPage=auditTotalPages;
   const auditStart=(auditPage-1)*AUDIT_PAGE_SIZE;
@@ -18419,7 +18419,7 @@ function _qeInitDataTable(locked){
   try{
     _qeDataTable = new DataTable('#qe-table', {
       paging: true,
-      pageLength: 20,
+      pageLength: 10,
       info: true,
       searching: true,
       ordering: true,
