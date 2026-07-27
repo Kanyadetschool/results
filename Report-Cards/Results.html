@@ -3523,7 +3523,7 @@ const exportToPdf = async () => {
 
     if (dataToExport.length === 0) {
         showModal('No data to export.');
-        return;
+        return null;
     }
 
     const selectedGrade = gradeFilterSelect.value;
@@ -4020,8 +4020,14 @@ const exportToPdf = async () => {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    doc.save(getExportFilename('pdf'));
-    printModal.classList.add('hidden');
+    // NOTE: doc.save() is intentionally NOT called here. Browsers silently
+    // block a page's 2nd+ automatic (non-click) download in a session, and by
+    // this point we're several `await`s removed from the user's actual click
+    // (photo/logo loading), so the browser may no longer count it as a direct
+    // user gesture. Returning the built doc lets the caller trigger the save
+    // from a fresh, immediate click instead — see the "Download PDF" button
+    // in runPdfExport().
+    return { doc, filename: getExportFilename('pdf') };
 };
 
         const exportToWord = () => {
@@ -4159,11 +4165,35 @@ const exportToPdf = async () => {
                 const timeout = new Promise((_, reject) => {
                     timeoutId = setTimeout(() => reject(new Error('PDF export timed out after 30s')), timeoutMs);
                 });
-                await Promise.race([exportToPdf(), timeout]);
+                const result = await Promise.race([exportToPdf(), timeout]);
                 clearTimeout(timeoutId);
-                document.getElementById('pdf-progress-msg').textContent = '✓ PDF saved!';
-                setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 2000);
-                console.log('[PDF Export] Completed successfully.');
+
+                if (result) {
+                    // Show a real "Download PDF" button. Clicking it is a fresh,
+                    // direct user gesture, so the browser will never treat this
+                    // save as an automatic/blocked download — unlike calling
+                    // doc.save() automatically after all the async work above.
+                    document.getElementById('pdf-progress-msg').textContent = '✓ PDF ready.';
+                    let downloadBtn = document.getElementById('pdf-download-ready-btn');
+                    if (!downloadBtn) {
+                        downloadBtn = document.createElement('button');
+                        downloadBtn.id = 'pdf-download-ready-btn';
+                        downloadBtn.className = 'btn btn-gold';
+                        downloadBtn.style.cssText = 'width:100%;justify-content:center;margin-top:.6rem;';
+                        progressEl.appendChild(downloadBtn);
+                    }
+                    downloadBtn.style.display = 'flex';
+                    downloadBtn.textContent = '⬇ Download PDF';
+                    downloadBtn.onclick = () => {
+                        result.doc.save(result.filename);
+                        console.log('[PDF Export] Download triggered by user click.');
+                        printModal.classList.add('hidden');
+                    };
+                    console.log('[PDF Export] Build completed — awaiting download click.');
+                } else {
+                    // exportToPdf returned null (e.g. no data) — nothing to download
+                    progressEl.style.display = 'none';
+                }
             } catch (err) {
                 console.error('[PDF Export] ❌ Export failed:', err);
                 document.getElementById('pdf-progress-msg').textContent = '❌ Export failed — check console.';
