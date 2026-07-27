@@ -1566,10 +1566,14 @@ function buildGradeSelector() {
 
     chips.innerHTML = '';
 
-    allGrades.forEach(gradeVal => {
+    // Cycled per-chip accent color so each grade is visually distinct
+    const _chipPalette = ['#2980b9','#27ae60','#e67e22','#8e44ad','#16a085','#c0392b','#f39c12','#2d3436'];
+
+    allGrades.forEach((gradeVal, _idx) => {
         const chip = document.createElement('label');
         chip.className = 'term-chip';           // NOT tc-active — start unselected
         chip.dataset.grade = gradeVal;
+        chip.style.setProperty('--chip-color', _chipPalette[_idx % _chipPalette.length]);
 
         // ── Display the raw DB Grade value on the chip ───────────────────
         chip.innerHTML = `
