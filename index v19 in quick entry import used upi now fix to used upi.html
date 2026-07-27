@@ -18732,7 +18732,7 @@ function _qeUpdateFinalSubmitStatus(){
   btn.style.opacity = '';
   btn.style.cursor = '';
   btn.title = '';
-  if(hint){ hint.textContent = total ? '.All scores complete' : ''; hint.style.color = 'var(--green)'; }
+  if(hint){ hint.textContent = total ? 'All scores complete' : ''; hint.style.color = 'var(--green)'; }
 }
 
 /** Commit all entered scores to the real database, one record per student.
@@ -18909,7 +18909,7 @@ async function submitQuickEntry(){
       await update(ref(db), dbUpdates);
     }catch(e){
       notify('❌ Error submitting to database: '+e.message,'error',8000);
-      btn.disabled=false; btn.textContent='.Submit Final to Database';
+      btn.disabled=false; btn.textContent='Submit Final to Database';
       return;
     }
   }
