@@ -1573,7 +1573,14 @@ function buildGradeSelector() {
         const chip = document.createElement('label');
         chip.className = 'term-chip';           // NOT tc-active — start unselected
         chip.dataset.grade = gradeVal;
-        chip.style.setProperty('--chip-color', _chipPalette[_idx % _chipPalette.length]);
+
+        // Color is keyed to the grade LEVEL (e.g. "Grade 4"), not the full
+        // unique value, so every chip belonging to the same grade matches.
+        const _gradeMatch = gradeVal.match(/grade\s*(\d+)/i);
+        const _paletteIdx = _gradeMatch
+            ? parseInt(_gradeMatch[1], 10) % _chipPalette.length
+            : _idx % _chipPalette.length;
+        chip.style.setProperty('--chip-color', _chipPalette[_paletteIdx]);
 
         // ── Display the raw DB Grade value on the chip ───────────────────
         chip.innerHTML = `
