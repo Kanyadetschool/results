@@ -90,7 +90,13 @@
             </div>
 
             <!-- Term chips -->
-            <div id="term-chips" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+            <div class="term-chips-wrap" style="position:relative;flex:1;min-width:240px;">
+                <div id="term-chips" style="
+                    display:flex;gap:10px;flex-wrap:wrap;
+                    max-height:104px;overflow-y:auto;
+                    padding-right:4px;
+                "></div>
+            </div>
 
             <!-- Live counter badge -->
             <div id="term-count-badge" style="
@@ -129,6 +135,21 @@
             .term-chip:not(.tc-active) .chip-tick { display:none; }
             .term-chip.tc-active .chip-tick { display:inline; }
             .term-chip span.chip-label { color:#2c3e50;font-weight:600;font-size:13px; }
+
+            #term-chips { scrollbar-width:thin; scrollbar-color:#bdc3c7 transparent; }
+            #term-chips::-webkit-scrollbar { width:6px; }
+            #term-chips::-webkit-scrollbar-track { background:transparent; }
+            #term-chips::-webkit-scrollbar-thumb { background:#bdc3c7;border-radius:6px; }
+            #term-chips::-webkit-scrollbar-thumb:hover { background:#95a5a6; }
+
+            .term-chips-wrap::after {
+                content:"";
+                position:absolute;
+                left:0;right:6px;bottom:0;
+                height:22px;
+                background:linear-gradient(to bottom, rgba(248,249,250,0), #f8f9fa);
+                pointer-events:none;
+            }
         </style>
 
         <div class="controls">
