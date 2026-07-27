@@ -3457,6 +3457,7 @@ deleteGradeBtn.addEventListener('click', async () => {
             XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
             XLSX.writeFile(workbook, getExportFilename('xlsx'));
             printModal.classList.add('hidden');
+            setTimeout(() => { location.reload(); }, 800);
         };
 
 
@@ -3523,7 +3524,7 @@ const exportToPdf = async () => {
 
     if (dataToExport.length === 0) {
         showModal('No data to export.');
-        return null;
+        return;
     }
 
     const selectedGrade = gradeFilterSelect.value;
@@ -3536,62 +3537,41 @@ const exportToPdf = async () => {
     const totalStudents = dataToExport.length;
     
     // Load and process logo image to make it completely white
-    // NOTE: handlers are attached BEFORE `.src` is set. If `.src` is set first,
-    // a cached image (which loads near-instantly on the 2nd+ export) can fire
-    // 'load' before the handler is attached — the promise then never resolves
-    // and the export hangs forever, requiring a page reload to recover.
     const logoImg = new Image();
-    let whitenedLogoDataUrl = null;
-    await new Promise((resolve, reject) => {
-        const onLoaded = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = logoImg.naturalWidth || logoImg.width;
-                canvas.height = logoImg.naturalHeight || logoImg.height;
-                ctx.drawImage(logoImg, 0, 0);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    if (data[i + 3] > 0) {
-                        data[i] = 255; data[i + 1] = 255; data[i + 2] = 255;
-                    }
-                }
-                ctx.putImageData(imageData, 0, 0);
-                whitenedLogoDataUrl = canvas.toDataURL();
-            } catch (e) {
-                console.error('[PDF Export] Failed to process logo image:', e);
-            }
-            resolve();
-        };
-        logoImg.onload = onLoaded;
-        logoImg.onerror = () => { console.error('[PDF Export] Logo image failed to load.'); resolve(); };
-        logoImg.crossOrigin = 'anonymous';
-        logoImg.src = '../images/logo.png';
-        // Safety net: image may already be fully loaded/cached by the time we get here
-        if (logoImg.complete && logoImg.naturalWidth !== 0) onLoaded();
-    });
-    // Point logoImg at the processed (whitened) version for use in addHeader() below.
-    // Await this reload too (same handlers-before-src pattern) so the image is
-    // fully decoded before addHeader() reads pixel data from it later on.
-    if (whitenedLogoDataUrl) {
-        await new Promise((resolve) => {
-            const done = () => resolve();
-            logoImg.onload = done;
-            logoImg.onerror = done;
-            logoImg.src = whitenedLogoDataUrl;
-            if (logoImg.complete && logoImg.naturalWidth !== 0) done();
-        });
-    }
-
+    logoImg.src = '../images/logo.png';
+    logoImg.crossOrigin = 'anonymous';
+    
     // Load Kenya Ministry of Education logo for background
     const ministryLogoImg = new Image();
-    await new Promise((resolve) => {
+    ministryLogoImg.src = '../images/kenya_ministry_education.png';
+    ministryLogoImg.crossOrigin = 'anonymous';
+    
+    // Wait for logo to load and apply 100% white filter
+    await new Promise((resolve, reject) => {
+        logoImg.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = logoImg.width;
+            canvas.height = logoImg.height;
+            ctx.drawImage(logoImg, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] > 0) {
+                    data[i] = 255; data[i + 1] = 255; data[i + 2] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            logoImg.src = canvas.toDataURL();
+            resolve();
+        };
+        logoImg.onerror = reject;
+    });
+    
+    // Wait for ministry logo to load (no filter needed)
+    await new Promise((resolve, reject) => {
         ministryLogoImg.onload = resolve;
         ministryLogoImg.onerror = () => resolve();
-        ministryLogoImg.crossOrigin = 'anonymous';
-        ministryLogoImg.src = '../images/kenya_ministry_education.png';
-        if (ministryLogoImg.complete) resolve();
     });
 
     // ── Dynamic columns: detect subjects from DB data, compute totals/averages ──
@@ -3745,13 +3725,7 @@ const exportToPdf = async () => {
         const logoHeight = 15;
         const logoX = 14;
         const logoY = 2.5;
-        try {
-            if (logoImg.complete && logoImg.naturalWidth !== 0) {
-                doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, logoHeight);
-            }
-        } catch (e) {
-            console.log('School logo not available for header');
-        }
+        doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, logoHeight);
         
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(16);
@@ -4020,14 +3994,8 @@ const exportToPdf = async () => {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    // NOTE: doc.save() is intentionally NOT called here. Browsers silently
-    // block a page's 2nd+ automatic (non-click) download in a session, and by
-    // this point we're several `await`s removed from the user's actual click
-    // (photo/logo loading), so the browser may no longer count it as a direct
-    // user gesture. Returning the built doc lets the caller trigger the save
-    // from a fresh, immediate click instead — see the "Download PDF" button
-    // in runPdfExport().
-    return { doc, filename: getExportFilename('pdf') };
+    doc.save(getExportFilename('pdf'));
+    printModal.classList.add('hidden');
 };
 
         const exportToWord = () => {
@@ -4084,6 +4052,7 @@ const exportToPdf = async () => {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                setTimeout(() => { location.reload(); }, 800);
             });
 
             printModal.classList.add('hidden');
@@ -4160,40 +4129,11 @@ const exportToPdf = async () => {
             printPdfBtn.innerHTML = `<svg style="animation:spin 1s linear infinite;width:13px;height:13px" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.35)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg> Exporting…`;
 
             try {
-                const timeoutMs = 30000;
-                let timeoutId;
-                const timeout = new Promise((_, reject) => {
-                    timeoutId = setTimeout(() => reject(new Error('PDF export timed out after 30s')), timeoutMs);
-                });
-                const result = await Promise.race([exportToPdf(), timeout]);
-                clearTimeout(timeoutId);
-
-                if (result) {
-                    // Show a real "Download PDF" button. Clicking it is a fresh,
-                    // direct user gesture, so the browser will never treat this
-                    // save as an automatic/blocked download — unlike calling
-                    // doc.save() automatically after all the async work above.
-                    document.getElementById('pdf-progress-msg').textContent = '✓ PDF ready.';
-                    let downloadBtn = document.getElementById('pdf-download-ready-btn');
-                    if (!downloadBtn) {
-                        downloadBtn = document.createElement('button');
-                        downloadBtn.id = 'pdf-download-ready-btn';
-                        downloadBtn.className = 'btn btn-gold';
-                        downloadBtn.style.cssText = 'width:100%;justify-content:center;margin-top:.6rem;';
-                        progressEl.appendChild(downloadBtn);
-                    }
-                    downloadBtn.style.display = 'flex';
-                    downloadBtn.textContent = '⬇ Download PDF';
-                    downloadBtn.onclick = () => {
-                        result.doc.save(result.filename);
-                        console.log('[PDF Export] Download triggered by user click.');
-                        printModal.classList.add('hidden');
-                    };
-                    console.log('[PDF Export] Build completed — awaiting download click.');
-                } else {
-                    // exportToPdf returned null (e.g. no data) — nothing to download
-                    progressEl.style.display = 'none';
-                }
+                await exportToPdf();
+                document.getElementById('pdf-progress-msg').textContent = '✓ PDF saved!';
+                setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 2000);
+                console.log('[PDF Export] Completed successfully.');
+                setTimeout(() => { location.reload(); }, 800);
             } catch (err) {
                 console.error('[PDF Export] ❌ Export failed:', err);
                 document.getElementById('pdf-progress-msg').textContent = '❌ Export failed — check console.';
