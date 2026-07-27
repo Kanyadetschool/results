@@ -3439,6 +3439,15 @@ deleteGradeBtn.addEventListener('click', async () => {
             return `Assessment_${grade}_${term}_${date}.${ext}`;
         };
 
+        // Forces a genuine full page reload (like the user pressing Ctrl+R),
+        // bypassing the back-forward cache and any stale in-memory state that
+        // a plain location.reload() call can sometimes leave behind.
+        const hardReload = () => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('_r', Date.now().toString());
+            window.location.replace(url.toString());
+        };
+
         const exportToExcel = () => {
             const dataToExport = currentFilteredStudents;
             if (dataToExport.length === 0) { showModal('No data to export.'); return; }
@@ -3457,7 +3466,7 @@ deleteGradeBtn.addEventListener('click', async () => {
             XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
             XLSX.writeFile(workbook, getExportFilename('xlsx'));
             printModal.classList.add('hidden');
-            setTimeout(() => { location.reload(); }, 800);
+            setTimeout(() => { hardReload(); }, 800);
         };
 
 
@@ -3533,7 +3542,7 @@ const exportToPdf = async () => {
     const term = dataToExport[0]['Term'] || 'N/A';
 
     const title = `P O BOX 45 - 40139, AKALA, KENYA`;
-    const subtitle = ` ${selectedGrade || 'All Grades'} | Academic Year: ${new Date().getFullYear()}`;
+    const subtitle = `LEVEL: ${selectedGrade || 'All Grades'} | Term: ${term} | Academic Year: ${new Date().getFullYear()}`;
     const totalStudents = dataToExport.length;
     
     // Load and process logo image to make it completely white
@@ -4052,7 +4061,7 @@ const exportToPdf = async () => {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                setTimeout(() => { location.reload(); }, 800);
+                setTimeout(() => { hardReload(); }, 800);
             });
 
             printModal.classList.add('hidden');
@@ -4133,7 +4142,7 @@ const exportToPdf = async () => {
                 document.getElementById('pdf-progress-msg').textContent = '✓ PDF saved!';
                 setTimeout(() => { if (progressEl) progressEl.style.display = 'none'; }, 2000);
                 console.log('[PDF Export] Completed successfully.');
-                setTimeout(() => { location.reload(); }, 800);
+                setTimeout(() => { hardReload(); }, 800);
             } catch (err) {
                 console.error('[PDF Export] ❌ Export failed:', err);
                 document.getElementById('pdf-progress-msg').textContent = '❌ Export failed — check console.';
