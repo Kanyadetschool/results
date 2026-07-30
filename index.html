@@ -102,8 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
  
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- Google Identity Services — powers the One Tap account chooser (lists every Google account signed into the browser, tap-to-sign-in, no button click needed) -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -525,31 +523,83 @@ body::before{
 .chart-box-sm{position:relative;height:180px;}
 
 /* ══════════════════════════════════════════
-   LOGIN SCREEN
-══════════════════════════════════════════ */
-/* ══════════════════════════════════════════
-   LOGIN SCREEN — Active-Students-style
+   LOGIN SCREEN — illustrated card style
 ══════════════════════════════════════════ */
 #login-screen{
   position:fixed;inset:0;z-index:9000;
   background:var(--bg);
-  display:flex;align-items:flex-start;justify-content:center;
-  padding:20px;
+  display:flex;flex-direction:row;align-items:stretch;justify-content:center;
   overflow-y:auto;
-}
-@media(min-height:600px){
-  #login-screen{align-items:center;}
+  overflow-x:hidden;
 }
 #login-screen.hidden{display:none;}
 
+/* Wraps the sign-in cards; centers them within whatever space is left
+   next to the desktop side panel (or the full screen, on mobile) */
+.auth-cards-wrap{
+  flex:1;min-width:0;display:flex;align-items:flex-start;justify-content:center;
+  padding:20px;position:relative;
+}
+@media(min-height:600px){
+  .auth-cards-wrap{align-items:center;}
+}
+
+/* ── DESKTOP / LAPTOP — full-screen split layout ───────────────────────── */
+.auth-side-panel{display:none;}
+@media(min-width:901px){
+  #login-screen{justify-content:flex-start;}
+  .auth-side-panel{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    width:42%;max-width:600px;flex-shrink:0;min-height:100vh;
+    position:relative;overflow:hidden;
+    background:linear-gradient(160deg,var(--blue-dk) 0%,#132a45 55%,#0a1c30 100%);
+    padding:4rem 3rem;color:#fff;
+  }
+  .auth-side-panel .asp-blob{position:absolute;border-radius:50%;pointer-events:none;}
+  .auth-side-panel .asp-blob-1{width:360px;height:360px;top:-130px;right:-130px;background:rgba(255,255,255,.055);}
+  .auth-side-panel .asp-blob-2{width:280px;height:280px;bottom:-110px;left:-90px;background:rgba(93,173,226,.18);}
+  .auth-side-panel .asp-dot{position:absolute;border-radius:50%;background:rgba(255,255,255,.22);}
+  .auth-side-panel .asp-dot-1{width:14px;height:14px;top:16%;right:20%;}
+  .auth-side-panel .asp-dot-2{width:10px;height:10px;bottom:22%;left:14%;background:var(--blue-lt);opacity:.9;}
+  .auth-side-panel .asp-illustration{position:relative;z-index:1;width:100%;max-width:320px;margin:0 auto 2.4rem;}
+  .auth-side-panel .asp-illustration svg{width:100%;height:auto;display:block;}
+  .auth-side-panel .asp-brand{position:relative;z-index:1;text-align:center;}
+  .auth-side-panel .asp-brand-name{font-size:1.5rem;font-weight:900;margin-bottom:.6rem;letter-spacing:-.01em;}
+  .auth-side-panel .asp-brand-tag{font-size:.88rem;color:rgba(255,255,255,.72);font-weight:500;line-height:1.55;max-width:320px;margin:0 auto;}
+
+  .auth-cards-wrap{flex:1;min-height:100vh;padding:40px 4vw;}
+  /* the small mobile decorative blobs are replaced by the side panel */
+  .auth-bg-blob,.auth-bg-dot{display:none;}
+  .signin-card{box-shadow:none;border:none;background:transparent;max-width:400px;}
+  #pwa-install-btn{top:26px;right:30px;}
+}
+
+/* Decorative background blobs (mirrors the reference illustration composition) */
+.auth-bg-blob{position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
+.auth-bg-blob-1{
+  width:460px;height:460px;top:-160px;left:-170px;
+  background:linear-gradient(135deg,var(--blue-dk),var(--blue));
+  opacity:.9;
+}
+.auth-bg-blob-2{
+  width:560px;height:560px;bottom:-260px;right:-220px;
+  background:linear-gradient(135deg,var(--blue-lt),var(--blue));
+  opacity:.28;
+}
+.auth-bg-dot{position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
+.auth-bg-dot-1{width:26px;height:26px;top:64px;left:76px;background:var(--blue-dk);}
+.auth-bg-dot-2{width:22px;height:22px;bottom:64px;right:96px;background:var(--blue-lt);opacity:.8;}
+@media(max-width:560px){.auth-bg-blob,.auth-bg-dot{display:none;}}
+
 /* Shared signin card */
 .signin-card{
+  position:relative;z-index:1;
   background:var(--surface);
-  border-radius:20px;
-  box-shadow:0 24px 80px rgba(0,0,0,.4),0 0 0 1px rgba(41,128,185,.08);
-  padding:2.75rem 2.25rem;
-  width:100%;max-width:400px;
-  text-align:center;
+  border-radius:28px;
+  box-shadow:0 30px 90px rgba(10,30,60,.28),0 0 0 1px rgba(41,128,185,.07);
+  padding:2.3rem 2.1rem 2.1rem;
+  width:100%;max-width:380px;
+  text-align:left;
   border:1px solid var(--border);
   animation:fadeUp .5s cubic-bezier(.34,1.56,.64,1);
 }
@@ -557,44 +607,128 @@ body::before{
 .signin-card h2{font-size:1.75rem;font-weight:900;color:var(--text);margin-bottom:.4rem;}
 .signin-card > p{color:var(--text2);font-size:.88rem;margin-bottom:2rem;}
 
-/* Google sign-in button on new-user-card */
+/* Illustration header (logo badge sits centered on top of the scene) */
+.auth-illustration{
+  width:100%;height:140px;display:flex;align-items:center;justify-content:center;
+  margin-bottom:1.3rem;position:relative;
+}
+.auth-illustration svg{width:100%;height:100%;max-width:220px;}
+.auth-illustration .auth-logo-badge{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:54px;height:54px;border-radius:16px;overflow:hidden;
+  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 10px 26px var(--blue-glow);font-size:24px;
+}
+.auth-illustration.auth-illustration-round .auth-logo-badge{border-radius:50%;width:60px;height:60px;}
+
+.auth-heading{font-size:1.65rem;font-weight:900;color:var(--text);margin-bottom:.25rem;letter-spacing:-.01em;}
+.auth-subtitle{color:var(--text2);font-size:.83rem;margin-bottom:1.5rem;font-weight:500;}
+
+/* Icon-prefixed input fields */
+.auth-field{position:relative;margin-bottom:.8rem;}
+.auth-field > svg{position:absolute;left:1rem;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--text3);pointer-events:none;}
+.auth-field input{
+  width:100%;padding:.85rem 2.6rem .85rem 2.7rem;border-radius:14px;
+  border:1.5px solid var(--border);background:var(--surface2);color:var(--text);
+  font-size:.86rem;font-family:'Plus Jakarta Sans',sans-serif;outline:none;
+  transition:border-color .15s,background .15s;box-sizing:border-box;
+}
+.auth-field input:not([type="password"]):not(.has-eye){padding-right:1rem;}
+.auth-field input:focus{border-color:var(--blue-lt);background:var(--surface);}
+.auth-field input::placeholder{color:var(--text3);}
+.auth-pwd-eye{
+  position:absolute;right:.5rem;top:50%;transform:translateY(-50%);z-index:2;
+  width:30px;height:30px;background:none;border:none;cursor:pointer;color:var(--text3);
+  display:flex;align-items:center;justify-content:center;
+}
+.auth-pwd-eye:hover{color:var(--text2);}
+.auth-pwd-eye svg{width:17px;height:17px;}
+
+/* Remember-me toggle row */
+.auth-remember-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:.15rem 0 1.25rem;}
+.auth-remember-row span{font-size:.76rem;color:var(--text2);font-weight:600;}
+.auth-toggle{position:relative;width:38px;height:22px;flex-shrink:0;display:inline-block;}
+.auth-toggle input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1;}
+.auth-toggle .track{position:absolute;inset:0;background:var(--border-strong);border-radius:20px;transition:background .2s;}
+.auth-toggle .thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s;}
+.auth-toggle input:checked ~ .track{background:var(--blue-dk);}
+.auth-toggle input:checked ~ .thumb{transform:translateX(16px);}
+
+/* Primary pill submit button (dark navy, matches reference) */
+.auth-submit-btn{
+  width:100%;padding:.95rem 1.5rem;font-size:.9rem;font-weight:800;
+  border:none;border-radius:14px;cursor:pointer;
+  background:linear-gradient(135deg,var(--blue-dk),#0c1e33);
+  color:#fff;letter-spacing:.01em;
+  box-shadow:0 12px 28px rgba(20,40,70,.35);
+  font-family:'Plus Jakarta Sans',sans-serif;
+  transition:var(--transition);margin-bottom:.85rem;
+  display:flex;align-items:center;justify-content:center;gap:.5rem;
+}
+.auth-submit-btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(20,40,70,.45);}
+.auth-submit-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+
+/* Secondary (outline) button — e.g. Google sign-in on new-user-card */
+.auth-btn-secondary{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:.55rem;
+  padding:.85rem 1.5rem;font-size:.86rem;font-weight:700;
+  border:1.5px solid var(--border);border-radius:14px;cursor:pointer;
+  background:var(--surface2);color:var(--text);
+  font-family:'Plus Jakarta Sans',sans-serif;
+  transition:var(--transition);margin-bottom:.7rem;
+}
+.auth-btn-secondary:hover{border-color:var(--blue-lt);color:var(--blue-lt);transform:translateY(-1px);}
+
+/* Bottom switch line — "Don't have an account? Sign Up" */
+.auth-switch{text-align:center;font-size:.79rem;color:var(--text2);font-weight:500;}
+.auth-switch a,.auth-switch button.auth-switch-link{
+  color:var(--blue-dk);font-weight:800;cursor:pointer;background:none;border:none;
+  font-size:.79rem;font-family:'Plus Jakarta Sans',sans-serif;padding:0;text-decoration:none;
+}
+.auth-switch a:hover,.auth-switch button.auth-switch-link:hover{text-decoration:underline;}
+[data-theme="dark"] .auth-switch a,[data-theme="dark"] .auth-switch button.auth-switch-link{color:var(--blue-lt);}
+
+.auth-divider{display:flex;align-items:center;gap:.6rem;margin:.9rem 0;color:var(--text3);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Legacy Google sign-in / add-account buttons — re-skinned to new pill style */
 #sign-in-google-btn{
-  width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;
-  padding:.85rem 1.5rem;font-size:.95rem;font-weight:700;
-  border:none;border-radius:10px;cursor:pointer;
+  width:100%;display:flex;align-items:center;justify-content:center;gap:.55rem;
+  padding:.85rem 1.5rem;font-size:.88rem;font-weight:700;
+  border:none;border-radius:14px;cursor:pointer;
   background:linear-gradient(135deg,var(--blue),var(--blue-dk));
   color:#fff;
-  box-shadow:0 4px 16px var(--blue-glow);
+  box-shadow:0 10px 24px var(--blue-glow);
   font-family:'Plus Jakarta Sans',sans-serif;
-  transition:var(--transition);margin-bottom:.75rem;
+  transition:var(--transition);margin-bottom:.7rem;
 }
-#sign-in-google-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--blue-glow);}
+#sign-in-google-btn:hover{transform:translateY(-2px);box-shadow:0 14px 30px var(--blue-glow);}
 
-/* Add account button */
 #add-account-btn{
   width:100%;display:flex;align-items:center;justify-content:center;gap:.55rem;
-  padding:.7rem 1rem;border-radius:10px;
+  padding:.7rem 1rem;border-radius:14px;
   border:1.5px dashed var(--border);
   background:transparent;cursor:pointer;
   font-family:'Plus Jakarta Sans',sans-serif;
-  font-size:.83rem;font-weight:600;color:var(--text2);
+  font-size:.82rem;font-weight:600;color:var(--text2);
   transition:var(--transition);
 }
 #add-account-btn:hover{border-color:var(--blue-lt);color:var(--blue-lt);}
 
-/* Continue with Email button (reveals the collapsible email form) */
+/* Continue with Email button (reveals the modal) */
 #eauth-show-email-btn{
   width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;
-  padding:.8rem 1.5rem;font-size:.88rem;font-weight:700;
-  border:1.5px solid var(--border);border-radius:10px;cursor:pointer;
+  padding:.85rem 1.5rem;font-size:.86rem;font-weight:700;
+  border:1.5px solid var(--border);border-radius:14px;cursor:pointer;
   background:var(--surface2);color:var(--text2);
   font-family:'Plus Jakarta Sans',sans-serif;
-  transition:var(--transition);margin-top:.15rem;
+  transition:var(--transition);margin-top:.1rem;
 }
 #eauth-show-email-btn:hover{border-color:var(--blue-lt);color:var(--blue-lt);}
 
 /* ══════════════════════════════════════════
-   EMAIL SIGN-IN MODAL
+   EMAIL SIGN-IN MODAL — same illustrated language
 ══════════════════════════════════════════ */
 .eauth-modal-overlay{
   position:fixed;inset:0;z-index:9500;
@@ -608,11 +742,11 @@ body::before{
 
 .eauth-modal-card{
   position:relative;width:100%;max-width:400px;
-  background:var(--surface);border-radius:var(--radius-xl);
+  background:var(--surface);border-radius:26px;
   border:1px solid var(--border);
-  box-shadow:0 24px 80px rgba(0,0,0,.5),0 0 0 1px rgba(41,128,185,.06);
-  padding:2.1rem 1.9rem 1.8rem;
-  text-align:center;
+  box-shadow:0 30px 90px rgba(10,30,60,.32),0 0 0 1px rgba(41,128,185,.06);
+  padding:2rem 1.9rem 1.8rem;
+  text-align:left;
   max-height:calc(100vh - 40px);overflow-y:auto;
   animation:eauthCardIn .3s cubic-bezier(.34,1.35,.64,1);
 }
@@ -622,7 +756,7 @@ body::before{
   position:absolute;top:14px;right:14px;width:30px;height:30px;
   border:none;border-radius:9px;background:var(--surface2);color:var(--text2);
   display:flex;align-items:center;justify-content:center;cursor:pointer;
-  transition:var(--transition);
+  transition:var(--transition);z-index:2;
 }
 .eauth-modal-close:hover{background:var(--surface3);color:var(--text);}
 
@@ -632,32 +766,37 @@ body::before{
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 8px 24px var(--blue-glow);
 }
-.eauth-modal-title{font-size:1.2rem;font-weight:900;color:var(--text);margin-bottom:.25rem;}
-.eauth-modal-subtitle{font-size:.8rem;color:var(--text2);font-weight:500;margin-bottom:1.3rem;}
+.eauth-modal-title{font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:.2rem;text-align:left;}
+.eauth-modal-subtitle{font-size:.79rem;color:var(--text2);font-weight:500;margin-bottom:1.2rem;text-align:left;}
 
-.eauth-tabs{display:flex;background:var(--surface2);border-radius:11px;padding:4px;margin-bottom:1.15rem;gap:3px;}
+.eauth-tabs{display:flex;background:var(--surface2);border-radius:14px;padding:4px;margin-bottom:1.1rem;gap:3px;}
 .eauth-tab{
-  flex:1;border:none;background:transparent;border-radius:8px;
-  padding:.55rem .5rem;font-size:.8rem;font-weight:700;color:var(--text2);
+  flex:1;border:none;background:transparent;border-radius:11px;
+  padding:.6rem .5rem;font-size:.79rem;font-weight:700;color:var(--text2);
   cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:var(--transition);
 }
-.eauth-tab.active{background:var(--surface);color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.eauth-tab.active{background:var(--blue-dk);color:#fff;box-shadow:0 4px 14px var(--blue-glow);}
 .eauth-tab:not(.active):hover{color:var(--text);}
 
 .eauth-field-icon{position:relative;}
-.eauth-field-icon input{padding-left:2.6rem !important;}
-.eauth-field-icon svg{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text3);pointer-events:none;}
+.eauth-field-icon input{padding-left:2.7rem !important;}
+.eauth-field-icon > svg{position:absolute;left:.95rem;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text3);pointer-events:none;}
 .eauth-links-center{justify-content:center;margin-top:.3rem;}
 
 /* Email/password sign-in form on new-user-card */
 .eauth-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0;color:var(--text3);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
 .eauth-divider::before,.eauth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
 .eauth-field{width:100%;margin-bottom:.6rem;text-align:left;}
-.eauth-field input{width:100%;padding:.7rem .9rem;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;font-family:'Plus Jakarta Sans',sans-serif;outline:none;transition:border-color .15s;box-sizing:border-box;}
+.eauth-field input{width:100%;padding:.8rem .95rem;border-radius:14px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:.85rem;font-family:'Plus Jakarta Sans',sans-serif;outline:none;transition:border-color .15s;box-sizing:border-box;}
 .eauth-field input:focus{border-color:var(--blue-lt);}
-#eauth-submit-btn{width:100%;padding:.8rem 1.5rem;font-size:.9rem;font-weight:700;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;background:var(--surface2);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;transition:var(--transition);margin-top:.2rem;margin-bottom:.6rem;}
-#eauth-submit-btn:hover{border-color:var(--blue-lt);color:var(--blue-lt);}
-#eauth-submit-btn:disabled{opacity:.6;cursor:not-allowed;}
+#eauth-submit-btn{
+  width:100%;padding:.9rem 1.5rem;font-size:.88rem;font-weight:800;border:none;border-radius:14px;cursor:pointer;
+  background:linear-gradient(135deg,var(--blue-dk),#0c1e33);color:#fff;
+  font-family:'Plus Jakarta Sans',sans-serif;transition:var(--transition);
+  margin-top:.3rem;margin-bottom:.6rem;box-shadow:0 12px 28px rgba(20,40,70,.35);
+}
+#eauth-submit-btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(20,40,70,.45);}
+#eauth-submit-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
 .eauth-links{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;gap:.5rem;flex-wrap:wrap;}
 .eauth-links a{color:var(--blue-lt);cursor:pointer;font-weight:600;text-decoration:none;}
 .eauth-links a:hover{text-decoration:underline;}
@@ -687,7 +826,7 @@ body::before{
 /* Login error */
 .login-err{
   background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);
-  color:#e25b4b;border-radius:var(--radius-sm);padding:9px 12px;
+  color:#e25b4b;border-radius:12px;padding:9px 12px;
   font-size:12px;font-weight:600;margin-bottom:14px;display:none;
 }
 .login-err.on{display:block;}
@@ -1949,19 +2088,72 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 <!-- LOGIN SCREEN -->
 <div id="login-screen">
 
+  <!-- Decorative background blobs (illustration-style composition) -->
+  <div class="auth-bg-blob auth-bg-blob-1"></div>
+  <div class="auth-bg-blob auth-bg-blob-2"></div>
+  <div class="auth-bg-dot auth-bg-dot-1"></div>
+  <div class="auth-bg-dot auth-bg-dot-2"></div>
+
   <!-- ── INSTALL APP (PWA, standalone-only) — shown when browser deems the app installable ── -->
   <button id="pwa-install-btn" type="button" onclick="installPwaApp()">
     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
     Install App
   </button>
 
-  <!-- ── LOCK SCREEN — returning users with passkeys registered ── -->
-  <div class="signin-card" id="lock-screen-card" style="display:none;max-width:420px;">
-    <div id="login-logo-icon-lock" style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;margin:0 auto .9rem;box-shadow:0 8px 24px var(--blue-glow);overflow:hidden;font-size:24px;">&#x1F3EB;</div>
-    <div style="margin-bottom:1.1rem;">
-      <div style="font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:.2rem;">Welcome Back</div>
-      <div style="font-size:.78rem;color:var(--text2);font-weight:500;">Tap your account to unlock with biometrics</div>
+  <!-- ── DESKTOP / LAPTOP SIDE PANEL — hidden on mobile, fills the left half on wide screens ── -->
+  <div class="auth-side-panel" aria-hidden="true">
+    <div class="asp-blob asp-blob-1"></div>
+    <div class="asp-blob asp-blob-2"></div>
+    <div class="asp-dot asp-dot-1"></div>
+    <div class="asp-dot asp-dot-2"></div>
+    <div class="asp-illustration">
+      <svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="160" cy="130" r="112" fill="rgba(255,255,255,.06)"/>
+        <rect x="96" y="30" width="128" height="200" rx="24" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
+        <rect x="118" y="54" width="84" height="10" rx="5" fill="rgba(255,255,255,.35)"/>
+        <g transform="translate(160,136)">
+          <rect x="-34" y="-6" width="68" height="52" rx="12" fill="var(--blue-lt)"/>
+          <path d="M-22 -6 v-16 a22 22 0 0 1 44 0 v16" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+          <circle cx="0" cy="18" r="7" fill="#0a1c30"/>
+          <rect x="-3.5" y="18" width="7" height="15" rx="3.5" fill="#0a1c30"/>
+        </g>
+        <rect x="118" y="196" width="84" height="10" rx="5" fill="rgba(255,255,255,.25)"/>
+        <circle cx="66" cy="52" r="18" fill="var(--blue-lt)" opacity=".45"/>
+        <circle cx="258" cy="204" r="14" fill="rgba(255,255,255,.2)"/>
+        <path d="M46 200 q16 -34 44 -10" stroke="var(--blue-lt)" stroke-width="4" fill="none" stroke-linecap="round" opacity=".6"/>
+        <path d="M244 50 l14 -14 m0 14 l-14 -14" stroke="rgba(255,255,255,.5)" stroke-width="3.5" stroke-linecap="round"/>
+      </svg>
     </div>
+    <div class="asp-brand">
+      <div class="asp-brand-name">Kanyadet PRI &amp; Junior School</div>
+      <div class="asp-brand-tag">Exam results, student records and the CBC gradebook — all in one secure staff portal.</div>
+    </div>
+  </div>
+
+  <div class="auth-cards-wrap">
+
+  <!-- ── LOCK SCREEN — returning users with passkeys registered ── -->
+  <div class="signin-card" id="lock-screen-card" style="display:none;max-width:400px;">
+    <div class="auth-illustration">
+      <svg viewBox="0 0 220 150" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="112" cy="76" r="64" fill="var(--surface3)"/>
+        <rect x="72" y="16" width="80" height="120" rx="18" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="2"/>
+        <rect x="84" y="30" width="56" height="6" rx="3" fill="var(--border-strong)"/>
+        <g transform="translate(112,80)">
+          <rect x="-22" y="-4" width="44" height="34" rx="8" fill="var(--blue)"/>
+          <path d="M-14 -4 v-10 a14 14 0 0 1 28 0 v10" fill="none" stroke="var(--blue-dk)" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="0" cy="12" r="4.5" fill="#fff"/>
+          <rect x="-2" y="12" width="4" height="9" rx="2" fill="#fff"/>
+        </g>
+        <rect x="84" y="120" width="56" height="6" rx="3" fill="var(--border-strong)"/>
+        <circle cx="36" cy="30" r="13" fill="var(--blue-lt)" opacity=".4"/>
+        <circle cx="188" cy="118" r="10" fill="var(--blue-dk)" opacity=".22"/>
+        <path d="M24 116 q12 -22 30 -6" stroke="var(--blue-lt)" stroke-width="3.5" fill="none" stroke-linecap="round" opacity=".55"/>
+      </svg>
+      <div id="login-logo-icon-lock" class="auth-logo-badge">🏫</div>
+    </div>
+    <div class="auth-heading">Welcome Back</div>
+    <div class="auth-subtitle">Tap your account to unlock with biometrics</div>
     <!-- Account list rendered by JS -->
     <div id="account-list" style="display:flex;flex-direction:column;gap:.55rem;margin-bottom:1rem;width:100%;"></div>
     <!-- Hidden — still needed for legacy references -->
@@ -1972,34 +2164,52 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       Add another account
     </button>
     <div class="login-err" id="login-err-lock"></div>
-    <a href="./Report-Cards/Individual-student-portal.html" class="auth-qlink auth-qlink-3" style="margin-top:.75rem;">
-      <div class="auth-qlink-dot"></div>🎓Students Portal<span class="auth-qlink-arrow">→</span>
-    </a>
+    <div class="auth-switch" style="margin-top:.9rem;">
+      <a href="./Report-Cards/Individual-student-portal.html">🎓 Students Portal →</a>
+    </div>
   </div>
 
   <!-- ── NEW USER CARD — first-time users: Google sign-in ── -->
   <div class="signin-card" id="new-user-card" style="display:none;">
-    <div id="login-logo-icon" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;box-shadow:0 8px 24px var(--blue-glow);overflow:hidden;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    <div class="auth-illustration">
+      <svg viewBox="0 0 220 150" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="112" cy="76" r="64" fill="var(--surface3)"/>
+        <rect x="66" y="24" width="92" height="106" rx="16" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="2"/>
+        <rect x="80" y="40" width="64" height="8" rx="4" fill="var(--blue-lt)" opacity=".5"/>
+        <rect x="80" y="56" width="64" height="34" rx="8" fill="var(--blue)" opacity=".12"/>
+        <circle cx="112" cy="72" r="12" fill="var(--blue)"/>
+        <path d="M96 90 a16 16 0 0 1 32 0 z" fill="var(--blue-dk)"/>
+        <rect x="80" y="104" width="64" height="8" rx="4" fill="var(--border-strong)"/>
+        <rect x="80" y="118" width="40" height="8" rx="4" fill="var(--border-strong)"/>
+        <circle cx="38" cy="36" r="13" fill="var(--blue-lt)" opacity=".4"/>
+        <circle cx="188" cy="120" r="10" fill="var(--blue-dk)" opacity=".22"/>
+        <path d="M170 40 l10 -10 m0 10 l-10 -10" stroke="var(--blue-lt)" stroke-width="3" stroke-linecap="round" opacity=".6"/>
+      </svg>
+      <div id="login-logo-icon" class="auth-logo-badge">🏫</div>
     </div>
-    <h2>I.C.T EXAM DEPT</h2>
-    <p>Kanyadet PRI &amp; Junior School — Restricted Access</p>
+    <div class="auth-heading">Login</div>
+    <div class="auth-subtitle">Sign in to access the exam results portal.</div>
     <div class="login-err" id="login-err"></div>
-    <button id="sign-in-google-btn">
+
+    <button id="sign-in-google-btn" class="auth-submit-btn" style="background:linear-gradient(135deg,var(--blue-dk),#0c1e33);">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Continue with Google
     </button>
-    <p style="font-size:.73rem;color:var(--text2);margin-top:.25rem;text-align:center;">You'll set up biometric unlock after signing in</p>
+    <p style="font-size:.71rem;color:var(--text2);margin:-.35rem 0 .9rem;text-align:center;">You'll set up biometric unlock after signing in</p>
 
-    <button type="button" id="eauth-show-email-btn">
+    <div class="auth-divider">or</div>
+
+    <button type="button" id="eauth-show-email-btn" class="auth-btn-secondary" style="margin-bottom:0;">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
       Continue with Email
     </button>
 
-    <a href="./Report-Cards/Individual-student-portal.html" class="auth-qlink auth-qlink-3" style="margin-top:.75rem;">
-      <div class="auth-qlink-dot"></div>🎓 Students Portal<span class="auth-qlink-arrow">→</span>
-    </a>
+    <div class="auth-switch" style="margin-top:1.1rem;">
+      <a href="./Report-Cards/Individual-student-portal.html">🎓 Students Portal →</a>
+    </div>
   </div>
+
+  </div><!-- /.auth-cards-wrap -->
 
   <!-- ── EMAIL SIGN-IN MODAL ── -->
   <div id="eauth-email-modal" class="eauth-modal-overlay" style="display:none">
@@ -2024,10 +2234,12 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 
       <div id="eauth-signup-extra" style="display:none">
         <div style="display:flex;gap:.55rem">
-          <div class="eauth-field">
+          <div class="eauth-field eauth-field-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <input type="text" id="eauth-fname-input" placeholder="First name" autocomplete="given-name">
           </div>
-          <div class="eauth-field">
+          <div class="eauth-field eauth-field-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <input type="text" id="eauth-lname-input" placeholder="Last name" autocomplete="family-name">
           </div>
         </div>
@@ -2039,24 +2251,35 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       </div>
 
       <div id="eauth-signup-extra2" style="display:none">
-        <div class="eauth-field">
+        <div class="eauth-field eauth-field-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.98.8l1.06 4.6a1 1 0 01-.5 1.11l-1.86 1a12 12 0 006.53 6.53l1-1.86a1 1 0 011.11-.5l4.6 1.06a1 1 0 01.8.98V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"/></svg>
           <input type="tel" id="eauth-phone-input" placeholder="Phone number (optional)" autocomplete="tel">
         </div>
-        <div class="eauth-field">
+        <div class="eauth-field eauth-field-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
           <input type="text" id="eauth-staffid-input" placeholder="Staff ID / TSC No. (optional)" autocomplete="off">
         </div>
-        <div class="eauth-field">
+        <div class="eauth-field eauth-field-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"/></svg>
           <input type="text" id="eauth-subject-input" placeholder="Main subject (optional)" autocomplete="off">
         </div>
       </div>
 
       <div class="eauth-field eauth-field-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        <input type="password" id="eauth-password-input" placeholder="Password" autocomplete="current-password">
+        <input type="password" id="eauth-password-input" placeholder="Password" autocomplete="current-password" style="padding-right:2.6rem;">
+        <button type="button" class="auth-pwd-eye" onclick="_authTogglePwd('eauth-password-input',this)" aria-label="Show/hide password" tabindex="-1">
+          <svg class="eye-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-off" style="display:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.58 10.58a3 3 0 004.24 4.24M9.88 5.09A11 11 0 0112 5c7 0 11 7 11 7a13.2 13.2 0 01-3.22 3.94M6.1 6.1A13.5 13.5 0 001 12s4 7 11 7a10.9 10.9 0 004.9-1.15"/></svg>
+        </button>
       </div>
       <div class="eauth-field eauth-field-icon" id="eauth-confirm-row" style="display:none">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        <input type="password" id="eauth-confirm-input" placeholder="Confirm password" autocomplete="new-password">
+        <input type="password" id="eauth-confirm-input" placeholder="Confirm password" autocomplete="new-password" style="padding-right:2.6rem;">
+        <button type="button" class="auth-pwd-eye" onclick="_authTogglePwd('eauth-confirm-input',this)" aria-label="Show/hide password" tabindex="-1">
+          <svg class="eye-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-off" style="display:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.58 10.58a3 3 0 004.24 4.24M9.88 5.09A11 11 0 0112 5c7 0 11 7 11 7a13.2 13.2 0 01-3.22 3.94M6.1 6.1A13.5 13.5 0 001 12s4 7 11 7a10.9 10.9 0 004.9-1.15"/></svg>
+        </button>
       </div>
 
       <button type="button" id="eauth-submit-btn">Sign In</button>
@@ -2068,6 +2291,18 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
   </div>
 
 </div>
+
+<script>
+// Password show/hide toggle for the illustrated auth modal fields.
+function _authTogglePwd(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(!inp) return;
+  const on  = btn.querySelector('.eye-on');
+  const off = btn.querySelector('.eye-off');
+  if(inp.type === 'password'){ inp.type = 'text'; on.style.display='none'; off.style.display='block'; }
+  else { inp.type = 'password'; on.style.display='block'; off.style.display='none'; }
+}
+</script>
 
 <!-- SIDEBAR TOOLTIP (fixed, for collapsed state) -->
 <div id="sidebar-tooltip"></div>
@@ -4229,9 +4464,9 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 <script type="module">
   import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
   import { getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
   import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-  window._fb = { initializeApp, getApps, getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc };
+  window._fb = { initializeApp, getApps, getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc };
 </script>
 
 <script>
@@ -5769,7 +6004,6 @@ function _showSignInUI(activeEmail) {
   // doesn't stay stuck open across sessions.
   const emailModal = document.getElementById('eauth-email-modal');
   if (emailModal) emailModal.style.display = 'none';
-  _initGoogleOneTap(); // auto-show the Google account chooser, no button click needed
 }
 
 // ── RENDER ACCOUNT LIST on lock screen ───────────────
@@ -5995,52 +6229,6 @@ async function _googleSignIn() {
       btn.disabled = false;
       btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Continue with Google';
     }
-  }
-}
-
-// ── GOOGLE ONE TAP — auto account chooser, no button click needed ───────
-// Lists every Google account currently signed into the browser on this
-// device and lets the person tap one directly; skips the "Continue with
-// Google" button + popup entirely. Requires a Google OAuth Web Client ID
-// (Firebase Console → Authentication → Sign-in method → Google → "Web SDK
-// configuration" → Web client ID — NOT the Firebase apiKey). Paste it below.
-const GOOGLE_ONE_TAP_CLIENT_ID = '409708360032-ducbhdgd7384cnv6mh24eu59baerd8hi.apps.googleusercontent.com';
-let _oneTapInitialized = false;
-
-function _initGoogleOneTap(attempts) {
-  attempts = attempts || 0;
-  if (GOOGLE_ONE_TAP_CLIENT_ID.startsWith('PASTE_YOUR_')) return; // not configured yet — see comment above
-  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-    if (attempts < 20) setTimeout(() => _initGoogleOneTap(attempts + 1), 250); // gsi/client script still loading
-    return;
-  }
-  if (!_oneTapInitialized) {
-    google.accounts.id.initialize({
-      client_id: GOOGLE_ONE_TAP_CLIENT_ID,
-      callback: _handleOneTapCredential,
-      auto_select: false,          // person still taps their card — just no button click first
-      cancel_on_tap_outside: false,
-    });
-    _oneTapInitialized = true;
-  }
-  google.accounts.id.prompt(); // shows the floating account-chooser
-}
-
-async function _handleOneTapCredential(response) {
-  const err = document.getElementById('login-err');
-  if (err) err.classList.remove('on');
-  try {
-    const {signInWithCredential, GoogleAuthProvider: _GA} = window._fb;
-    const credential = _GA.credential(response.credential);
-    const result = await signInWithCredential(auth, credential);
-    const user = result.user;
-    const email = user.email || '';
-    await _mandatoryPasskeySetup(user, email);
-    const userData = {user: email, uid: user.uid, name: user.displayName || email.split('@')[0], role: 'Admin', photoURL: user.photoURL || ''};
-    document.getElementById('login-screen').classList.add('hidden');
-    await _checkDisabledAndLogin(userData, auth, {err, btn: document.getElementById('sign-in-google-btn'), btnLabel: 'Continue with Google'});
-  } catch(e) {
-    if (err) { err.textContent = 'Google sign-in failed: ' + e.message; err.classList.add('on'); }
   }
 }
 
