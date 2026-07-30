@@ -573,7 +573,11 @@ body::before{
   .auth-side-panel .asp-illustration svg{width:100%;height:auto;display:block;}
   .auth-side-panel .asp-brand{position:relative;z-index:1;text-align:center;}
   .auth-side-panel .asp-brand-name{font-size:1.5rem;font-weight:900;margin-bottom:.6rem;letter-spacing:-.01em;}
-  .auth-side-panel .asp-brand-tag{font-size:.88rem;color:rgba(255,255,255,.72);font-weight:500;line-height:1.55;max-width:320px;margin:0 auto;}
+  .auth-side-panel .asp-brand-tag{font-size:.88rem;color:rgba(255,255,255,.72);font-weight:500;line-height:1.55;max-width:320px;margin:0 auto;min-height:2.7em;transition:opacity .35s ease;}
+  .auth-side-panel .asp-brand-tag.fading{opacity:0;}
+  .auth-side-panel .asp-tip-dots{display:flex;justify-content:center;gap:.4rem;margin-top:1.1rem;position:relative;z-index:1;}
+  .auth-side-panel .asp-tip-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.28);transition:background .25s,width .25s;}
+  .auth-side-panel .asp-tip-dot.active{background:var(--blue-lt);width:18px;border-radius:3px;}
 
   /* Irregular wave divider — bridges the gap left by ::before, dipping in
      (revealing the light background) and bulging out (over the content
@@ -801,6 +805,43 @@ body::before{
 .eauth-field-icon input{padding-left:2.7rem !important;}
 .eauth-field-icon > svg{position:absolute;left:.95rem;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text3);pointer-events:none;}
 .eauth-links-center{justify-content:center;margin-top:.3rem;}
+
+/* Floating labels — sit over the field until focused/filled, then float up onto the border */
+.auth-float-label{
+  position:absolute;left:2.7rem;top:50%;transform:translateY(-50%);
+  font-size:.85rem;color:var(--text3);pointer-events:none;font-weight:500;
+  transition:top .15s ease,left .15s ease,font-size .15s ease,color .15s ease;
+  background:transparent;white-space:nowrap;
+}
+.eauth-field-icon input:focus + .auth-float-label,
+.eauth-field-icon input:not(:placeholder-shown) + .auth-float-label{
+  top:0;left:.85rem;font-size:.64rem;font-weight:800;letter-spacing:.02em;
+  color:var(--blue);background:var(--surface2);padding:0 .3rem;border-radius:4px;
+}
+.eauth-field-icon input:focus + .auth-float-label{color:var(--blue-lt);}
+
+/* Password strength meter — shown only in Create Account mode */
+.auth-pwd-strength{margin:-.25rem 0 .65rem;}
+.auth-pwd-strength-track{width:100%;height:5px;border-radius:3px;background:var(--surface3);overflow:hidden;}
+.auth-pwd-strength-track span{
+  display:block;height:100%;width:0%;border-radius:3px;
+  background:#e74c3c;transition:width .25s ease,background .25s ease;
+}
+.auth-pwd-strength-label{font-size:.68rem;font-weight:700;color:var(--text3);margin-top:.3rem;}
+
+/* Micro-interactions — button press feedback */
+.auth-submit-btn:active,#sign-in-google-btn:active,.auth-btn-secondary:active,
+#eauth-submit-btn:active,#add-account-btn:active,#eauth-show-email-btn:active,
+.auth-pwd-eye:active{transform:scale(.96);}
+
+/* Shake feedback on validation error */
+@keyframes authShake{
+  10%,90%{transform:translateX(-1px)}
+  20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)}
+  40%,60%{transform:translateX(4px)}
+}
+.auth-shake{animation:authShake .4s ease;}
 
 /* Email/password sign-in form on new-user-card */
 .eauth-divider{display:flex;align-items:center;gap:.6rem;margin:1rem 0;color:var(--text3);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
@@ -2145,7 +2186,8 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
     </div>
     <div class="asp-brand">
       <div class="asp-brand-name">Kanyadet PRI &amp; Junior School</div>
-      <div class="asp-brand-tag">Exam results, student records and the CBC gradebook — all in one secure staff portal.</div>
+      <div class="asp-brand-tag" id="asp-tip-text">Exam results, student records and the CBC gradebook — all in one secure staff portal.</div>
+      <div class="asp-tip-dots" id="asp-tip-dots"></div>
     </div>
   </div>
 
@@ -2269,46 +2311,63 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
         <div style="display:flex;gap:.55rem">
           <div class="eauth-field eauth-field-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-            <input type="text" id="eauth-fname-input" placeholder="First name" autocomplete="given-name">
+            <input type="text" id="eauth-fname-input" placeholder=" " autocomplete="given-name">
+            <label class="auth-float-label" for="eauth-fname-input">First name</label>
           </div>
           <div class="eauth-field eauth-field-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-            <input type="text" id="eauth-lname-input" placeholder="Last name" autocomplete="family-name">
+            <input type="text" id="eauth-lname-input" placeholder=" " autocomplete="family-name">
+            <label class="auth-float-label" for="eauth-lname-input">Last name</label>
           </div>
         </div>
       </div>
 
       <div class="eauth-field eauth-field-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-        <input type="email" id="eauth-email-input" placeholder="Email address" autocomplete="username">
+        <input type="email" id="eauth-email-input" placeholder=" " autocomplete="username">
+        <label class="auth-float-label" for="eauth-email-input">Email address</label>
       </div>
 
       <div id="eauth-signup-extra2" style="display:none">
         <div class="eauth-field eauth-field-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.98.8l1.06 4.6a1 1 0 01-.5 1.11l-1.86 1a12 12 0 006.53 6.53l1-1.86a1 1 0 011.11-.5l4.6 1.06a1 1 0 01.8.98V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"/></svg>
-          <input type="tel" id="eauth-phone-input" placeholder="Phone number" autocomplete="tel">
+          <input type="tel" id="eauth-phone-input" placeholder=" " autocomplete="tel">
+          <label class="auth-float-label" for="eauth-phone-input">Phone number</label>
         </div>
         <div class="eauth-field eauth-field-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
-          <input type="text" id="eauth-staffid-input" placeholder="TSC No." autocomplete="off">
+          <input type="text" id="eauth-staffid-input" placeholder=" " autocomplete="off">
+          <label class="auth-float-label" for="eauth-staffid-input">TSC No.</label>
         </div>
         <div class="eauth-field eauth-field-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"/></svg>
-          <input type="text" id="eauth-subject-input" placeholder="Main subject" autocomplete="off">
+          <input type="text" id="eauth-subject-input" placeholder=" " autocomplete="off">
+          <label class="auth-float-label" for="eauth-subject-input">Main subject</label>
         </div>
       </div>
 
       <div class="eauth-field eauth-field-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        <input type="password" id="eauth-password-input" placeholder="Password" autocomplete="current-password" style="padding-right:2.6rem;">
+        <input type="password" id="eauth-password-input" placeholder=" " autocomplete="current-password" style="padding-right:2.6rem;">
+        <label class="auth-float-label" for="eauth-password-input">Password</label>
         <button type="button" class="auth-pwd-eye" onclick="_authTogglePwd('eauth-password-input',this)" aria-label="Show/hide password" tabindex="-1">
           <svg class="eye-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
           <svg class="eye-off" style="display:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.58 10.58a3 3 0 004.24 4.24M9.88 5.09A11 11 0 0112 5c7 0 11 7 11 7a13.2 13.2 0 01-3.22 3.94M6.1 6.1A13.5 13.5 0 001 12s4 7 11 7a10.9 10.9 0 004.9-1.15"/></svg>
         </button>
       </div>
+
+      <!-- Password strength meter — signup only, driven by _eauthCheckPwStrength() -->
+      <div class="auth-pwd-strength" id="eauth-pwd-strength" style="display:none">
+        <div class="auth-pwd-strength-track">
+          <span id="eauth-pwd-strength-fill"></span>
+        </div>
+        <div class="auth-pwd-strength-label" id="eauth-pwd-strength-label">&nbsp;</div>
+      </div>
+
       <div class="eauth-field eauth-field-icon" id="eauth-confirm-row" style="display:none">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        <input type="password" id="eauth-confirm-input" placeholder="Confirm password" autocomplete="new-password" style="padding-right:2.6rem;">
+        <input type="password" id="eauth-confirm-input" placeholder=" " autocomplete="new-password" style="padding-right:2.6rem;">
+        <label class="auth-float-label" for="eauth-confirm-input">Confirm password</label>
         <button type="button" class="auth-pwd-eye" onclick="_authTogglePwd('eauth-confirm-input',this)" aria-label="Show/hide password" tabindex="-1">
           <svg class="eye-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
           <svg class="eye-off" style="display:none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.58 10.58a3 3 0 004.24 4.24M9.88 5.09A11 11 0 0112 5c7 0 11 7 11 7a13.2 13.2 0 01-3.22 3.94M6.1 6.1A13.5 13.5 0 001 12s4 7 11 7a10.9 10.9 0 004.9-1.15"/></svg>
@@ -2335,6 +2394,35 @@ function _authTogglePwd(inputId, btn){
   if(inp.type === 'password'){ inp.type = 'text'; on.style.display='none'; off.style.display='block'; }
   else { inp.type = 'password'; on.style.display='block'; off.style.display='none'; }
 }
+
+// Rotating tips in the desktop side panel (no-op visually on mobile, where
+// the panel is hidden, but harmless to run either way).
+const _authTips = [
+  "Exam results, student records and the CBC gradebook — all in one secure staff portal.",
+  "Generate report cards in seconds — no more manual grade sheets.",
+  "Track every learner's progress across all CBC competency levels.",
+  "Biometric unlock keeps results secure, even on a shared computer.",
+  "Staff Welfare Fund, attendance and results — one login for all of it."
+];
+let _authTipIdx = 0;
+function _renderAuthTipDots(){
+  const dotsEl = document.getElementById('asp-tip-dots');
+  if (!dotsEl) return;
+  dotsEl.innerHTML = _authTips.map((_, i) => `<span class="asp-tip-dot${i === _authTipIdx ? ' active' : ''}"></span>`).join('');
+}
+function _rotateAuthTip(){
+  const el = document.getElementById('asp-tip-text');
+  if (!el) return;
+  el.classList.add('fading');
+  setTimeout(() => {
+    _authTipIdx = (_authTipIdx + 1) % _authTips.length;
+    el.textContent = _authTips[_authTipIdx];
+    _renderAuthTipDots();
+    el.classList.remove('fading');
+  }, 350);
+}
+_renderAuthTipDots();
+setInterval(_rotateAuthTip, 5000);
 </script>
 
 <!-- SIDEBAR TOOLTIP (fixed, for collapsed state) -->
@@ -6282,6 +6370,7 @@ function _setEauthMode(mode){
   const tabSignup    = document.getElementById('eauth-tab-signup');
   const submitBtn    = document.getElementById('eauth-submit-btn');
   const err          = document.getElementById('login-err-email');
+  const pwdStrength  = document.getElementById('eauth-pwd-strength');
   if (err) { err.classList.remove('on'); err.textContent = ''; }
   if (tabSignin) { tabSignin.classList.toggle('active', mode === 'signin'); tabSignin.setAttribute('aria-selected', mode === 'signin'); }
   if (tabSignup) { tabSignup.classList.toggle('active', mode === 'signup'); tabSignup.setAttribute('aria-selected', mode === 'signup'); }
@@ -6291,13 +6380,42 @@ function _setEauthMode(mode){
     if (confirmRow)   confirmRow.style.display   = '';
     if (forgotLink)   forgotLink.style.display    = 'none';
     if (submitBtn)    submitBtn.textContent       = 'Create Account';
+    if (pwdStrength)  pwdStrength.style.display   = '';
   } else {
     if (signupExtra)  signupExtra.style.display  = 'none';
     if (signupExtra2) signupExtra2.style.display = 'none';
     if (confirmRow)   confirmRow.style.display   = 'none';
     if (forgotLink)   forgotLink.style.display    = '';
     if (submitBtn)    submitBtn.textContent       = 'Sign In';
+    if (pwdStrength)  pwdStrength.style.display   = 'none';
   }
+  _eauthUpdatePwStrength();
+}
+
+// ── PASSWORD STRENGTH METER (Create Account only) ──────────────────────
+function _eauthCheckPwStrength(pw){
+  pw = pw || '';
+  let score = 0;
+  if (pw.length >= 6)  score++;
+  if (pw.length >= 10) score++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw))   score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (!pw) return { pct: 0, label: '', color: 'transparent' };
+  if (score <= 1) return { pct: 25,  label: 'Weak — add more characters',        color: '#e74c3c' };
+  if (score <= 2) return { pct: 50,  label: 'Fair — mix upper/lower case & numbers', color: '#e67e22' };
+  if (score <= 3) return { pct: 75,  label: 'Good',   color: '#f1c40f' };
+  return               { pct: 100, label: 'Strong', color: '#27ae60' };
+}
+function _eauthUpdatePwStrength(){
+  const pw   = document.getElementById('eauth-password-input')?.value || '';
+  const fill = document.getElementById('eauth-pwd-strength-fill');
+  const lbl  = document.getElementById('eauth-pwd-strength-label');
+  if (!fill || !lbl) return;
+  const s = _eauthCheckPwStrength(pw);
+  fill.style.width = s.pct + '%';
+  fill.style.background = s.color;
+  lbl.textContent = s.label || '\u00A0';
 }
 
 function _eauthShowError(msg) {
@@ -6308,6 +6426,14 @@ function _eauthShowError(msg) {
     err.style.color = '';
     err.textContent = msg;
     err.classList.add('on');
+  }
+  if (msg) {
+    const card = document.querySelector('#eauth-email-modal .eauth-modal-card');
+    if (card) {
+      card.classList.remove('auth-shake');
+      void card.offsetWidth; // restart the animation if it's already mid-shake
+      card.classList.add('auth-shake');
+    }
   }
 }
 
@@ -6452,6 +6578,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('eauth-submit-btn')?.addEventListener('click', _eauthSubmit);
   document.getElementById('eauth-forgot-link')?.addEventListener('click', _eauthForgotPassword);
+  document.getElementById('eauth-password-input')?.addEventListener('input', _eauthUpdatePwStrength);
   document.getElementById('eauth-password-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); _eauthSubmit(); } });
   document.getElementById('eauth-confirm-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); _eauthSubmit(); } });
   ['eauth-fname-input','eauth-lname-input','eauth-phone-input','eauth-staffid-input','eauth-subject-input','eauth-email-input']
