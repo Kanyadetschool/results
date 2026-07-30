@@ -2253,15 +2253,15 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
       <div id="eauth-signup-extra2" style="display:none">
         <div class="eauth-field eauth-field-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.98.8l1.06 4.6a1 1 0 01-.5 1.11l-1.86 1a12 12 0 006.53 6.53l1-1.86a1 1 0 011.11-.5l4.6 1.06a1 1 0 01.8.98V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"/></svg>
-          <input type="tel" id="eauth-phone-input" placeholder="Phone number (optional)" autocomplete="tel">
+          <input type="tel" id="eauth-phone-input" placeholder="Phone number" autocomplete="tel">
         </div>
         <div class="eauth-field eauth-field-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>
-          <input type="text" id="eauth-staffid-input" placeholder="Staff ID / TSC No. (optional)" autocomplete="off">
+          <input type="text" id="eauth-staffid-input" placeholder="TSC No." autocomplete="off">
         </div>
         <div class="eauth-field eauth-field-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"/></svg>
-          <input type="text" id="eauth-subject-input" placeholder="Main subject (optional)" autocomplete="off">
+          <input type="text" id="eauth-subject-input" placeholder="Main subject" autocomplete="off">
         </div>
       </div>
 
@@ -6319,6 +6319,9 @@ async function _eauthSubmit() {
     const subject  = (subjectInput?.value || '').trim();
     const confirmPw = confirmInput?.value || '';
     if (!fname || !lname)       { _eauthShowError('Enter your first and last name.'); return; }
+    if (!phone)                 { _eauthShowError('Enter your phone number.'); return; }
+    if (!staffId)                { _eauthShowError('Enter your TSC No.'); return; }
+    if (!subject)                { _eauthShowError('Enter your main subject.'); return; }
     if (password.length < 6)    { _eauthShowError('Password must be at least 6 characters.'); return; }
     if (password !== confirmPw) { _eauthShowError('Passwords do not match.'); return; }
     extraProfile = { firstName: fname, lastName: lname, name: `${fname} ${lname}`, phone, staffId, subject };
