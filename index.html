@@ -102,6 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
  
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Google Identity Services — powers the One Tap account chooser (lists every Google account signed into the browser, tap-to-sign-in, no button click needed) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -136,10 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
   --sidebar-bg:#0a1422; --card-shadow:0 8px 32px rgba(0,0,0,.4);
 }
 [data-theme="light"] {
-  --bg:#eef4fb; --bg2:#e2edf7; --surface:#ffffff; --surface2:#f4f8fd;
-  --surface3:#eaf2fa; --border:rgba(41,128,185,.15); --border-strong:rgba(41,128,185,.4);
-  --text:#0c1e33; --text2:#3a6080; --text3:#8aadcc; --topbar:rgba(238,244,251,.92);
-  --sidebar-bg:#f0f7ff; --card-shadow:0 4px 20px rgba(41,128,185,.1);
+  --bg:linear-gradient(135deg,#eef0f2 0%,#f4f0e6 45%,#fbecc3 100%);
+  --bg2:#f7edd0; --surface:#ffffff; --surface2:#fdfaf2;
+  --surface3:#f8eed6; --border:rgba(211,164,55,.2); --border-strong:rgba(211,164,55,.45);
+  --text:#0c1e33; --text2:#5a5342; --text3:#a89b7a; --topbar:rgba(250,244,225,.88);
+  --sidebar-bg:#faf6ea; --card-shadow:0 4px 20px rgba(211,164,55,.14);
 }
 
 /* ══════════════════════════════════════════
@@ -155,7 +158,11 @@ body::before{
     radial-gradient(ellipse 50% 45% at 92% 90%,rgba(22,160,133,.08) 0%,transparent 60%),
     radial-gradient(ellipse 35% 30% at 55% 50%,rgba(41,128,185,.05) 0%,transparent 70%);
 }
-[data-theme="light"] body::before{opacity:.5;}
+[data-theme="light"] body::before{
+  opacity:.6;
+  background:radial-gradient(ellipse 55% 45% at 90% 88%,rgba(243,156,18,.18) 0%,transparent 65%),
+    radial-gradient(ellipse 45% 40% at 10% 8%,rgba(211,164,55,.08) 0%,transparent 60%);
+}
 
 /* ══════════════════════════════════════════
    LAYOUT SHELL
@@ -4222,9 +4229,9 @@ body.print-mode .kpi-val,.print-mode .card-title{color:#000!important}
 <script type="module">
   import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
   import { getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
   import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-  window._fb = { initializeApp, getApps, getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc };
+  window._fb = { initializeApp, getApps, getDatabase, ref, get, set, push, update, remove, query, orderByChild, limitToFirst, limitToLast, onValue, off, increment, serverTimestamp, onDisconnect, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs, updateDoc, onSnapshot, deleteDoc };
 </script>
 
 <script>
@@ -5762,6 +5769,7 @@ function _showSignInUI(activeEmail) {
   // doesn't stay stuck open across sessions.
   const emailModal = document.getElementById('eauth-email-modal');
   if (emailModal) emailModal.style.display = 'none';
+  _initGoogleOneTap(); // auto-show the Google account chooser, no button click needed
 }
 
 // ── RENDER ACCOUNT LIST on lock screen ───────────────
@@ -5987,6 +5995,52 @@ async function _googleSignIn() {
       btn.disabled = false;
       btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Continue with Google';
     }
+  }
+}
+
+// ── GOOGLE ONE TAP — auto account chooser, no button click needed ───────
+// Lists every Google account currently signed into the browser on this
+// device and lets the person tap one directly; skips the "Continue with
+// Google" button + popup entirely. Requires a Google OAuth Web Client ID
+// (Firebase Console → Authentication → Sign-in method → Google → "Web SDK
+// configuration" → Web client ID — NOT the Firebase apiKey). Paste it below.
+const GOOGLE_ONE_TAP_CLIENT_ID = '409708360032-ducbhdgd7384cnv6mh24eu59baerd8hi.apps.googleusercontent.com';
+let _oneTapInitialized = false;
+
+function _initGoogleOneTap(attempts) {
+  attempts = attempts || 0;
+  if (GOOGLE_ONE_TAP_CLIENT_ID.startsWith('PASTE_YOUR_')) return; // not configured yet — see comment above
+  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+    if (attempts < 20) setTimeout(() => _initGoogleOneTap(attempts + 1), 250); // gsi/client script still loading
+    return;
+  }
+  if (!_oneTapInitialized) {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_ONE_TAP_CLIENT_ID,
+      callback: _handleOneTapCredential,
+      auto_select: false,          // person still taps their card — just no button click first
+      cancel_on_tap_outside: false,
+    });
+    _oneTapInitialized = true;
+  }
+  google.accounts.id.prompt(); // shows the floating account-chooser
+}
+
+async function _handleOneTapCredential(response) {
+  const err = document.getElementById('login-err');
+  if (err) err.classList.remove('on');
+  try {
+    const {signInWithCredential, GoogleAuthProvider: _GA} = window._fb;
+    const credential = _GA.credential(response.credential);
+    const result = await signInWithCredential(auth, credential);
+    const user = result.user;
+    const email = user.email || '';
+    await _mandatoryPasskeySetup(user, email);
+    const userData = {user: email, uid: user.uid, name: user.displayName || email.split('@')[0], role: 'Admin', photoURL: user.photoURL || ''};
+    document.getElementById('login-screen').classList.add('hidden');
+    await _checkDisabledAndLogin(userData, auth, {err, btn: document.getElementById('sign-in-google-btn'), btnLabel: 'Continue with Google'});
+  } catch(e) {
+    if (err) { err.textContent = 'Google sign-in failed: ' + e.message; err.classList.add('on'); }
   }
 }
 
