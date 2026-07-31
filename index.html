@@ -1184,8 +1184,32 @@ VIEW_RENDERERS['dashboard'] = async function(area){
     <div class="grid-60-40">
       <div>
         <div class="card">
+          <div class="card-hdr"><div class="card-title">Profile Snapshot</div></div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <div class="avatar-ring" style="width:56px;height:56px;border-radius:16px;font-size:20px;">${esc(window._initials(p.name||''))}</div>
+            <div>
+              <div style="font-weight:900;font-size:14px;color:var(--text);">${esc(p.name||'Teacher')}</div>
+              <div style="font-size:11.5px;color:var(--text2);">${esc(p.role||'Teacher')} · ${esc(p.email||'')}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${grades.length ? grades.map(g=>`<span class="badge badge-blue">${esc(g)}</span>`).join('') : '<span class="badge badge-gray">No grades yet</span>'}
+          </div>
+        </div>
+        <div class="card">
           <div class="card-hdr"><div class="card-title">Today's Timetable</div><span class="badge badge-blue">${new Date().toLocaleDateString('en-GB',{weekday:'long'})}</span></div>
           <div id="dash-today-tt"><div class="empty-state"><div class="es-icon">🗓️</div><div class="es-sub">No timetable set for today yet.</div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">Quick Actions</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-blue btn-sm" onclick="_navTo('attendance')">✅ Attendance</button>
+            <button class="btn btn-outline btn-sm" onclick="_navTo('gradebook')">📝 Gradebook</button>
+            <button class="btn btn-outline btn-sm" onclick="_navTo('timetable')">🗓️ Timetable</button>
+            <button class="btn btn-outline btn-sm" onclick="_navTo('messages')">💬 Messages</button>
+            <button class="btn btn-outline btn-sm" onclick="_navTo('welfare')">🤝 Welfare</button>
+            <button class="btn btn-outline btn-sm" onclick="_navTo('leave')">🌴 Leave</button>
+          </div>
         </div>
         <div class="card">
           <div class="card-hdr"><div class="card-title">My Classes</div><button class="btn btn-blue btn-sm" onclick="_navTo('classes')">View all →</button></div>
@@ -1196,6 +1220,13 @@ VIEW_RENDERERS['dashboard'] = async function(area){
         <div class="card">
           <div class="card-hdr"><div class="card-title">Recent Announcements</div><button class="btn btn-outline btn-sm" onclick="_navTo('announcements')">See all</button></div>
           <div id="dash-ann"></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">Leave Portal</div></div>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.6;">
+            Use the official TSC Kenya portal for leave requests and tracking.
+          </div>
+          <a href="https://kanyadet-school-admin.web.app/Permissions/index.html" target="_blank" rel="noopener" class="btn btn-blue btn-sm" style="margin-top:12px;">Open TSC Leave Portal →</a>
         </div>
       </div>
     </div>
@@ -1545,7 +1576,7 @@ VR3['gradebook'] = async function(area){
   const grades = myGrades3();
   area.innerHTML = `
     <div class="sec-hdr"><h2>Gradebook</h2>
-      <div class="actions-row"><a href="./index.html" target="_blank" class="btn btn-blue btn-sm">📝 Open Quick Entry (Results Portal) →</a></div>
+      <div class="actions-row"><a href="./main-result-portal.html" target="_blank" class="btn btn-blue btn-sm">📝 Open Quick Entry (Results Portal) →</a></div>
     </div>
     <div class="card">
       <div class="card-hdr"><div class="card-title">About this view</div></div>
@@ -1615,6 +1646,10 @@ VR3['timetable'] = async function(area){
   const sectionSel = document.getElementById('tt-section');
   const teacherSel = document.getElementById('tt-teacher');
   sectionSel.value = guessTtSection(myGradesList);
+  if(!admin){
+    sectionSel.disabled = true;
+    teacherSel.disabled = true;
+  }
 
   async function loadTeacherList(section){
     const conf = TT_SECTIONS[section];
@@ -1640,10 +1675,17 @@ VR3['timetable'] = async function(area){
       });
     }catch(e){}
     const names = Array.from(namesMap.values()).sort((a,b)=>a.localeCompare(b));
+    const mineOpt = myName ? names.find(n=>namesMatch4(n, myName)) : null;
+    if(!admin && myName){
+      teacherSel.innerHTML = mineOpt
+        ? `<option value="${esc3(mineOpt)}">${esc3(mineOpt)}</option>`
+        : `<option value="">No timetable found for your account</option>`;
+      if(mineOpt) teacherSel.value = mineOpt;
+      return;
+    }
     teacherSel.innerHTML = names.length
       ? names.map(n=>`<option value="${esc3(n)}">${esc3(n)}</option>`).join('')
       : `<option value="">${admin ? 'No teachers found for this section — use + Add Teacher' : 'No teachers found for this section'}</option>`;
-    const mineOpt = myName ? names.find(n=>namesMatch4(n, myName)) : null;
     if(mineOpt) teacherSel.value = mineOpt;
   }
 
@@ -2000,11 +2042,16 @@ function namesMatch4(a, b){
 function parsePeriod4(key){
   const months = { January:0,February:1,March:2,April:3,May:4,June:5,
                     July:6,August:7,September:8,October:9,November:10,December:11 };
-  const [mon, yr] = String(key||'').split('_');
+  const normalized = String(key || '').trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
+  const [mon, yr] = normalized.split(' ');
   return new Date(parseInt(yr)||2000, months[mon] ?? 0, 1).getTime();
 }
 function periodTitle4(key){
-  return String(key || '').replace(/_/g, ' ').trim() || 'Current period';
+  const normalized = String(key || '').trim().replace(/_/g, ' ').replace(/\s+/g, ' ');
+  if(!normalized) return 'Current period';
+  const [mon, yr] = normalized.split(' ');
+  if(mon && yr && /^\d{4}$/.test(String(yr))) return `${mon} ${yr}`;
+  return normalized;
 }
 VR4['welfare'] = async function(area){
   area.innerHTML = `
