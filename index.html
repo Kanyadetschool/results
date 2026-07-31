@@ -8,6 +8,107 @@
 <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+
+<link rel="manifest" href="./teachers-manifest.json">
+<script>
+// ── Teachers-only Service Worker registration (standalone PWA entry) ──────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./teachers-sw.js')
+      .then((reg) => console.log('[SW] teachers PWA registered, scope:', reg.scope))
+      .catch((err) => console.warn('[SW] teachers PWA registration failed:', err));
+  });
+}
+
+// ── PWA "Install App" (standalone-only) ───────────────────────────────────
+// Button is visible by default on the auth screen. If the browser has fired
+// beforeinstallprompt we use the native prompt; otherwise (prompt not fired
+// yet, or an unsupported browser like iOS Safari) we fall back to short
+// manual instructions. The app only ever installs in standalone mode
+// because manifest.json must declare "display": "standalone" (or
+// "window-controls-overlay") — the browser, not this code, decides the
+// display mode based on that manifest value.
+let _pwaDeferredPrompt = null;
+
+function _isRunningStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true; // iOS Safari
+}
+
+function _hideInstallBtn() {
+  document.querySelectorAll('.pwa-install-btn').forEach((btn) => btn.classList.add('hide'));
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();          // stop the mini-infobar
+  _pwaDeferredPrompt = e;      // stash it for the button click
+});
+
+window.addEventListener('appinstalled', () => {
+  _pwaDeferredPrompt = null;
+  _hideInstallBtn();
+  console.log('[PWA] App installed as standalone.');
+});
+
+async function installPwaApp() {
+  // Native path — browser already offered us the install prompt.
+  if (_pwaDeferredPrompt) {
+    const promptEvent = _pwaDeferredPrompt;
+    _pwaDeferredPrompt = null;
+    promptEvent.prompt();
+    try {
+      const { outcome } = await promptEvent.userChoice;
+      console.log('[PWA] install choice:', outcome);
+    } catch (err) {
+      console.warn('[PWA] install prompt failed:', err);
+    }
+    return;
+  }
+
+  // Fallback path — prompt hasn't fired (not ready yet / unsupported
+  // browser such as iOS Safari or Firefox). Give manual instructions.
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const msg = isIOS
+    ? 'To install: tap the Share icon, then "Add to Home Screen".'
+    : 'To install: open your browser menu and choose "Install App" (or "Add to Home screen").';
+  if (window.Swal) {
+    Swal.fire({ icon: 'info', title: 'Install App', text: msg, confirmButtonColor: '#2980b9' });
+  } else {
+    alert(msg);
+  }
+}
+window.installPwaApp = installPwaApp;
+
+// If already launched standalone, no need to offer install.
+document.addEventListener('DOMContentLoaded', () => {
+  if (_isRunningStandalone()) _hideInstallBtn();
+
+  const backWrap = document.getElementById('backToTopWrap');
+  const backBtn = document.getElementById('backToTopBtn');
+  const progressRing = backWrap?.querySelector('.progress');
+  const circumference = 2 * Math.PI * 25;
+
+  function updateBackToTop() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+    const progress = Math.min(scrollTop / maxScroll, 1);
+    const offset = circumference * (1 - progress);
+
+    if (progressRing) progressRing.style.strokeDashoffset = String(offset);
+    if (backWrap) backWrap.classList.toggle('hidden', progress <= 0.02);
+  }
+
+  updateBackToTop();
+  window.addEventListener('scroll', updateBackToTop, { passive: true });
+  backBtn?.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+</script>
+
+
 <style>
 :root {
   --blue:#2980b9; --blue-dk:#1a5276; --blue-lt:#5dade2; --blue-glow:rgba(41,128,185,.35);
@@ -282,9 +383,67 @@ a{color:inherit;}
 .ttv-cell.ttv-editable{cursor:pointer;transition:border-color .15s,background .15s;}
 .ttv-cell.ttv-editable:hover{border-color:var(--border-strong);background:rgba(41,128,185,.08);}
 @media(max-width:900px){.burger{display:flex;align-items:center;justify-content:center;}.sidebar{transform:translateX(-100%);}.sidebar.open{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.4);}.main-content{margin-left:0;max-width:100vw;}}
+#pwa-install-btn{
+  width:100%;justify-content:flex-start;display:inline-flex;align-items:center;gap:10px;
+  border:none;border-radius:var(--radius-md);padding:10px 12px;
+  background:linear-gradient(135deg,rgba(41,128,185,.18),rgba(41,128,185,.08));
+  color:var(--text);font-weight:700;font-size:13px;letter-spacing:.01em;
+  cursor:pointer;transition:var(--transition);
+}
+#pwa-install-btn:hover{background:rgba(41,128,185,.16);color:var(--text);}
+#pwa-install-btn.hide{display:none;}
+#pwa-install-btn svg{flex-shrink:0;}
+
+.back-to-top-wrap{
+  position:fixed;right:18px;bottom:18px;z-index:1200;
+  width:56px;height:56px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.78);backdrop-filter:blur(8px);
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+  border:1px solid rgba(41,128,185,.18);
+}
+.back-to-top-ring{
+  position:absolute;inset:0;border-radius:50%;
+  transform:rotate(-90deg);
+}
+.back-to-top-ring circle{
+  fill:none;stroke:rgba(41,128,185,.18);stroke-width:5;
+}
+.back-to-top-ring .progress{
+  stroke:var(--blue-dk);stroke-linecap:round;stroke-dasharray:157.08;stroke-dashoffset:157.08;
+  transition:stroke-dashoffset .16s ease;
+}
+.back-to-top-btn{
+  position:relative;z-index:1;width:42px;height:42px;border-radius:50%;
+  border:none;background:linear-gradient(135deg,var(--blue),var(--blue-dk));
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;box-shadow:0 6px 18px rgba(41,128,185,.3);
+}
+.back-to-top-btn:hover{transform:translateY(-1px);}
+.back-to-top-btn svg{width:18px;height:18px;}
+.back-to-top-wrap.hidden{opacity:0;pointer-events:none;transform:translateY(10px);}
+
+.auth-install-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;padding:0;border-radius:999px;
+  margin:8px auto 0;background:rgba(41,128,185,.14);color:var(--blue-dk);
+  border:1px solid rgba(41,128,185,.22);
+}
+.auth-install-icon:hover{background:rgba(41,128,185,.2);}
+.auth-install-icon svg{width:16px;height:16px;}
+
 </style>
 </head>
 <body>
+<div class="back-to-top-wrap hidden" id="backToTopWrap" aria-hidden="true">
+  <svg class="back-to-top-ring" viewBox="0 0 56 56" aria-hidden="true">
+    <circle cx="28" cy="28" r="25"></circle>
+    <circle class="progress" cx="28" cy="28" r="25"></circle>
+  </svg>
+  <button class="back-to-top-btn" type="button" id="backToTopBtn" aria-label="Back to top">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6"/></svg>
+  </button>
+</div>
 
 <div id="boot-loader"><div class="boot-spinner"></div><div class="bl-txt">Loading Teachers Portal…</div></div>
 
@@ -318,8 +477,8 @@ a{color:inherit;}
       </svg>
     </div>
     <div class="asp-brand">
-      <div class="asp-brand-name">Kanyadet PRI &amp; Junior School</div>
-      <div class="asp-brand-tag" id="asp-tip-text">Attendance, gradebook, messaging and more — all in one secure teachers portal.</div>
+      <div class="asp-brand-name">Kanyadet Teachers Portal</div>
+      <div class="asp-brand-tag" id="asp-tip-text">Attendance, gradebook, timetable, welfare and leave — all in one secure teacher workspace.</div>
       <div class="asp-tip-dots" id="asp-tip-dots"></div>
     </div>
   </div>
@@ -418,6 +577,9 @@ a{color:inherit;}
     <div class="auth-switch">
       <span id="show-forgot">Forgot password?</span> &nbsp;·&nbsp; <span id="show-passkeys">Use a passkey</span>
     </div>
+    <button class="pwa-install-btn auth-install-icon" type="button" onclick="installPwaApp()" aria-label="Install teachers app" title="Install App">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+    </button>
   </div>
 
   <!-- FORGOT PASSWORD -->
@@ -482,6 +644,10 @@ a{color:inherit;}
       <div class="nav-item" data-view="leave" data-title="Leave Requests" data-crumb="Request and track leave"><span class="nav-icon">🌴</span>Leave Requests</div>
       <div class="nav-item" data-view="welfare" data-title="Staff Welfare" data-crumb="Welfare fund contributions"><span class="nav-icon">🤝</span>Staff Welfare</div>
       <div class="nav-item" data-view="settings" data-title="Settings" data-crumb="Account &amp; security"><span class="nav-icon">⚙️</span>Settings</div>
+      <button id="pwa-install-btn" type="button" onclick="installPwaApp()" aria-label="Install teachers app">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+        Install App
+      </button>
     </div>
     <div class="sidebar-footer">
       <div class="me-av" id="me-av">TC</div>
@@ -713,11 +879,11 @@ window._toggleEye = function(id, btn){
 };
 
 const _authTips = [
-  "Attendance, gradebook, messaging and more — all in one secure teachers portal.",
-  "Mark attendance and check averages in seconds — no more manual registers.",
-  "Message any colleague or check announcements the moment they're posted.",
-  "Biometric unlock keeps your account secure, even on a shared computer.",
-  "Staff Welfare, leave requests and your timetable — one login for all of it.",
+  "Attendance, gradebook, timetable, welfare and leave — all in one secure teacher workspace.",
+  "Record attendance, review class averages and keep your day in sync.",
+  "Message colleagues or check announcements the moment they are posted.",
+  "Use one authorized teacher sign-in for your daily school operations.",
+  "Track welfare contributions and manage leave from the same secure portal.",
 ];
 let _authTipIdx = 0;
 function _renderAuthTipDots(){
@@ -867,6 +1033,18 @@ async function loadProfile(uid){
   return snap.exists() ? { uid, ...snap.data() } : null;
 }
 
+async function isEmailAuthorizedForTeachersPortal(email){
+  const cfgSnap = await getDoc(doc(fs, 'config', 'loginAccessControl'));
+  if(!cfgSnap.exists()) return true;
+  const cfg = cfgSnap.data() || {};
+  if(cfg.enabled !== true) return true;
+  const allowed = Array.isArray(cfg.allowedEmails)
+    ? cfg.allowedEmails.map(v => String(v).toLowerCase().trim()).filter(Boolean)
+    : [];
+  const myEmail = String(email || '').toLowerCase().trim();
+  return !!myEmail && allowed.includes(myEmail);
+}
+
 function initials(name){
   if(!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -900,6 +1078,14 @@ onAuthStateChanged(auth, async (user)=>{
     await signOut(auth);
     return;
   }
+
+  const authorized = await isEmailAuthorizedForTeachersPortal(user.email);
+  if(!authorized){
+    setErr('login-error','This email is not authorized to access this portal. Please contact the administrator.');
+    await signOut(auth);
+    return;
+  }
+
   window._profile = profile;
 
   // Fill sidebar identity
@@ -1764,56 +1950,19 @@ VR4['resources'] = async function(area){
    LEAVE REQUESTS
 ══════════════════════════════════════════ */
 VR4['leave'] = async function(area){
-  const admin = isAdmin4();
   area.innerHTML = `
-    <div class="sec-hdr"><h2>Leave Requests</h2><button class="btn btn-blue btn-sm" id="lv-new-btn">+ Request Leave</button></div>
-    <div id="lv-list"><div class="empty-state"><div class="es-icon">⏳</div></div></div>`;
-  async function load(){
-    try{
-      const q = admin ? collection(fs, LEAVE_PATH4) : query(collection(fs, LEAVE_PATH4), where('uid','==', window._currentUser.uid));
-      const snap = await getDocs(q);
-      let items = []; snap.forEach(d=>items.push({id:d.id, ...d.data()}));
-      items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-      const statusBadge = s => s==='approved'?'badge-green':s==='rejected'?'badge-red':'badge-orange';
-      document.getElementById('lv-list').innerHTML = items.length ? `<div class="table-wrap"><table class="data-table"><thead><tr>
-        <th>${admin?'Teacher':'Type'}</th><th>${admin?'Type':'Dates'}</th><th>${admin?'Dates':'Reason'}</th>${admin?'<th>Reason</th>':''}<th>Status</th>${admin?'<th>Action</th>':''}
-      </tr></thead><tbody>
-      ${items.map(i=>`<tr>
-        <td>${esc4(admin ? (i.teacherName||'—') : (i.type||'—'))}</td>
-        <td>${esc4(admin ? (i.type||'—') : (i.startDate+' → '+i.endDate))}</td>
-        <td>${esc4(admin ? (i.startDate+' → '+i.endDate) : (i.reason||'—'))}</td>
-        ${admin?`<td>${esc4(i.reason||'—')}</td>`:''}
-        <td><span class="badge ${statusBadge(i.status)}">${esc4(i.status||'pending')}</span></td>
-        ${admin?`<td>${i.status==='pending'?`<button class="btn btn-xs btn-green" onclick="_lvSet('${i.id}','approved')">Approve</button> <button class="btn btn-xs btn-red" onclick="_lvSet('${i.id}','rejected')">Reject</button>`:'—'}</td>`:''}
-      </tr>`).join('')}</tbody></table></div>` : `<div class="empty-state"><div class="es-icon">🌴</div><div class="es-sub">No leave requests yet.</div></div>`;
-    }catch(e){ document.getElementById('lv-list').innerHTML = `<div class="empty-state"><div class="es-sub">${esc4(e.message)}</div></div>`; }
-  }
-  window._lvSet = async function(id, status){
-    try{ await updateDoc(doc(fs,LEAVE_PATH4,id), { status, decidedBy:(window._profile||{}).name||'Admin', decidedAt: Date.now() }); toast('Updated.', 'success'); load(); }
-    catch(e){ toast('Could not update: '+e.message, 'error'); }
-  };
-  document.getElementById('lv-new-btn').addEventListener('click', ()=>{
-    openModal(`<div class="modal-hdr"><h3>Request Leave</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
-      <div class="modal-body">
-        <div class="f-group"><label class="f-label">Type</label><select class="f-select" id="lv-type"><option>Sick Leave</option><option>Personal Leave</option><option>Compassionate Leave</option><option>Study Leave</option><option>Other</option></select></div>
-        <div class="f-row"><div class="f-group"><label class="f-label">Start Date</label><input type="date" class="f-input" id="lv-start"></div>
-        <div class="f-group"><label class="f-label">End Date</label><input type="date" class="f-input" id="lv-end"></div></div>
-        <div class="f-group"><label class="f-label">Reason</label><textarea class="f-textarea" id="lv-reason"></textarea></div>
+    <div class="sec-hdr"><h2>Leave Requests</h2></div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">TSC Kenya - Teachers Portal</div></div>
+      <div class="empty-state" style="padding:28px 16px;">
+        <div class="es-icon">🌴</div>
+        <div class="es-title">Use the official leave portal</div>
+        <div class="es-sub" style="max-width:680px;">
+          Leave applications are handled in the already-built TSC Kenya Teachers Portal. Open the official portal below to submit or track your leave request.
+        </div>
+        <a href="https://kanyadet-school-admin.web.app/Permissions/index.html" target="_blank" rel="noopener" class="btn btn-blue btn-sm" style="margin-top:14px;">Open Leave Portal</a>
       </div>
-      <div class="modal-ftr"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-blue" id="lv-save-btn">Submit Request</button></div>`);
-    document.getElementById('lv-save-btn').addEventListener('click', async ()=>{
-      const start = document.getElementById('lv-start').value, end = document.getElementById('lv-end').value;
-      if(!start || !end){ toast('Pick start and end dates.', 'warning'); return; }
-      try{
-        await setDoc(doc(collection(fs, LEAVE_PATH4)), {
-          uid: window._currentUser.uid, teacherName: (window._profile||{}).name||'', type: document.getElementById('lv-type').value,
-          startDate: start, endDate: end, reason: document.getElementById('lv-reason').value.trim(), status:'pending', createdAt: Date.now(),
-        });
-        toast('Leave request submitted.', 'success'); closeModal(); load();
-      }catch(e){ toast('Could not submit: '+e.message, 'error'); }
-    });
-  });
-  await load();
+    </div>`;
 };
 
 /* ══════════════════════════════════════════
@@ -1854,6 +2003,9 @@ function parsePeriod4(key){
   const [mon, yr] = String(key||'').split('_');
   return new Date(parseInt(yr)||2000, months[mon] ?? 0, 1).getTime();
 }
+function periodTitle4(key){
+  return String(key || '').replace(/_/g, ' ').trim() || 'Current period';
+}
 VR4['welfare'] = async function(area){
   area.innerHTML = `
     <div class="sec-hdr"><h2>Staff Welfare Fund</h2>
@@ -1861,6 +2013,10 @@ VR4['welfare'] = async function(area){
     </div>
     <div style="font-size:11.5px;color:var(--text3);margin-bottom:14px;">Lunch contributions are recorded by the admin in the Lunch Contribution Manager — this is a read-only view of the fund for this period. Your row is highlighted.</div>
     <div id="wf-list"><div class="empty-state"><div class="es-icon">⏳</div></div></div>`;
+
+  const periodSel = area.querySelector('#wf-period');
+  const listEl = area.querySelector('#wf-list');
+  if(!periodSel || !listEl){ return; }
 
   const myNorm = normName4((window._profile||{}).name || '');
   let periods = [];
@@ -1877,22 +2033,19 @@ VR4['welfare'] = async function(area){
       activePeriodKey = String(metaSnap.val()||'').replace(/\s+/g,'_');
     }
   }catch(e){}
-  const periodSel = document.getElementById('wf-period');
   if(!periods.length){
-    document.getElementById('wf-list').innerHTML = `<div class="empty-state"><div class="es-icon">🤝</div><div class="es-sub">No welfare fund periods found yet.</div></div>`;
+    listEl.innerHTML = `<div class="empty-state"><div class="es-icon">🤝</div><div class="es-sub">No welfare fund periods found yet.</div></div>`;
     periodSel.style.display = 'none';
     return;
   }
-  periodSel.innerHTML = periods.map(p=>`<option value="${esc4(p)}">${esc4(p.replace(/_/g,' '))}</option>`).join('');
-  // Default to the admin's actual current period (lunch/_meta/activePeriod) when
-  // available, so the teacher lands on the same period the admin is working in —
-  // not just whichever period happens to sort first.
+  periodSel.innerHTML = periods.map(p=>`<option value="${esc4(p)}">${esc4(periodTitle4(p))}</option>`).join('');
+  // Default to the admin's actual current period title (lunch/_meta/activePeriod)
+  // when available, so the teacher lands on the same period the admin is working in.
   const defaultPeriod = (activePeriodKey && periods.includes(activePeriodKey)) ? activePeriodKey : periods[0];
   periodSel.value = defaultPeriod;
 
   async function loadPeriod(period){
-    const body = document.getElementById('wf-list');
-    body.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div></div>`;
+    listEl.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div></div>`;
     try{
       const [membersSnap, stdSnap] = await Promise.all([
         rtGet(ref(rtdb, `lunch/${period}/members`)),
@@ -1900,8 +2053,9 @@ VR4['welfare'] = async function(area){
       ]);
       const std = stdSnap.exists() ? Number(stdSnap.val()) : 620;
       const list = membersSnap.exists() ? Object.values(membersSnap.val()) : [];
+      const periodLabel = periodTitle4(period);
       if(!list.length){
-        body.innerHTML = `<div class="empty-state"><div class="es-icon">🤝</div><div class="es-sub">No members recorded for ${esc4(period.replace(/_/g,' '))} yet.</div></div>`;
+        listEl.innerHTML = `<div class="empty-state"><div class="es-icon">🤝</div><div class="es-sub">No members recorded for ${esc4(periodLabel)} yet.</div></div>`;
         return;
       }
       // Sort so the viewer's own row surfaces first, then alphabetically by name.
@@ -1927,14 +2081,14 @@ VR4['welfare'] = async function(area){
           <td>${esc4(m.paidAt||'—')}</td>
         </tr>`;
       }).join('');
-      body.innerHTML = `
+      listEl.innerHTML = `
         ${banner}
         <div class="table-wrap"><table class="data-table">
           <thead><tr><th>Name</th><th>Contribution</th><th>Standard</th><th>Status</th><th>Paid On</th></tr></thead>
           <tbody>${tableRows}</tbody>
         </table></div>
-        <div style="font-size:11px;color:var(--text3);margin-top:10px;">Read-only — recorded by the admin in the Lunch Contribution Manager for ${esc4(period.replace(/_/g,' '))}.</div>`;
-    }catch(e){ body.innerHTML = `<div class="empty-state"><div class="es-sub">${esc4(e.message)}</div></div>`; }
+        <div style="font-size:11px;color:var(--text3);margin-top:10px;">Read-only — recorded by the admin in the Lunch Contribution Manager for ${esc4(periodLabel)}.</div>`;
+    }catch(e){ listEl.innerHTML = `<div class="empty-state"><div class="es-sub">${esc4(e.message)}</div></div>`; }
   }
   periodSel.addEventListener('change', ()=>loadPeriod(periodSel.value));
   await loadPeriod(defaultPeriod);
