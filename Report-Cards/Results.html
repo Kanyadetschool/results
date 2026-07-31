@@ -65,17 +65,28 @@
             --shadow-sm: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
             --shadow:  0 4px 16px rgba(13,31,53,.09);
             --shadow-lg:0 12px 40px rgba(13,31,53,.16);
+            /* gold-tinted body background, matching teachers-portal's light theme */
+            --bg: linear-gradient(135deg,#eef0f2 0%,#f4f0e6 45%,#fbecc3 100%);
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--cream);
+            background: var(--bg);
             color: var(--text);
             -webkit-font-smoothing: antialiased;
             min-height: 100vh;
+            position: relative;
         }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            opacity: .6;
+            background:
+                radial-gradient(ellipse 55% 45% at 90% 88%, var(--gold-dim) 0%, transparent 65%),
+                radial-gradient(ellipse 45% 40% at 10% 8%, rgba(211,164,55,.08) 0%, transparent 60%);
+        }
+        .topbar, .page-wrap, #sign-in-section { position: relative; z-index: 1; }
 
         /* ══ TOPBAR ══════════════════════════════════════ */
         .topbar {
