@@ -8,7 +8,7 @@
     <title>Results — Kanyadet School</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Tabulator -->
     <link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet">
@@ -33,9 +33,9 @@
             --navy-mid:#152d4a;
             --navy-lt: #1e4080;
             --navy-glass: rgba(13,31,53,.85);
-            --gold:    #f0a500;
+            --gold:    #f39c12;
             --gold-lt: #fbbf24;
-            --gold-dim: rgba(240,165,0,.15);
+            --gold-dim: rgba(243,156,18,.15);
             --surface: #ffffff;
             --surface2: #f6f8fb;
             --surface3: #eef1f7;
@@ -44,16 +44,24 @@
             --slate-lt:#94a3b8;
             --text:    #0f172a;
             --text2:   #475569;
+            --text3:   #94a3b8;
             --border:  #e2e8f0;
             --border2: #cbd5e1;
+            --border-strong: rgba(15,23,42,.16);
             --success: #059669;
             --success-lt:#d1fae5;
             --danger:  #dc2626;
             --danger-lt:#fee2e2;
             --info:    #0284c7;
             --info-lt: #e0f2fe;
+            /* extended accent set — matches teachers-portal's palette for anything shared between the two apps */
+            --purple:#8e44ad; --teal:#16a085; --orange:#e67e22; --orange-dk:#d35400;
             --radius:  10px;
+            --radius-sm:8px;
+            --radius-md:12px;
             --radius-lg:16px;
+            --radius-xl:24px;
+            --transition: all .25s cubic-bezier(.4,0,.2,1);
             --shadow-sm: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
             --shadow:  0 4px 16px rgba(13,31,53,.09);
             --shadow-lg:0 12px 40px rgba(13,31,53,.16);
@@ -62,7 +70,7 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             background: var(--cream);
             color: var(--text);
             -webkit-font-smoothing: antialiased;
@@ -89,7 +97,7 @@
             filter: drop-shadow(0 0 6px rgba(240,165,0,.5));
         }
         .topbar-title {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 1.05rem; font-weight: 800; color: #fff; line-height: 1.1;
         }
         .topbar-sub {
@@ -116,7 +124,7 @@
             font-size: .83rem; font-weight: 600;
             cursor: pointer !important; border: none;
             transition: all .18s ease;
-            font-family: 'DM Sans', sans-serif; white-space: nowrap;
+            font-family: 'Plus Jakarta Sans', sans-serif; white-space: nowrap;
         }
         .btn-primary { background: var(--navy-lt); color: #fff; }
         .btn-primary:hover { background: var(--navy-mid); box-shadow: 0 4px 12px rgba(30,64,128,.35); transform: translateY(-1px); }
@@ -137,26 +145,77 @@
         /* ══ LAYOUT ══════════════════════════════════════ */
         .page-wrap { max-width: 1480px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; }
 
-        /* ══ SIGN-IN ══════════════════════════════════════ */
+        /* ══ SIGN-IN — teachers-portal style takeover ══════════════════════ */
         #sign-in-section {
-            min-height: 70vh; display: flex !important;
-            align-items: center; justify-content: center;
+            position: fixed; inset: 0; z-index: 2000;
+            background: var(--cream);
+            display: flex !important; flex-direction: row;
+            align-items: stretch; justify-content: center;
+            overflow-y: auto; overflow-x: hidden;
         }
+        .auth-cards-wrap { flex: 1; min-width: 0; display: flex; align-items: flex-start; justify-content: center; padding: 20px; position: relative; z-index: 1; }
+        @media (min-height: 600px) { .auth-cards-wrap { align-items: center; } }
+        .auth-side-panel { display: none; }
+        .auth-divider-wave { display: none; }
+        @media (min-width: 901px) {
+            #sign-in-section { justify-content: flex-start; --auth-panel-w: min(42%, 600px); --auth-wave-amp: 72px; }
+            .auth-side-panel {
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                width: var(--auth-panel-w); flex-shrink: 0; min-height: 100vh; position: relative; overflow: hidden;
+                padding: 4rem 3rem; color: #fff;
+            }
+            .auth-side-panel::before {
+                content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: var(--auth-wave-amp);
+                background: linear-gradient(160deg, var(--navy-lt) 0%, var(--navy-mid) 55%, var(--navy) 100%);
+            }
+            .auth-side-panel .asp-blob { position: absolute; border-radius: 50%; pointer-events: none; }
+            .auth-side-panel .asp-blob-1 { width: 360px; height: 360px; top: -130px; right: -130px; background: rgba(255,255,255,.055); }
+            .auth-side-panel .asp-blob-2 { width: 280px; height: 280px; bottom: -110px; left: -90px; background: var(--gold-dim); }
+            .auth-side-panel .asp-dot { position: absolute; border-radius: 50%; background: rgba(255,255,255,.22); }
+            .auth-side-panel .asp-dot-1 { width: 14px; height: 14px; top: 16%; right: 20%; }
+            .auth-side-panel .asp-dot-2 { width: 10px; height: 10px; bottom: 22%; left: 14%; background: var(--gold-lt); opacity: .9; }
+            .auth-side-panel .asp-illustration { position: relative; z-index: 1; width: 100%; max-width: 320px; margin: 0 auto 2.4rem; }
+            .auth-side-panel .asp-illustration svg { width: 100%; height: auto; display: block; }
+            .auth-side-panel .asp-brand { position: relative; z-index: 1; text-align: center; }
+            .auth-side-panel .asp-brand-name { font-size: 1.5rem; font-weight: 900; margin-bottom: .6rem; letter-spacing: -.01em; }
+            .auth-side-panel .asp-brand-tag { font-size: .88rem; color: rgba(255,255,255,.72); font-weight: 500; line-height: 1.55; max-width: 320px; margin: 0 auto; }
+            .auth-divider-wave { display: block; position: absolute; top: 0; bottom: 0; left: calc(var(--auth-panel-w) - var(--auth-wave-amp)); width: calc(var(--auth-wave-amp) * 2); z-index: 2; pointer-events: none; }
+            .auth-divider-wave svg { width: 100%; height: 100%; display: block; }
+            .auth-blob, .auth-dot { display: none; }
+            .signin-card { box-shadow: none; border: none; background: transparent; max-width: 400px; }
+        }
+        .auth-blob { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+        .auth-blob-1 { width: 460px; height: 460px; top: -160px; left: -170px; background: linear-gradient(135deg, var(--navy-mid), var(--navy)); opacity: .9; filter: blur(60px); }
+        .auth-blob-2 { width: 560px; height: 560px; bottom: -260px; right: -220px; background: linear-gradient(135deg, var(--gold-lt), var(--gold)); opacity: .22; filter: blur(60px); }
+        @media (max-width: 560px) { .auth-blob { display: none; } }
+
         .signin-card {
-            background: var(--surface); border-radius: 20px;
-            box-shadow: var(--shadow-lg); padding: 2.75rem 2.25rem;
-            width: 100%; max-width: 400px; text-align: center;
+            position: relative; z-index: 1;
+            background: var(--surface); border-radius: 28px;
+            box-shadow: 0 30px 90px rgba(13,31,53,.28), 0 0 0 1px var(--gold-dim);
+            padding: 2.3rem 2.1rem 2.1rem; width: 100%; max-width: 380px; text-align: left;
             border: 1px solid var(--border);
+            animation: authFadeUp .5s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes authFadeUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .signin-illustration { width: 100%; height: 110px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; position: relative; }
+        .signin-illustration svg { width: 100%; height: 100%; max-width: 180px; }
+        .signin-logo {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+            width: 54px; height: 54px; border-radius: 16px; background: linear-gradient(135deg, var(--navy-lt), var(--navy));
+            display: flex; align-items: center; justify-content: center; font-size: 24px;
+            box-shadow: 0 10px 26px rgba(13,31,53,.4);
         }
         .signin-card h2 {
-            font-family: 'Playfair Display', serif; font-size: 1.75rem;
-            font-weight: 800; color: var(--navy); margin-bottom: .4rem;
+            font-size: 1.55rem; font-weight: 900; color: var(--navy);
+            margin-bottom: .25rem; text-align: left; letter-spacing: -.01em;
         }
-        .signin-card p { color: var(--slate); font-size: .88rem; margin-bottom: 2rem; }
+        .signin-card p { color: var(--text2); font-size: .83rem; margin-bottom: 1.4rem; text-align: left; font-weight: 500; }
         .signin-card .btn {
-            width: 100%; justify-content: center; padding: .8rem 1.5rem;
-            font-size: .92rem; border-radius: 10px; margin-bottom: .6rem;
+            width: 100%; justify-content: center; padding: .95rem 1.5rem;
+            font-size: .9rem; font-weight: 700; border-radius: 14px; margin-bottom: .7rem;
         }
+        .signin-card .btn:hover { transform: translateY(-2px); }
 
         /* ══ CARDS ═══════════════════════════════════════ */
         .card {
@@ -219,7 +278,7 @@
             width: 100%; padding: .55rem .8rem;
             border: 1.5px solid var(--border);
             border-radius: 8px; font-size: .87rem;
-            font-family: 'DM Sans', sans-serif; color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text);
             background: var(--surface); transition: border-color .15s, box-shadow .15s; outline: none;
         }
         input[type="text"]:focus, input[type="email"]:focus, select:focus {
@@ -286,7 +345,7 @@
             padding: .3rem .65rem; border-radius: 6px; border: none;
             background: #0d1f35; color: #fff;
             font-size: .75rem; font-weight: 700;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             cursor: pointer; transition: all .15s;
         }
         .btn-edit:hover { background: #c53030; color: #fff; box-shadow: 0 4px 12px rgba(197,48,48,.35); transform: translateY(-1px); }
@@ -327,7 +386,7 @@
             padding: .38rem .8rem; border: 1.5px solid var(--border);
             border-radius: 7px; background: var(--surface); color: var(--text2);
             font-size: .8rem; font-weight: 500; cursor: pointer;
-            transition: all .12s; font-family: 'DM Sans', sans-serif;
+            transition: all .12s; font-family: 'Plus Jakarta Sans', sans-serif;
         }
         .pagination-btn:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
         .pagination-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 700; }
@@ -362,7 +421,7 @@
         .modal-box-wide { max-width: 960px; max-height: 90vh; display: flex; flex-direction: column; }
         @keyframes modalIn { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }
         .modal-title {
-            font-family: 'Playfair Display', serif; font-size: 1.2rem;
+            font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.2rem;
             font-weight: 800; color: var(--navy); margin-bottom: 1rem; text-align: center;
         }
 
@@ -370,7 +429,7 @@
         .export-fmt-btn {
             padding: .65rem 1.25rem; border: none; border-radius: 10px;
             font-size: .88rem; font-weight: 700; cursor: pointer;
-            font-family: 'DM Sans', sans-serif; transition: all .18s;
+            font-family: 'Plus Jakarta Sans', sans-serif; transition: all .18s;
             display: inline-flex; align-items: center; gap: .4rem;
         }
         #print-excel-btn { background: #065f46; color: #fff; }
@@ -385,7 +444,7 @@
             padding: .3rem .75rem; border: 1.5px solid var(--border2);
             border-radius: 6px; background: var(--surface); color: var(--text2);
             font-size: .75rem; font-weight: 600; cursor: pointer;
-            font-family: 'DM Sans', sans-serif; transition: all .12s;
+            font-family: 'Plus Jakarta Sans', sans-serif; transition: all .12s;
         }
         .grade-toggle-btn:hover, .grade-toggle-btn.active {
             background: var(--navy); color: #fff; border-color: var(--navy);
@@ -393,7 +452,7 @@
         .export-btn {
             padding: .38rem .8rem; border: 1.5px solid var(--border2); border-radius: 6px;
             background: var(--surface); color: var(--text2); font-size: .78rem; font-weight: 600;
-            cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .12s;
+            cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; transition: all .12s;
         }
         .export-btn:hover { background: var(--navy-lt); color: #fff; border-color: var(--navy-lt); }
 
@@ -420,7 +479,7 @@
             display: inline-flex; align-items: center; gap: .35rem;
             background: var(--gold); color: var(--navy); border: none;
             border-radius: 8px; padding: .45rem .9rem; font-size: .8rem;
-            font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .18s;
+            font-weight: 700; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; transition: all .18s;
         }
         #print-all-btn:hover, #print-grade-btn:hover { background: var(--gold-lt); }
         #delete-grade-btn {
@@ -477,7 +536,7 @@
             background: rgba(255,255,255,.1);
         }
         .drawer-header-title {
-            font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700;
+            font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.05rem; font-weight: 700;
         }
         .drawer-header-sub { font-size: .75rem; color: rgba(255,255,255,.5); margin-top: .15rem; }
         .drawer-close {
@@ -502,7 +561,7 @@
         .drawer-field input {
             padding: .55rem .8rem; border: 1.5px solid var(--border);
             border-radius: 8px; font-size: .88rem;
-            font-family: 'DM Sans', sans-serif; color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text);
             background: var(--surface); outline: none; transition: border-color .15s, box-shadow .15s;
         }
         .drawer-field input:focus {
@@ -516,7 +575,7 @@
         .drawer-save-btn {
             flex: 1; padding: .65rem; border-radius: 9px; border: none;
             background: var(--navy); color: #fff; font-size: .9rem; font-weight: 700;
-            font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .18s;
+            font-family: 'Plus Jakarta Sans', sans-serif; cursor: pointer; transition: all .18s;
             display: flex; align-items: center; justify-content: center; gap: .4rem;
         }
         .drawer-save-btn:hover { background: var(--navy-lt); }
@@ -525,7 +584,7 @@
             padding: .65rem 1.2rem; border-radius: 9px;
             border: 1.5px solid var(--border2); background: transparent;
             color: var(--slate); font-size: .88rem; font-weight: 600;
-            font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all .18s;
+            font-family: 'Plus Jakarta Sans', sans-serif; cursor: pointer; transition: all .18s;
         }
         .drawer-cancel-btn:hover { border-color: var(--danger); color: var(--danger); }
         .drawer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
@@ -575,13 +634,13 @@
         }
 
         /* ══ SWAl OVERRIDES ════════════════════════════ */
-        .swal2-popup { font-family: 'DM Sans', sans-serif !important; border-radius: var(--radius-lg) !important; }
-        .swal2-title { font-family: 'Playfair Display', serif !important; color: var(--navy) !important; }
+        .swal2-popup { font-family: 'Plus Jakarta Sans', sans-serif !important; border-radius: var(--radius-lg) !important; }
+        .swal2-title { font-family: 'Plus Jakarta Sans', sans-serif !important; color: var(--navy) !important; }
         .swal2-confirm { border-radius: 8px !important; font-weight: 700 !important; }
         .swal2-cancel  { border-radius: 8px !important; }
 
         /* ══ TABULATOR THEME ═══════════════════════════ */
-        #tabulator-table { border: none !important; font-family: 'DM Sans', sans-serif !important; background: transparent !important; }
+        #tabulator-table { border: none !important; font-family: 'Plus Jakarta Sans', sans-serif !important; background: transparent !important; }
 
         /* Column headers */
         #tabulator-table .tabulator-header {
@@ -628,7 +687,7 @@
             background: var(--surface2) !important;
             border-top: 1px solid var(--border) !important;
             padding: .5rem 1rem !important;
-            font-family: 'DM Sans', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
             display: flex !important;
             align-items: center !important;
             flex-wrap: wrap !important;
@@ -654,7 +713,7 @@
             font-size: .8rem !important;
             font-weight: 500 !important;
             padding: .3rem .75rem !important;
-            font-family: 'DM Sans', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
             transition: all .12s !important;
             cursor: pointer !important;
             min-width: 2rem !important;
@@ -674,12 +733,12 @@
             cursor: not-allowed !important; opacity: .5 !important;
         }
         #tabulator-table .tabulator-footer .tabulator-page-size {
-            font-family: 'DM Sans', sans-serif !important; border: 1.5px solid var(--border) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important; border: 1.5px solid var(--border) !important;
             border-radius: 7px !important; padding: .3rem .5rem !important; font-size: .8rem !important;
         }
         #tabulator-table .tabulator-footer .tabulator-counter {
             font-size: .8rem !important; color: var(--slate) !important;
-            font-family: 'DM Sans', sans-serif !important; margin-left: auto !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important; margin-left: auto !important;
         }
 
         /* Column resize handle */
@@ -697,7 +756,7 @@
         /* Column header filter inputs */
         #tabulator-table .tabulator-header-filter input,
         #tabulator-table .tabulator-header-filter select {
-            font-family: 'DM Sans', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
             border: 1.5px solid rgba(255,255,255,.25) !important;
             background: rgba(255,255,255,.1) !important;
             color: #fff !important;
@@ -709,7 +768,7 @@
 
         /* Tooltip */
         .tabulator-tooltip {
-            font-family: 'DM Sans', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
             background: var(--navy) !important; color: #fff !important;
             border-radius: 6px !important; font-size: .75rem !important;
         }
@@ -721,7 +780,7 @@
             background: #fff !important;
         }
         #tabulator-table .tabulator-cell.tabulator-editing input {
-            font-family: 'DM Sans', sans-serif !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
         }
 
         /* Row hover → shows it is clickable (opens edit drawer) */
@@ -739,7 +798,7 @@
 
         /* Column visibility toggle menu */
         .tabulator-col-header-menu { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px !important; box-shadow: var(--shadow-lg) !important; }
-        .tabulator-col-header-menu .tabulator-menu-item { font-family: 'DM Sans', sans-serif !important; font-size: .83rem !important; padding: .45rem 1rem !important; }
+        .tabulator-col-header-menu .tabulator-menu-item { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: .83rem !important; padding: .45rem 1rem !important; }
         .tabulator-col-header-menu .tabulator-menu-item:hover { background: var(--surface3) !important; }
 
         /* Spreadsheet range selection */
@@ -759,7 +818,7 @@
             display: inline-flex; align-items: center; gap: .3rem;
             padding: .32rem .75rem; border-radius: 7px; border: 1.5px solid var(--border2);
             background: var(--surface); color: var(--text2); font-size: .75rem;
-            font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
+            font-weight: 600; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif;
             transition: all .15s; white-space: nowrap;
         }
         .tab-toolbar-btn:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
@@ -768,7 +827,7 @@
             display: inline-flex; align-items: center; justify-content: center;
             background: var(--gold-dim); color: var(--navy); border: 1px solid rgba(240,165,0,.3);
             border-radius: 20px; padding: .2rem .7rem; font-size: .75rem; font-weight: 700;
-            font-family: 'DM Sans', sans-serif; margin-left: auto;
+            font-family: 'Plus Jakarta Sans', sans-serif; margin-left: auto;
         }
     </style>
 </head>
@@ -782,7 +841,7 @@
     </div>
     <!-- Background load indicator (shown while rest of data loads after first 20) -->
     <div id="bg-load-banner" style="display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);
-        background:var(--navy);color:#fff;font-size:.78rem;font-family:'DM Sans',sans-serif;
+        background:var(--navy);color:#fff;font-size:.78rem;font-family:'Plus Jakarta Sans',sans-serif;
         padding:.45rem 1.1rem;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.22);
         z-index:9000;display:none;align-items:center;gap:.5rem;">
         <svg style="animation:spin 1s linear infinite;width:13px;height:13px;flex-shrink:0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -839,30 +898,93 @@
 
         <!-- ── SIGN-IN SECTION ───────────────────────── -->
         <div id="sign-in-section" class="hidden">
-            <div class="signin-card">
-                <div style="width:60px;height:60px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            <div class="auth-blob auth-blob-1"></div>
+            <div class="auth-blob auth-blob-2"></div>
+
+            <!-- DESKTOP SIDE PANEL -->
+            <div class="auth-side-panel" aria-hidden="true">
+                <div class="asp-blob asp-blob-1"></div>
+                <div class="asp-blob asp-blob-2"></div>
+                <div class="asp-dot asp-dot-1"></div>
+                <div class="asp-dot asp-dot-2"></div>
+                <div class="asp-illustration">
+                    <svg viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="160" cy="130" r="112" fill="rgba(255,255,255,.06)"/>
+                        <rect x="96" y="30" width="128" height="200" rx="24" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
+                        <rect x="118" y="54" width="84" height="10" rx="5" fill="rgba(255,255,255,.35)"/>
+                        <g transform="translate(160,150)">
+                            <rect x="-38" y="10" width="16" height="34" rx="3" fill="rgba(255,255,255,.28)"/>
+                            <rect x="-16" y="-6" width="16" height="50" rx="3" fill="var(--gold-lt)"/>
+                            <rect x="6" y="-24" width="16" height="68" rx="3" fill="var(--gold-lt)"/>
+                            <rect x="28" y="4" width="16" height="40" rx="3" fill="rgba(255,255,255,.28)"/>
+                            <path d="M-38 -16 L-8 -30 L14 -40 L38 -52" fill="none" stroke="var(--gold-lt)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                        </g>
+                        <rect x="118" y="196" width="84" height="10" rx="5" fill="rgba(255,255,255,.25)"/>
+                        <circle cx="66" cy="52" r="18" fill="var(--gold-lt)" opacity=".45"/>
+                        <circle cx="258" cy="204" r="14" fill="rgba(255,255,255,.2)"/>
+                        <path d="M46 200 q16 -34 44 -10" stroke="var(--gold-lt)" stroke-width="4" fill="none" stroke-linecap="round" opacity=".6"/>
+                        <path d="M244 50 l14 -14 m0 14 l-14 -14" stroke="rgba(255,255,255,.5)" stroke-width="3.5" stroke-linecap="round"/>
                     </svg>
                 </div>
-                <h2>Welcome Back</h2>
-                <p>Sign in to access student results and analytics</p>
+                <div class="asp-brand">
+                    <div class="asp-brand-name">Kanyadet Pri &amp; Junior School</div>
+                    <div class="asp-brand-tag">Student results, analytics, and report cards — all in one secure portal.</div>
+                </div>
+            </div>
 
-                <button id="sign-in-google-btn" class="btn btn-primary" style="width:100%;justify-content:center;padding:.85rem;font-size:.95rem;border-radius:10px;margin-bottom:.75rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48">
-                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                    </svg>
-                    Continue with Google
-                </button>
-                <button id="sign-in-fingerprint-btn" class="btn btn-outline" style="width:100%;justify-content:center;padding:.85rem;font-size:.95rem;border-radius:10px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
-                    </svg>
-                    Sign in with Fingerprint
-                </button>
+            <!-- WAVE DIVIDER -->
+            <div class="auth-divider-wave" aria-hidden="true">
+                <svg viewBox="0 0 144 800" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="resultsAuthWaveGrad" x1="0" y1="0" x2="0.4" y2="1">
+                            <stop offset="0%"  stop-color="#1e4080"/>
+                            <stop offset="55%" stop-color="#152d4a"/>
+                            <stop offset="100%" stop-color="#0d1f35"/>
+                        </linearGradient>
+                    </defs>
+                    <path fill="url(#resultsAuthWaveGrad)" d="M88,0 L103.7,16 L101.8,32 L96.3,48 L100.9,64 L114.1,80 L120.3,96 L105.6,112 L73.2,128 L41.4,144 L27.7,160 L33.5,176 L44.2,192 L45.2,208 L37.4,224 L35.5,240 L52.7,256 L85.5,272 L115.6,288 L125.5,304 L114.7,320 L98.4,336 L91.9,352 L95.3,368 L94.4,384 L76.6,400 L45.2,416 L18.6,432 L13.5,448 L30,464 L51.8,480 L63,496 L62.6,512 L64.4,528 L81,544 L109.2,560 L131,576 L130.5,592 L108.4,608 L81.8,624 L67.4,640 L66.6,656 L65.7,672 L52.1,688 L28.6,704 L12.3,720 L18.5,736 L45.4,752 L75.5,768 L91.3,784 L91.5,800 L0,800 L0,0 Z"/>
+                </svg>
+            </div>
+
+            <div class="auth-cards-wrap">
+                <div class="signin-card">
+                    <div class="signin-illustration">
+                        <svg viewBox="0 0 220 150" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="112" cy="76" r="64" fill="var(--surface3)"/>
+                            <rect x="66" y="24" width="92" height="106" rx="16" fill="var(--surface)" stroke="var(--border2)" stroke-width="2"/>
+                            <rect x="80" y="40" width="64" height="8" rx="4" fill="var(--gold-lt)" opacity=".6"/>
+                            <g transform="translate(112,90)">
+                                <rect x="-30" y="6" width="12" height="26" rx="2" fill="var(--border2)"/>
+                                <rect x="-12" y="-6" width="12" height="38" rx="2" fill="var(--gold)"/>
+                                <rect x="6" y="-18" width="12" height="50" rx="2" fill="var(--navy-lt)"/>
+                                <rect x="24" y="2" width="12" height="30" rx="2" fill="var(--border2)"/>
+                            </g>
+                            <rect x="80" y="118" width="40" height="8" rx="4" fill="var(--border2)"/>
+                            <circle cx="38" cy="36" r="13" fill="var(--gold-lt)" opacity=".4"/>
+                            <circle cx="188" cy="120" r="10" fill="var(--navy-lt)" opacity=".22"/>
+                            <path d="M170 40 l10 -10 m0 10 l-10 -10" stroke="var(--gold-lt)" stroke-width="3" stroke-linecap="round" opacity=".6"/>
+                        </svg>
+                        <div class="signin-logo">📊</div>
+                    </div>
+                    <h2>Welcome Back</h2>
+                    <p>Sign in to access student results and analytics</p>
+
+                    <button id="sign-in-google-btn" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+                    <button id="sign-in-fingerprint-btn" class="btn btn-outline">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                        </svg>
+                        Sign in with Fingerprint
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1133,7 +1255,7 @@
                 <div style="display:flex;align-items:center;gap:1rem;">
                     <img id="pdf-modal-student-image" class="modal-student-image" src="" alt="Student Image" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid var(--border);">
                     <div>
-                        <div id="pdf-modal-student-name" style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--navy);"></div>
+                        <div id="pdf-modal-student-name" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:700;color:var(--navy);"></div>
                         <div style="font-size:.8rem;color:var(--slate);">Birth Certificate</div>
                     </div>
                 </div>
@@ -2969,7 +3091,7 @@ gradeFilterSelect.addEventListener('change', () => {
                 if (!field || field === '_actions') return;
                 const isVis = col.isVisible();
                 const item = document.createElement('label');
-                item.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.4rem 1rem;cursor:pointer;font-size:.82rem;color:var(--text2);font-family:"DM Sans",sans-serif;user-select:none;';
+                item.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.4rem 1rem;cursor:pointer;font-size:.82rem;color:var(--text2);font-family:"Plus Jakarta Sans",sans-serif;user-select:none;';
                 item.innerHTML = `<input type="checkbox" ${isVis ? 'checked' : ''} style="accent-color:var(--navy)"> ${col.getDefinition().title}`;
                 item.querySelector('input').addEventListener('change', e => {
                     e.target.checked ? col.show() : col.hide();
@@ -4199,7 +4321,7 @@ const exportToPdf = async () => {
             toast.id = 'shortcut-toast';
             toast.style.cssText = `
                 position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%) translateY(12px);
-                background:var(--navy);color:#fff;font-family:'DM Sans',sans-serif;
+                background:var(--navy);color:#fff;font-family:'Plus Jakarta Sans',sans-serif;
                 font-size:.78rem;font-weight:600;padding:.42rem 1rem;border-radius:999px;
                 box-shadow:0 4px 18px rgba(0,0,0,.28);z-index:9999;
                 opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
@@ -4230,7 +4352,7 @@ const exportToPdf = async () => {
                         max-width:540px;width:100%;padding:1.75rem 2rem;border:1px solid var(--border);
                         max-height:90vh;overflow-y:auto;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-                    <div style="font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:800;color:var(--navy);">Keyboard Shortcuts</div>
+                    <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.25rem;font-weight:800;color:var(--navy);">Keyboard Shortcuts</div>
                     <button id="help-close-btn" style="width:30px;height:30px;border-radius:50%;border:none;
                         background:var(--surface3);color:var(--slate);cursor:pointer;font-size:1rem;
                         display:flex;align-items:center;justify-content:center;">✕</button>
@@ -4252,7 +4374,7 @@ const exportToPdf = async () => {
                     ].map(([k, d]) => `
                         <div style="display:flex;align-items:center;justify-content:flex-end;">
                             <kbd style="background:var(--navy);color:#fff;border-radius:6px;
-                                padding:.2rem .5rem;font-size:.72rem;font-family:'DM Sans',sans-serif;
+                                padding:.2rem .5rem;font-size:.72rem;font-family:'Plus Jakarta Sans',sans-serif;
                                 font-weight:700;white-space:nowrap;letter-spacing:.03em;">${k}</kbd>
                         </div>
                         <div style="font-size:.82rem;color:var(--text2);display:flex;align-items:center;">${d}</div>
@@ -4441,7 +4563,7 @@ const exportToPdf = async () => {
                 background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);
                 font-size:.82rem;font-weight:700;cursor:pointer;display:flex;
                 align-items:center;justify-content:center;transition:background .15s;
-                font-family:'DM Sans',sans-serif;flex-shrink:0;`;
+                font-family:'Plus Jakarta Sans',sans-serif;flex-shrink:0;`;
             badge.textContent = '?';
             badge.addEventListener('mouseenter', () => badge.style.background = 'rgba(255,255,255,.2)');
             badge.addEventListener('mouseleave', () => badge.style.background = 'rgba(255,255,255,.1)');
@@ -4648,7 +4770,7 @@ const exportToPdf = async () => {
             chartModal.innerHTML = `
                 <div style="background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);max-width:700px;width:100%;padding:1.75rem;border:1px solid var(--border);max-height:90vh;overflow-y:auto;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-                        <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:800;color:var(--navy);">Grade Average Comparison</div>
+                        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:800;color:var(--navy);">Grade Average Comparison</div>
                         <button id="close-chart-modal" style="width:30px;height:30px;border-radius:50%;border:none;background:var(--surface3);color:var(--slate);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
                     </div>
                     <div style="margin-bottom:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;" id="chart-subject-pills"></div>
@@ -4751,7 +4873,7 @@ const exportToPdf = async () => {
                     <div id="sc-header" style="padding:1.5rem;background:var(--navy);border-radius:20px 20px 0 0;display:flex;align-items:center;gap:1rem;">
                         <img id="sc-avatar" src="./student_images/default.jpg" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.3);flex-shrink:0;">
                         <div style="flex:1;min-width:0;">
-                            <div id="sc-name" style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:800;color:#fff;line-height:1.2;"></div>
+                            <div id="sc-name" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:800;color:#fff;line-height:1.2;"></div>
                             <div id="sc-meta" style="font-size:.77rem;color:rgba(255,255,255,.55);margin-top:.2rem;"></div>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;">
@@ -4896,7 +5018,7 @@ const exportToPdf = async () => {
             previewModal.innerHTML = `
                 <div style="background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);max-width:820px;width:100%;border:1px solid var(--border);margin:auto;">
                     <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--navy);border-radius:18px 18px 0 0;">
-                        <div style="font-family:'Playfair Display',serif;font-size:1rem;font-weight:800;color:#fff;">Import Preview</div>
+                        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;color:#fff;">Import Preview</div>
                         <button id="close-preview-btn" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;">✕</button>
                     </div>
                     <div style="padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);">
@@ -5042,7 +5164,7 @@ const exportToPdf = async () => {
                     const rowsBd    = { new:'#059669', update:'#2b6cb0', same:'var(--border2)',  duplicate:'#dc2626' };
                     const rowsLabel = { new:'NEW',     update:'UPDATE',  same:'SAME',            duplicate:'⚠ DUPLICATE' };
                     document.getElementById('preview-table-wrap').innerHTML = `
-                        <table style="width:100%;border-collapse:collapse;font-size:.78rem;font-family:'DM Sans',sans-serif;">
+                        <table style="width:100%;border-collapse:collapse;font-size:.78rem;font-family:'Plus Jakarta Sans',sans-serif;">
                             <thead><tr style="background:var(--navy);">
                                 <th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">Status</th>
                                 ${colsToShow.map(h => `<th style="padding:.5rem .75rem;color:rgba(255,255,255,.7);font-weight:600;text-align:left;font-size:.7rem;">${h}</th>`).join('')}
@@ -5272,7 +5394,7 @@ const exportToPdf = async () => {
             snackbar.style.cssText = `
                 position:fixed;bottom:1.5rem;right:1.5rem;z-index:9500;
                 background:var(--navy);color:#fff;
-                font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;
+                font-family:'Plus Jakarta Sans',sans-serif;font-size:.82rem;font-weight:600;
                 padding:.7rem 1.1rem;border-radius:12px;
                 box-shadow:0 6px 24px rgba(0,0,0,.3);
                 display:flex;align-items:center;gap:.75rem;
@@ -5398,7 +5520,7 @@ const exportToPdf = async () => {
                     <!-- Header -->
                     <div style="padding:1.1rem 1.5rem;background:var(--navy);border-radius:18px 18px 0 0;display:flex;align-items:center;justify-content:space-between;">
                         <div>
-                            <div style="font-family:'Playfair Display',serif;font-size:1rem;font-weight:800;color:#fff;">Duplicate Record Scanner</div>
+                            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;color:#fff;">Duplicate Record Scanner</div>
                             <div style="font-size:.73rem;color:rgba(255,255,255,.45);margin-top:.15rem;">Scans live database for records sharing the same Term header or Name · Grade · Term</div>
                         </div>
                         <button id="close-dup-scanner" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;">✕</button>
@@ -5594,7 +5716,7 @@ const exportToPdf = async () => {
                                 <button onclick="deleteAllDups(${gi})" style="padding:.22rem .7rem;border-radius:6px;border:1.5px solid #fca5a5;background:#fff5f5;color:#dc2626;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;">Delete ${dupCount} dup${dupCount!==1?'s':''}</button>
                             </div>
                         </div>
-                        <table style="width:100%;border-collapse:collapse;font-size:.79rem;font-family:'DM Sans',sans-serif;">
+                        <table style="width:100%;border-collapse:collapse;font-size:.79rem;font-family:'Plus Jakarta Sans',sans-serif;">
                             <thead><tr style="background:var(--surface2);">
                                 <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;"></th>
                                 <th style="padding:.4rem .75rem;font-size:.68rem;font-weight:700;color:var(--slate);text-align:left;">Name</th>
