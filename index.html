@@ -115,36 +115,48 @@ document.addEventListener('DOMContentLoaded', () => {
   --orange:#e67e22; --orange-dk:#d35400; --gold:#f39c12;
   --green:#27ae60; --green-dk:#1d8a4e; --red:#e74c3c; --red-dk:#c0392b;
   --purple:#8e44ad; --teal:#16a085;
+  --brand-1:#0f4c81; --brand-2:#3f8fc5; --brand-3:#ffb84d;
   --radius-xl:24px; --radius-lg:18px; --radius-md:12px; --radius-sm:8px;
   --transition:all .25s cubic-bezier(.4,0,.2,1);
   --sidebar-w:260px;
 }
 [data-theme="dark"] {
-  --bg:#090f1a; --bg2:#0c1525; --surface:#111d2e; --surface2:#162438;
-  --surface3:#1c2e44; --border:rgba(41,128,185,.18); --border-strong:rgba(41,128,185,.4);
-  --text:#ddeeff; --text2:#7aaec9; --text3:#4a7a9b; --topbar:rgba(9,15,26,.9);
-  --sidebar-bg:#0a1422; --card-shadow:0 8px 32px rgba(0,0,0,.4);
+  --bg:linear-gradient(145deg,#07111d 0%,#0d1b31 52%,#0f2744 100%);
+  --bg2:#0c1525; --surface:#11203a; --surface2:#172b49;
+  --surface3:#1b3456; --border:rgba(93,173,226,.18); --border-strong:rgba(93,173,226,.4);
+  --text:#ddeeff; --text2:#94b8d9; --text3:#6a91b2; --topbar:rgba(8,14,24,.88);
+  --sidebar-bg:#0a1321; --card-shadow:0 12px 34px rgba(0,0,0,.38);
 }
 [data-theme="light"] {
-  --bg:linear-gradient(135deg,#eef0f2 0%,#f4f0e6 45%,#fbecc3 100%);
-  --bg2:#f7edd0; --surface:#ffffff; --surface2:#fdfaf2;
-  --surface3:#f8eed6; --border:rgba(211,164,55,.2); --border-strong:rgba(211,164,55,.45);
-  --text:#0c1e33; --text2:#5a5342; --text3:#a89b7a; --topbar:rgba(250,244,225,.88);
-  --sidebar-bg:#faf6ea; --card-shadow:0 4px 20px rgba(211,164,55,.14);
+  --bg:linear-gradient(145deg,#edf4fb 0%,#f7efe0 46%,#fce9b7 100%);
+  --bg2:#f7edd0; --surface:#ffffff; --surface2:#fffdf7;
+  --surface3:#f8eed6; --border:rgba(211,164,55,.25); --border-strong:rgba(211,164,55,.52);
+  --text:#0c1e33; --text2:#5a5342; --text3:#a89b7a; --topbar:rgba(255,250,235,.92);
+  --sidebar-bg:#fffaf0; --card-shadow:0 8px 24px rgba(211,164,55,.16);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s;}
 body::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 60% 50% at 8% 10%,rgba(41,128,185,.12) 0%,transparent 65%),
-    radial-gradient(ellipse 50% 45% at 92% 90%,rgba(22,160,133,.08) 0%,transparent 60%),
-    radial-gradient(ellipse 35% 30% at 55% 50%,rgba(41,128,185,.05) 0%,transparent 70%);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(41,128,185,.20), transparent 26%),
+    radial-gradient(circle at 88% 92%, rgba(230,126,34,.20), transparent 24%),
+    linear-gradient(120deg, rgba(255,255,255,.08), transparent 60%);
+  opacity:.95;
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(41,128,185,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(41,128,185,.045) 1px, transparent 1px);
+  background-size:26px 26px;
+  mask-image:radial-gradient(circle at center, black 50%, transparent 92%);
 }
 [data-theme="light"] body::before{
-  opacity:.6;
-  background:radial-gradient(ellipse 55% 45% at 90% 88%,rgba(243,156,18,.18) 0%,transparent 65%),
-    radial-gradient(ellipse 45% 40% at 10% 8%,rgba(211,164,55,.08) 0%,transparent 60%);
+  opacity:.8;
+  background:
+    radial-gradient(circle at 90% 85%, rgba(243,156,18,.26), transparent 24%),
+    radial-gradient(circle at 10% 8%, rgba(22,160,133,.13), transparent 26%),
+    linear-gradient(120deg, rgba(255,255,255,.12), transparent 60%);
 }
 a{color:inherit;}
 ::-webkit-scrollbar{width:9px;height:9px;}
@@ -220,16 +232,16 @@ a{color:inherit;}
 
 #app-shell{display:none;}
 #app-shell.active{display:flex;min-height:100vh;position:relative;z-index:1;width:100%;overflow-x:hidden;}
-.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:600;transition:var(--transition),transform .3s,width .25s cubic-bezier(.4,0,.2,1);overflow-y:auto;overflow-x:hidden;}
-.sidebar-brand{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;}
-.brand-icon{width:42px;height:42px;border-radius:12px;flex-shrink:0;background:linear-gradient(135deg,var(--blue),var(--blue-dk));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 16px var(--blue-glow);}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:linear-gradient(180deg, var(--sidebar-bg), rgba(255,255,255,.66));border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:600;transition:var(--transition),transform .3s,width .25s cubic-bezier(.4,0,.2,1);overflow-y:auto;overflow-x:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.2) inset;}
+.sidebar-brand{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:linear-gradient(90deg, rgba(41,128,185,.12), rgba(243,156,18,.08));}
+.brand-icon{width:42px;height:42px;border-radius:12px;flex-shrink:0;background:linear-gradient(135deg,var(--brand-1),var(--brand-2),var(--brand-3));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 6px 20px rgba(20,63,110,.35);}
 .brand-text .b-name{font-size:14px;font-weight:900;letter-spacing:.01em;color:var(--text);}
-.brand-text .b-role{font-size:10px;color:var(--blue-lt);font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+.brand-text .b-role{font-size:10px;color:var(--blue-lt);font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
 .sidebar-section{padding:16px 12px 6px;}
 .s-label{font-size:9px;font-weight:800;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;padding:0 8px;margin-bottom:6px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);cursor:pointer;transition:var(--transition);font-size:13px;font-weight:600;color:var(--text2);margin-bottom:2px;white-space:nowrap;}
-.nav-item:hover{background:rgba(41,128,185,.1);color:var(--text);}
-.nav-item.active{background:linear-gradient(135deg,rgba(41,128,185,.2),rgba(41,128,185,.08));color:var(--blue-lt);border:1px solid rgba(41,128,185,.25);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);cursor:pointer;transition:var(--transition);font-size:13px;font-weight:700;color:var(--text2);margin-bottom:2px;white-space:nowrap;}
+.nav-item:hover{background:rgba(41,128,185,.12);color:var(--text);transform:translateX(2px);}
+.nav-item.active{background:linear-gradient(135deg,rgba(41,128,185,.25),rgba(41,128,185,.12));color:var(--blue-lt);border:1px solid rgba(41,128,185,.32);box-shadow:0 6px 18px rgba(41,128,185,.15);}
 .nav-item .nav-icon{font-size:16px;flex-shrink:0;width:18px;text-align:center;}
 .nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;}
 .nav-badge.red{background:var(--red);}
@@ -241,10 +253,10 @@ a{color:inherit;}
 .logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;flex-shrink:0;}
 .logout-btn:hover{color:var(--red);}
 .main-content{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0;max-width:calc(100vw - var(--sidebar-w));overflow-x:hidden;transition:margin-left .25s cubic-bezier(.4,0,.2,1),max-width .25s cubic-bezier(.4,0,.2,1);}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;background:var(--topbar);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:550;min-width:0;gap:10px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;background:linear-gradient(90deg, rgba(255,255,255,.55), rgba(255,255,255,.22));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:550;min-width:0;gap:10px;box-shadow:0 10px 24px rgba(0,0,0,.06);}
 .topbar-left{display:flex;align-items:center;gap:14px;min-width:0;flex-shrink:1;}
 .burger{background:none;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;cursor:pointer;color:var(--text2);font-size:15px;flex-shrink:0;display:none;}
-.page-title{font-size:18px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.page-title{font-size:18px;font-weight:900;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.03em;}
 .page-crumb{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .theme-toggle{width:52px;height:28px;border-radius:14px;background:var(--surface2);border:1.5px solid var(--border);cursor:pointer;position:relative;display:flex;align-items:center;padding:3px;transition:var(--transition);}
@@ -285,19 +297,60 @@ a{color:inherit;}
 .btn-xs{padding:4px 10px;font-size:10px;border-radius:var(--radius-sm);}
 .btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(175px,100%),1fr));gap:14px;margin-bottom:24px;}
-.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;transition:var(--transition);cursor:default;box-shadow:var(--card-shadow);position:relative;overflow:hidden;}
-.kpi-card::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:var(--accent-glow,rgba(41,128,185,.08));transition:var(--transition);}
-.kpi-card:hover{transform:translateY(-3px);border-color:var(--border-strong);box-shadow:0 12px 40px rgba(0,0,0,.18);}
+.kpi-card{background:linear-gradient(165deg, rgba(255,255,255,.88), rgba(255,255,255,.64));border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;transition:var(--transition);cursor:default;box-shadow:var(--card-shadow);position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:-20px;right:-20px;width:86px;height:86px;border-radius:50%;background:radial-gradient(circle, rgba(41,128,185,.25), rgba(41,128,185,.05));transition:var(--transition);}
+.kpi-card::after{content:'';position:absolute;inset:auto 14px 0 auto;width:40%;height:3px;border-radius:999px;background:linear-gradient(90deg, var(--brand-2), var(--brand-3));opacity:.75;}
+.kpi-card:hover{transform:translateY(-4px) scale(1.01);border-color:var(--border-strong);box-shadow:0 18px 46px rgba(15,76,129,.18);}
 .kpi-icon{font-size:24px;margin-bottom:10px;}
 .kpi-val{font-size:28px;font-weight:900;font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:4px;}
 .kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;font-weight:700;}
 .kpi-change{font-size:10px;font-weight:700;margin-top:6px;display:flex;align-items:center;gap:4px;}
 .kpi-change.up{color:var(--green);}
 .kpi-change.down{color:var(--red);}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--card-shadow);margin-bottom:18px;min-width:0;}
-.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;min-width:0;}
+.dashboard-hero{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin-bottom:20px;}
+.dashboard-hero .hero-panel,
+.dashboard-hero .hero-meta{background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,255,255,.66));color:var(--text);border:1px solid var(--border);border-radius:24px;padding:20px;position:relative;overflow:hidden;box-shadow:var(--card-shadow);}
+.dashboard-hero .hero-panel::before,
+.dashboard-hero .hero-meta::before{content:'';position:absolute;inset:0;background:linear-gradient(140deg, rgba(41,128,185,.08), transparent 35%, rgba(243,156,18,.05));pointer-events:none;}
+.dashboard-hero .hero-kicker{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(41,128,185,.10);color:var(--blue-lt);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;border:1px solid rgba(41,128,185,.18);}
+.dashboard-hero .hero-title{font-size:24px;font-weight:900;letter-spacing:-.04em;margin:12px 0 6px;line-height:1.1;color:var(--text);}
+.dashboard-hero .hero-subtitle{font-size:12.5px;line-height:1.6;color:var(--text3);max-width:560px;}
+.dashboard-hero .hero-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.dashboard-hero .hero-pills .badge{background:rgba(41,128,185,.10);color:var(--blue-lt);border:1px solid rgba(41,128,185,.18);}
+.dashboard-hero .hero-meta{display:flex;flex-direction:column;justify-content:space-between;min-height:100%;}
+.dashboard-hero .hero-meta .meta-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;font-weight:800;}
+.dashboard-hero .hero-meta .meta-value{font-size:22px;font-weight:900;margin-top:6px;letter-spacing:-.04em;color:var(--text);}
+.dashboard-hero .hero-meta .meta-line{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text3);line-height:1.55;}
+.dashboard-hero .status-ribbon{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(41,128,185,.08);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;border:1px solid rgba(41,128,185,.18);margin-top:12px;color:var(--text);}
+.dashboard-hero .status-ribbon .dot{width:7px;height:7px;border-radius:50%;background:#3ddc97;box-shadow:0 0 0 4px rgba(61,220,151,.22);}
+.analytics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:20px;align-items:stretch;}
+.analytics-grid .card{margin-bottom:0;}
+.analytics-list{display:grid;gap:10px;}
+.analytics-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);} 
+.analytics-row:last-child{border-bottom:none;}
+.analytics-row .analytics-name{font-size:12px;font-weight:800;color:var(--text);}
+.analytics-row .analytics-meta{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+.analytics-bar{position:relative;height:8px;border-radius:999px;background:rgba(41,128,185,.12);overflow:hidden;margin-top:6px;}
+.analytics-bar > span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg, var(--brand-2), var(--brand-3));}
+.analytics-chart-box{position:relative;height:150px;width:100%;}
+.analytics-chart-box canvas{display:block;width:100% !important;height:150px !important;}
+.analytics-chart-box .chart-loader-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;z-index:2;background:linear-gradient(180deg, rgba(255,255,255,.82), rgba(245,249,255,.92));border-radius:14px;color:var(--text2);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}
+.analytics-chart-box .chart-loader-overlay .mini-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(41,128,185,.2);border-top-color:var(--blue-lt);animation:spin .8s linear infinite;}
+.analytics-chart-box.is-loaded .chart-loader-overlay{display:none;}
+.analytics-list-loader{display:grid;gap:10px;padding:2px 0;}
+.analytics-list-loader .skeleton-line{height:12px;border-radius:999px;background:linear-gradient(90deg, rgba(41,128,185,.14), rgba(41,128,185,.26), rgba(41,128,185,.14));background-size:200% 100%;animation:shimmer 1.4s linear infinite;}
+.analytics-list-loader .skeleton-line.short{width:42%;}
+.analytics-list-loader .skeleton-line.mid{width:68%;}
+.analytics-list-loader .skeleton-line.long{width:86%;}
+.analytics-insight{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.analytics-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(41,128,185,.08);color:var(--text);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border:1px solid rgba(41,128,185,.14);}
+.analytics-pill strong{font-family:'JetBrains Mono',monospace;font-size:10px;}
+.card{background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,255,255,.66));border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--card-shadow);margin-bottom:18px;min-width:0;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(140deg, rgba(41,128,185,.05), transparent 35%, rgba(243,156,18,.04));}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;min-width:0;position:relative;z-index:1;}
 .card-title{font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.06em;min-width:0;}
-.card-title::before{content:'';display:block;width:3px;height:14px;background:linear-gradient(180deg,var(--blue),var(--orange));border-radius:2px;flex-shrink:0;}
+.card-title::before{content:'';display:block;width:4px;height:14px;background:linear-gradient(180deg,var(--brand-1),var(--brand-3));border-radius:2px;flex-shrink:0;}
+@media(max-width:900px){.dashboard-hero,.analytics-grid{grid-template-columns:1fr;}}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;min-width:0;}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;min-width:0;}
 .grid-60-40{display:grid;grid-template-columns:60% 40%;gap:18px;min-width:0;}
@@ -735,6 +788,7 @@ function gShortJS(raw){
 window._gShort = gShortJS;
 
 const DB_STUDENTS_PATH = 'Results/default-app-id/students';
+const ARTIFACT_STUDENTS_PATH = 'artifacts/default-app-id/students';
 const ANNOUNCEMENTS_PATH = 'announcements';
 const ATTENDANCE_PATH = 'attendance';        // attendance/{grade}/{yyyy-mm-dd} = {studentKey:'present'|'absent'|'late', ...}
 const TIMETABLE_PATH  = 'timetables';        // timetables/{grade} = {mon:[...],tue:[...]...}  (legacy per-grade view)
@@ -1175,6 +1229,77 @@ document.getElementById('msg-bell-btn').addEventListener('click', ()=>navTo('mes
 VIEW_RENDERERS['dashboard'] = async function(area){
   const p = me(); const grades = myGrades();
   area.innerHTML = `
+    <div class="dashboard-hero">
+      <div class="hero-panel">
+        <div class="hero-kicker">🏫 Active teacher workspace</div>
+        <div class="hero-title">Welcome back, ${esc(p.name || 'Teacher')}.</div>
+        <div class="hero-subtitle">Your day is organized around class delivery, student visibility, daily attendance, and the latest school announcements — all in one secure portal.</div>
+        <div class="status-ribbon"><span class="dot"></span><span id="hero-school-status">School status: Stable</span></div>
+        <div class="hero-pills">
+          ${grades.length ? grades.map(g=>`<span class="badge badge-blue">${esc(g)}</span>`).join('') : '<span class="badge badge-gray">No grades assigned</span>'}
+        </div>
+      </div>
+      <div class="hero-meta">
+        <div>
+          <div class="meta-label">Today</div>
+          <div class="meta-value">${new Date().toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'short'})}</div>
+        </div>
+        <div>
+          <div class="meta-label">School pulse</div>
+          <div class="meta-value" id="hero-school-pulse">—</div>
+        </div>
+        <div>
+          <div class="meta-label">Top grade</div>
+          <div class="meta-value" id="hero-top-grade">—</div>
+        </div>
+        <div class="meta-line">Use quick actions to jump straight into attendance, gradebook, messages, or leave when the next class block starts.</div>
+      </div>
+    </div>
+    <div class="analytics-grid">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Class Coverage Snapshot</div><span class="badge badge-blue" id="dash-coverage-label">0%</span></div>
+        <div class="analytics-list" id="dash-grade-mix">
+          <div class="analytics-list-loader">
+            <div class="skeleton-line long"></div>
+            <div class="skeleton-line mid"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Attendance Trend</div><span class="badge badge-green" id="dash-trend-label">Ahead of target</span></div>
+        <div class="analytics-chart-box" id="dash-analytics-wrap">
+          <div class="chart-loader-overlay"><span class="mini-spin"></span><span>Loading trend…</span></div>
+          <canvas id="dash-analytics-chart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Admissions Trend</div><span class="badge badge-orange" id="dash-admission-label">Yearly intake</span></div>
+        <div class="analytics-chart-box" id="dash-admission-wrap">
+          <div class="chart-loader-overlay"><span class="mini-spin"></span><span>Loading admission trend…</span></div>
+          <canvas id="dash-admission-chart"></canvas>
+        </div>
+        <div class="analytics-insight" id="dash-admission-summary"></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Gender Mix</div><span class="badge badge-purple" id="dash-gender-label">Live split</span></div>
+        <div class="analytics-chart-box" id="dash-gender-wrap">
+          <div class="chart-loader-overlay"><span class="mini-spin"></span><span>Loading gender split…</span></div>
+          <canvas id="dash-gender-chart"></canvas>
+        </div>
+        <div class="analytics-insight" id="dash-gender-summary"></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Disability Mix</div><span class="badge badge-red" id="dash-disability-label">Health profile</span></div>
+        <div class="analytics-list" id="dash-disability-mix">
+          <div class="analytics-list-loader">
+            <div class="skeleton-line long"></div>
+            <div class="skeleton-line mid"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-icon">🏷️</div><div class="kpi-val">${grades.length}</div><div class="kpi-label">Assigned Grades</div></div>
       <div class="kpi-card"><div class="kpi-icon">🧑‍🎓</div><div class="kpi-val" id="kpi-students">—</div><div class="kpi-label">My Students</div></div>
@@ -1236,33 +1361,359 @@ VIEW_RENDERERS['dashboard'] = async function(area){
     `<div class="chip" style="margin:4px 6px 0 0;display:inline-flex;" onclick="_navTo('classes')">🏷️ ${esc(g)}</div>`).join('') :
     `<div class="empty-state"><div class="es-sub">No grades assigned yet — ask your admin to assign you a class.</div></div>`;
 
-  // student count from RTDB
-  try{
-    const snap = await rtGet(ref(rtdb, DB_STUDENTS_PATH));
-    const seenIds = new Set();
+  // student count from RTDB + teacher analytics snapshot
+  let totalAssignedStudents = 0;
+  const gradeMix = [];
+  const trendLabels = [];
+  const trendRates = [];
+  const admissionLabels = [];
+  const admissionCounts = [];
+  const admissionYearMap = new Map();
+  const attendanceCache = new Map();
+  const gradeCountMap = {};
+  const disabilityMix = {};
+  const disabilityDetailMap = {};
+  const medicalMix = {};
+  const genderCounts = { male:0, female:0, other:0 };
+  const normalizeBucketLabel = (value) => {
+    const raw = String(value ?? 'None').trim();
+    if(!raw || raw === 'N/A' || raw === '—') return 'None';
+    const clean = raw.replace(/\.+$/g, '').trim();
+    const normalized = clean.toLowerCase();
+    if(normalized === 'none' || normalized === 'n/a' || normalized === 'na') return 'None';
+    return clean || 'None';
+  };
+  const admissionDateKeys = [
+    'Date of Admission','Date Admitted','Admission Date','AdmissionDate','Admission date','DateAdmitted',
+    'date of admission','date admitted','admission_date','admissionDate','date_admitted','Date_Arrival',
+    'DateOfAdmission','date','Date','AdmissionYear','admissionYear'
+  ];
+  const parseAdmissionYear = (value)=>{
+    if(value === undefined || value === null || value === '') return null;
+    const raw = String(value).trim();
+    if(!raw || raw === 'N/A' || raw === '—') return null;
+    const yearMatch = raw.match(/(19|20)\d{2}/);
+    if(yearMatch) return Number(yearMatch[0]);
+    const slashMatch = raw.match(/(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{4})/);
+    if(slashMatch) return Number(slashMatch[3]);
+    const d = new Date(raw);
+    if(!Number.isNaN(d.getTime())) return d.getFullYear();
+    return null;
+  };
+  const pickAdmissionDate = (rec)=>{
+    for(const key of admissionDateKeys){
+      const year = parseAdmissionYear(rec[key]);
+      if(year) return year;
+    }
+    return null;
+  };
+  const getCachedAttendance = async (grade, dayKey)=>{
+    const cacheKey = `${encodeURIComponent(grade)}::${dayKey}`;
+    if(attendanceCache.has(cacheKey)) return attendanceCache.get(cacheKey);
+    const snap = await rtGet(ref(rtdb, `${ATTENDANCE_PATH}/${encodeURIComponent(grade)}/${dayKey}`));
+    let present = 0, total = 0;
     if(snap.exists()){
-      const val = snap.val();
-      Object.values(val).forEach(rec=>{
+      Object.values(snap.val()).forEach(v => { total++; if(v === 'present') present++; });
+    }
+    const result = { present, total };
+    attendanceCache.set(cacheKey, result);
+    return result;
+  };
+  try{
+    const resultsSnap = await rtGet(ref(rtdb, DB_STUDENTS_PATH));
+    const artifactSnap = await rtGet(ref(rtdb, ARTIFACT_STUDENTS_PATH));
+    const seenIds = new Set();
+    const rosterByGrade = new Map();
+    if(resultsSnap.exists()){
+      const val = resultsSnap.val();
+      Object.entries(val).forEach(([key, rec])=>{
         const g = gShortJS(rec && rec['Grade']);
+        const gradeKey = String(g || '').trim();
+        if(gradeKey){
+          const list = rosterByGrade.get(gradeKey) || [];
+          list.push({
+            key,
+            name: rec['Official Student Name'] || '—',
+            gender: rec['Gender'] || '',
+            assessmentNo: rec['Assessment No'] || rec['UPI'] || key
+          });
+          rosterByGrade.set(gradeKey, list);
+        }
         if(grades.some(mg => g.toLowerCase() === String(mg).toLowerCase())){
           seenIds.add(rec['Assessment No'] || rec['UPI'] || rec['Official Student Name']);
         }
+        const gender = String(rec?.Gender || rec?.gender || '').trim().toLowerCase();
+        if(gender === 'male' || gender === 'm') genderCounts.male++;
+        else if(gender === 'female' || gender === 'f') genderCounts.female++;
+        else if(gender) genderCounts.other++;
+      });
+      for(const [grade, list] of Array.from(rosterByGrade.entries())){
+        list.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+        const seen = new Set();
+        const dedup = [];
+        list.forEach(s => {
+          const id = s.assessmentNo || s.key;
+          if(!seen.has(id)) {
+            seen.add(id);
+            dedup.push(s);
+          }
+        });
+        rosterByGrade.set(grade, dedup);
+      }
+    }
+    if(artifactSnap.exists()){
+      const val = artifactSnap.val();
+      const artifactRecords = Object.values(val || {});
+      artifactRecords.forEach(rec=>{
+        const grade = String(rec?.Grade || rec?.CurrentGrade || 'N/A').trim() || 'N/A';
+        const disability = normalizeBucketLabel(rec?.Disability || rec?.Dissability || 'None');
+        const medical = normalizeBucketLabel(rec?.['Medical Condition'] || rec?.MedicalCondition || 'None');
+        const row = {
+          name: String(rec?.['Official Student Name'] || rec?.Name || rec?.['Student Name'] || '—').trim() || '—',
+          grade,
+          gender: String(rec?.Gender || rec?.gender || '—').trim() || '—',
+          assessment: String(rec?.['Assessment No'] || rec?.UPI || rec?.id || '—').trim() || '—'
+        };
+        gradeCountMap[grade] = (gradeCountMap[grade] || 0) + 1;
+        disabilityMix[disability] = (disabilityMix[disability] || 0) + 1;
+        medicalMix[medical] = (medicalMix[medical] || 0) + 1;
+        if(!disabilityDetailMap[disability]) disabilityDetailMap[disability] = [];
+        disabilityDetailMap[disability].push(row);
+        const year = pickAdmissionDate(rec || {});
+        if(year) admissionYearMap.set(String(year), (admissionYearMap.get(String(year)) || 0) + 1);
       });
     }
-    document.getElementById('kpi-students').textContent = seenIds.size || '0';
+    totalAssignedStudents = seenIds.size || 0;
+    document.getElementById('kpi-students').textContent = totalAssignedStudents || '0';
+
+    const todayGradeStats = await Promise.all(grades.map(async (g) => {
+      const roster = rosterByGrade.get(g) || [];
+      const attendance = await getCachedAttendance(g, todayStr());
+      const studentCount = roster.length;
+      const rate = attendance.total ? Math.round(attendance.present / attendance.total * 100) : 0;
+      return { grade: g, students: studentCount, rate };
+    }));
+    gradeMix.push(...todayGradeStats);
+
+    const coverage = Math.min(100, Math.round((totalAssignedStudents / Math.max(1, grades.length * 45)) * 100));
+    const analyticsHolder = document.getElementById('dash-grade-mix');
+    if(analyticsHolder){
+      analyticsHolder.innerHTML = gradeMix.map(item => `
+        <div class="analytics-row">
+          <div>
+            <div class="analytics-name">${esc(item.grade)}</div>
+            <div class="analytics-meta">${item.students} students</div>
+            <div class="analytics-bar"><span style="width:${Math.max(8, Math.min(100, item.rate))}%"></span></div>
+          </div>
+          <div class="badge ${item.rate >= 85 ? 'badge-green' : item.rate >= 70 ? 'badge-orange' : 'badge-red'}">${item.rate}%</div>
+        </div>
+      `).join('');
+    }
+    const setChartLoaded = (wrapId) => {
+      const wrap = document.getElementById(wrapId);
+      if(wrap) wrap.classList.add('is-loaded');
+    };
+    const topGrade = gradeMix.slice().sort((a,b)=>b.rate-a.rate)[0];
+    document.getElementById('dash-coverage-label').textContent = coverage + '%';
+    document.getElementById('hero-school-pulse').textContent = coverage >= 85 ? 'High coverage' : coverage >= 70 ? 'Stable coverage' : 'Needs attention';
+    document.getElementById('hero-top-grade').textContent = topGrade ? `${topGrade.grade} · ${topGrade.rate}%` : '—';
+    document.getElementById('hero-school-status').textContent = `School status: ${coverage >= 85 ? 'Strong' : coverage >= 70 ? 'Stable' : 'Needs attention'}`;
+
+    const admissionEntries = Array.from(admissionYearMap.entries()).sort(([a],[b]) => Number(a) - Number(b));
+    admissionLabels.length = 0;
+    admissionCounts.length = 0;
+    admissionEntries.forEach(([year, count]) => {
+      admissionLabels.push(year);
+      admissionCounts.push(count);
+    });
+
+    const disabilityEntries = Object.entries(disabilityMix).sort((a,b) => b[1]-a[1]);
+    const disabilityHolder = document.getElementById('dash-disability-mix');
+    if(disabilityHolder){
+      disabilityHolder.innerHTML = disabilityEntries.length
+        ? disabilityEntries.map(([name, count]) => `
+            <button type="button" class="analytics-row" data-disability="${String(name).replace(/"/g,'&quot;')}" style="width:100%;text-align:left;border:none;background:transparent;cursor:pointer;padding:0;">
+              <div>
+                <div class="analytics-name">${esc(name)}</div>
+                <div class="analytics-meta">${count} students</div>
+              </div>
+              <div class="badge badge-red">${count}</div>
+            </button>
+          `).join('')
+        : `<div class="empty-state"><div class="es-sub">No disability data in the active student dataset yet.</div></div>`;
+      disabilityHolder.addEventListener('click', (event) => {
+        const trigger = event.target.closest('button[data-disability]');
+        if(!trigger) return;
+        const selected = trigger.getAttribute('data-disability');
+        if(selected !== null) window.openDisabilityDetails(selected);
+      });
+    }
+
+    window.__disabilityDetailMap = disabilityDetailMap;
+    window.openDisabilityDetails = function(name){
+      const records = (window.__disabilityDetailMap && window.__disabilityDetailMap[name]) || [];
+      const items = records.slice(0, 12).map((rec) => `
+        <div class="analytics-row" style="padding:10px 0;">
+          <div>
+            <div class="analytics-name">${esc(rec.name)}</div>
+            <div class="analytics-meta">${esc(rec.grade)} • ${esc(rec.gender)} • ${esc(rec.assessment)}</div>
+          </div>
+        </div>
+      `).join('');
+      openModal(`
+        <div class="modal-hdr">
+          <h3>Disability details · ${esc(name)}</h3>
+          <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="analytics-list">${items || `<div class="empty-state"><div class="es-sub">No roster is attached to this disability bucket yet.</div></div>`}</div>
+        </div>
+        <div class="modal-ftr">
+          <button class="btn btn-outline" onclick="closeModal()">Close</button>
+        </div>
+      `);
+    };
+
+    const genderCanvas = document.getElementById('dash-gender-chart');
+    if(genderCanvas && typeof Chart !== 'undefined'){
+      const genderData = [genderCounts.male, genderCounts.female, genderCounts.other];
+      const genderLabels = ['Male','Female','Other'];
+      const genderColors = ['#2980b9','#ffb84d','#8e44ad'];
+      if(window.__dashGenderChart) window.__dashGenderChart.destroy();
+      setChartLoaded('dash-gender-wrap');
+      window.__dashGenderChart = new Chart(genderCanvas, {
+        type:'doughnut',
+        data:{ labels: genderLabels, datasets:[{ data: genderData, backgroundColor: genderColors, borderWidth: 0, hoverOffset: 4 }] },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, usePointStyle:true, pointStyle:'circle', color:'#5a5342', font:{ size:10, weight:700 } } } }, cutout:'58%' }
+      });
+      const totalGender = Math.max(1, genderCounts.male + genderCounts.female + genderCounts.other);
+      const pctMale = Math.round((genderCounts.male / totalGender) * 100);
+      const pctFemale = Math.round((genderCounts.female / totalGender) * 100);
+      const pctOther = Math.round((genderCounts.other / totalGender) * 100);
+      const genderSummary = document.getElementById('dash-gender-summary');
+      if(genderSummary){
+        genderSummary.innerHTML = `
+          <span class="analytics-pill"><strong>${pctMale}%</strong> Male</span>
+          <span class="analytics-pill"><strong>${pctFemale}%</strong> Female</span>
+          <span class="analytics-pill"><strong>${pctOther}%</strong> Other</span>
+        `;
+      }
+    }
+
+    const admissionCanvas = document.getElementById('dash-admission-chart');
+    if(admissionCanvas && typeof Chart !== 'undefined'){
+      const admissionChartLabels = admissionLabels.slice();
+      const admissionChartCounts = admissionCounts.slice();
+      const totalAdmissions = admissionChartCounts.reduce((a,b)=>a+b, 0);
+      const peakYear = admissionChartCounts.length ? Math.max(...admissionChartCounts) : 0;
+      const latestYear = admissionChartLabels.length ? admissionChartLabels[admissionChartLabels.length - 1] : '—';
+      const trendDelta = admissionChartCounts.length > 1
+        ? admissionChartCounts[admissionChartCounts.length - 1] - admissionChartCounts[0]
+        : 0;
+      const admissionSummary = document.getElementById('dash-admission-summary');
+      if(admissionSummary){
+        admissionSummary.innerHTML = `
+          <span class="analytics-pill"><strong>${totalAdmissions}</strong> total</span>
+          <span class="analytics-pill"><strong>${latestYear}</strong> latest</span>
+          <span class="analytics-pill"><strong>${trendDelta >= 0 ? '+' : ''}${trendDelta}</strong> vs first</span>
+        `;
+      }
+      if(window.__dashAdmissionChart) window.__dashAdmissionChart.destroy();
+      setChartLoaded('dash-admission-wrap');
+      const trendGradient = admissionCanvas.getContext('2d').createLinearGradient(0, 0, 0, 160);
+      trendGradient.addColorStop(0, 'rgba(245, 158, 11, 0.62)');
+      trendGradient.addColorStop(1, 'rgba(245, 158, 11, 0.07)');
+      window.__dashAdmissionChart = new Chart(admissionCanvas, {
+        type:'bar',
+        data:{
+          labels: admissionChartLabels,
+          datasets:[{
+            label:'Admissions by year',
+            data: admissionChartCounts,
+            backgroundColor: admissionChartCounts.map((_, i) => i === admissionChartCounts.length - 1 ? '#f59e0b' : '#f8c471'),
+            borderRadius: 8,
+            borderSkipped:false
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{ legend:{ display:false } },
+          scales:{
+            x:{ grid:{ display:false }, ticks:{ color:'#6a91b2', font:{ size:10 } } },
+            y:{ beginAtZero:true, grid:{ color:'rgba(41,128,185,.10)' }, ticks:{ precision:0, color:'#6a91b2', font:{ size:10 } } }
+          }
+        }
+      });
+    }
   }catch(e){ document.getElementById('kpi-students').textContent = '—'; }
 
   // today's attendance %
   try{
-    let present=0, total=0;
-    for(const g of grades){
-      const snap = await rtGet(ref(rtdb, `${ATTENDANCE_PATH}/${encodeURIComponent(g)}/${todayStr()}`));
-      if(snap.exists()){
-        Object.values(snap.val()).forEach(v=>{ total++; if(v==='present') present++; });
-      }
-    }
-    document.getElementById('kpi-attendance').textContent = total ? Math.round(present/total*100)+'%' : '—';
+    const todayAttendance = await Promise.all(grades.map(async (g) => getCachedAttendance(g, todayStr())));
+    const present = todayAttendance.reduce((sum, item) => sum + item.present, 0);
+    const total = todayAttendance.reduce((sum, item) => sum + item.total, 0);
+    const attendancePct = total ? Math.round(present / total * 100) : 0;
+    const attendanceDelta = attendancePct >= 85 ? '+12 pts' : attendancePct >= 70 ? '+5 pts' : '-3 pts';
+    document.getElementById('kpi-attendance').textContent = total ? attendancePct + '%' : '—';
+    document.getElementById('dash-trend-label').textContent = attendancePct >= 85 ? 'Ahead of target' : attendancePct >= 70 ? 'Steady' : 'Needs focus';
+    document.getElementById('dash-trend-label').setAttribute('data-delta', attendanceDelta);
   }catch(e){ document.getElementById('kpi-attendance').textContent = '—'; }
+
+  // last-7-day attendance trend for dashboard analytics chart
+  try{
+    const trendSeries = await Promise.all(Array.from({ length: 7 }, (_, idx) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - idx));
+      const key = d.toISOString().slice(0, 10);
+      return (async () => {
+        const dayStats = await Promise.all(grades.map(async (g) => getCachedAttendance(g, key)));
+        const present = dayStats.reduce((sum, item) => sum + item.present, 0);
+        const total = dayStats.reduce((sum, item) => sum + item.total, 0);
+        return {
+          label: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+          rate: total ? Math.round(present / total * 100) : 0
+        };
+      })();
+    }));
+    trendSeries.forEach((item) => {
+      trendLabels.push(item.label);
+      trendRates.push(item.rate);
+    });
+    const chartCanvas = document.getElementById('dash-analytics-chart');
+    if(chartCanvas && typeof Chart !== 'undefined'){
+      if(window.__dashAnalyticsChart) window.__dashAnalyticsChart.destroy();
+      setChartLoaded('dash-analytics-wrap');
+      window.__dashAnalyticsChart = new Chart(chartCanvas, {
+        type:'line',
+        data:{
+          labels: trendLabels,
+          datasets:[{
+            label:'Attendance consistency',
+            data: trendRates,
+            borderColor:'#2980b9',
+            backgroundColor:'rgba(41,128,185,.16)',
+            fill:true,
+            tension:.35,
+            pointRadius:2.5,
+            pointHoverRadius:3.5,
+            pointBackgroundColor:'#1a5276',
+            pointBorderWidth:0,
+            borderWidth:2,
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{
+            x:{ grid:{ display:false }, ticks:{ color:'#6a91b2', font:{ size:10 } } },
+            y:{ min:0, max:100, grid:{ color:'rgba(41,128,185,.10)' }, ticks:{ stepSize:25, color:'#6a91b2', font:{ size:10 } } }
+          }
+        }
+      });
+    }
+  }catch(e){ console.warn('Dashboard trend analytics unavailable', e); }
 
   // announcements
   onValue(ref(rtdb, ANNOUNCEMENTS_PATH), (snap)=>{
@@ -1398,8 +1849,8 @@ function myGrades2(){
   return p.assignedGrade ? [p.assignedGrade] : [];
 }
 
-async function fetchRoster(grade){
-  const snap = await rtGet(ref(rtdb2, DB_STUDENTS_PATH2));
+async function fetchRoster(grade, snapOverride){
+  const snap = snapOverride || await rtGet(ref(rtdb2, DB_STUDENTS_PATH2));
   const out = [];
   if(snap.exists()){
     const val = snap.val();
