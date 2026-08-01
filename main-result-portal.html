@@ -423,9 +423,41 @@ body::before{
    measured from JS since it differs by breakpoint — this just positions
    the card; DataTables' own scrollY (sized against this same measurement)
    handles the actual internal scrolling of the student rows. */
-#qe-table-card{position:sticky;top:var(--qe-card-top,0px);z-index:10;}
-#qe-table-card .card-hdr{background:var(--surface);padding:8px 0;}
-
+#qe-table-card{
+  position:sticky;top:var(--qe-card-top,0px);z-index:10;
+  background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,255,255,.66));
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px;
+  box-shadow:var(--card-shadow);
+  overflow:hidden;
+}
+#qe-table-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(140deg, rgba(41,128,185,.08), transparent 35%, rgba(243,156,18,.05));
+  pointer-events:none;
+}
+#qe-table-card .card-hdr{
+  background:transparent;padding:0 0 12px;margin-bottom:12px;position:relative;z-index:1;
+}
+#qe-table-card .card-title{
+  font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:7px;
+  text-transform:uppercase;letter-spacing:.06em;
+}
+#qe-table-card .card-title::before{
+  content:'';display:block;width:4px;height:14px;background:linear-gradient(180deg,var(--brand-1),var(--brand-3));
+  border-radius:2px;flex-shrink:0;
+}
+#qe-table-card .btn{
+  transition:var(--transition);
+}
+#qe-table-card #qe-search,
+#qe-table-card .sel,
+#qe-table-card .btn-outline,
+#qe-table-card .btn-green,
+#qe-table-card .btn-sm{
+  position:relative;z-index:1;
+}
 
 /* Highlight whichever column is currently sorted, so it's obvious at a
    glance what the sheet is ordered by (DataTables tags cells in the
