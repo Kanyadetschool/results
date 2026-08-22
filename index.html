@@ -161,6 +161,31 @@
   }
   .stop-labels .lbl.active span,.stop-labels .lbl.done span{color:var(--text);}
 
+  /* real-time check spinner on step 1 */
+  .stop-circle .spinner{
+    position:absolute;width:16px;height:16px;border-radius:50%;opacity:0;
+    border:2px solid var(--border-strong);border-top-color:var(--blue);
+    animation:spin .7s linear infinite;
+  }
+  .stop-circle.busy .num{opacity:.25;}
+  .stop-circle.busy .spinner{opacity:1;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* step 3 locked until step 1 is verified done */
+  .stop-circle .ic-lock{display:none;width:15px;height:15px;}
+  .stop-circle.locked3{
+    background:var(--track-empty)!important;color:var(--text3)!important;
+    box-shadow:0 4px 12px rgba(0,0,0,.12)!important;cursor:not-allowed;
+    pointer-events:none;
+  }
+  .stop-circle.locked3 .ic-arrow{display:none;}
+  .stop-circle.locked3 .ic-lock{display:block;}
+  .lock-msg{
+    display:none;text-align:center;font-size:11px;font-weight:700;color:var(--text3);
+    margin-top:10px;
+  }
+  .lock-msg.show{display:block;}
+
   /* tip chip */
   .tip{
     display:flex;align-items:center;gap:10px;background:var(--chip-bg);border:1px solid var(--border);
@@ -222,29 +247,32 @@
       <div class="track-wrap">
         <div class="track-pill"><div class="track-fill" id="trackFill"></div></div>
         <div class="stops">
-          <button class="stop-circle" id="stop1" data-step="1" aria-label="Mark: deleted the old app">
+          <button class="stop-circle" id="stop1" data-step="1" aria-label="Remove the old app now">
             <span class="num">1</span>
+            <span class="spinner" aria-hidden="true"></span>
             <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
           <button class="stop-circle" id="stop2" data-step="2" aria-label="Mark: installed the new app">
             <span class="num">2</span>
             <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
-          <a class="stop-circle current link" id="stop3" href="https://kanyadet-school-portal.web.app/login.html" aria-label="Sign in to the new portal">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+          <a class="stop-circle current link locked3" id="stop3" href="https://kanyadet-school-portal.web.app/login.html" aria-label="Sign in to the new portal" aria-disabled="true" tabindex="-1">
+            <svg class="ic-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+            <svg class="ic-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           </a>
         </div>
       </div>
       <div class="stop-labels">
-        <div class="lbl" id="lbl1"><span>Delete old app</span></div>
+        <div class="lbl" id="lbl1"><span id="lbl1Text">Checking old app…</span></div>
         <div class="lbl" id="lbl2"><span>Install new</span></div>
         <div class="lbl active" id="lbl3"><span>Sign in</span></div>
       </div>
+      <div class="lock-msg" id="lockMsg">Remove the old app in step 1 to unlock sign-in</div>
     </div>
 
     <div class="tip">
       <span class="tip-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zm-1.5 19h3v1a1.5 1.5 0 0 1-3 0v-1z"/></svg></span>
-      <span>Tap steps <b>1</b> &amp; <b>2</b> to check them off, then tap <b>3</b> to sign in.</span>
+      <span id="tipText">Checking whether the old app is still installed on this device…</span>
     </div>
 
   </div>
@@ -302,9 +330,15 @@
   // observer never fires for some reason (e.g. unusual viewport/embed context).
   setTimeout(() => card.classList.add('in-view'), 800);
 
-  // Checklist steps 1 & 2 toggle on tap and persist; the track fills to
-  // match progress, and step 3 (Sign In) is always a live link.
+  // Step 1 ("delete old app") is no longer a self-reported checkbox — it's
+  // verified for real, live, against this device's actual service-worker
+  // registrations on this origin (which is the old app's origin, since this
+  // page has replaced its start_url). Step 3 (Sign In) stays locked until
+  // that verification passes. Step 2 (install new) can't be verified from
+  // here — a different origin — so it stays a manual confirmation.
   const STORE_KEY = 'ktp_migration_steps';
+  const KEEP_KEYS = ['ktp_moved_theme', STORE_KEY]; // never wiped by cleanup
+
   function loadDone(){
     try{ return JSON.parse(safeGet(STORE_KEY) || '{}'); }catch(e){ return {}; }
   }
@@ -312,28 +346,133 @@
     safeSet(STORE_KEY, JSON.stringify(state));
   }
   const done = loadDone();
+
   const stop1 = document.getElementById('stop1');
   const stop2 = document.getElementById('stop2');
+  const stop3 = document.getElementById('stop3');
   const lbl1 = document.getElementById('lbl1');
+  const lbl1Text = document.getElementById('lbl1Text');
   const lbl2 = document.getElementById('lbl2');
+  const lockMsg = document.getElementById('lockMsg');
+  const tipText = document.getElementById('tipText');
   const fill = document.getElementById('trackFill');
 
+  // True once we've actually confirmed there's nothing left of the old app
+  // running on this device (or once we've determined we have no way to
+  // check, in which case we don't block people who can't be verified).
+  let step1Verified = !!done['1'];
+  let checking = false;
+
+  async function oldAppStillActive(){
+    if(!('serviceWorker' in navigator)) return false; // can't check → don't block
+    try{
+      const regs = await navigator.serviceWorker.getRegistrations();
+      return regs.length > 0;
+    }catch(e){ return false; }
+  }
+
+  async function cleanupOldApp(){
+    // Unregister every service worker on this origin.
+    if('serviceWorker' in navigator){
+      try{
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+      }catch(e){}
+    }
+    // Delete every cache the old app's service worker laid down.
+    if('caches' in window){
+      try{
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+      }catch(e){}
+    }
+    // Clear old app's leftover localStorage, keeping only this page's own keys.
+    try{
+      Object.keys(localStorage)
+        .filter(k => !KEEP_KEYS.includes(k))
+        .forEach(k => localStorage.removeItem(k));
+    }catch(e){}
+    // Clear old app's IndexedDB databases, if the browser can list them.
+    if('indexedDB' in window && indexedDB.databases){
+      try{
+        const dbs = await indexedDB.databases();
+        await Promise.all(dbs.map(d => d.name
+          ? new Promise(res => { const req = indexedDB.deleteDatabase(d.name); req.onsuccess = req.onerror = req.onblocked = () => res(); })
+          : Promise.resolve()));
+      }catch(e){}
+    }
+  }
+
   function render(){
-    stop1.classList.toggle('done', !!done['1']);
+    stop1.classList.toggle('done', step1Verified);
+    lbl1.classList.toggle('done', step1Verified);
+    lbl1Text.textContent = checking
+      ? 'Checking old app…'
+      : (step1Verified ? 'Old app removed' : 'Old app still active');
+
     stop2.classList.toggle('done', !!done['2']);
-    lbl1.classList.toggle('done', !!done['1']);
     lbl2.classList.toggle('done', !!done['2']);
-    const completed = (done['1'] ? 1 : 0) + (done['2'] ? 1 : 0);
+
+    stop3.classList.toggle('locked3', !step1Verified);
+    stop3.setAttribute('aria-disabled', String(!step1Verified));
+    stop3.tabIndex = step1Verified ? 0 : -1;
+    lockMsg.classList.toggle('show', !step1Verified);
+
+    if(checking){
+      tipText.textContent = 'Checking whether the old app is still installed on this device…';
+    } else if(!step1Verified){
+      tipText.textContent = 'Tap step 1 to remove the old app — sign-in unlocks once it\u2019s gone.';
+    } else if(!done['2']){
+      tipText.textContent = 'Old app removed ✓ — tap 2 once you\u2019ve installed the new one, then sign in.';
+    } else {
+      tipText.textContent = 'All set — tap 3 to sign in.';
+    }
+
+    const completed = (step1Verified ? 1 : 0) + (done['2'] ? 1 : 0);
     fill.style.width = (completed / 2 * 100) + '%';
   }
-  function toggleStep(n){
-    done[n] = !done[n];
+
+  // Passive check: just look, don't touch anything. Used on load and on
+  // every re-poll so the badge reflects reality in real time.
+  async function verifyStep1(){
+    if(step1Verified) return; // already confirmed clean, no need to keep checking
+    checking = true; render();
+    const stillActive = await oldAppStillActive();
+    step1Verified = !stillActive;
+    if(step1Verified){ done['1'] = true; saveDone(done); }
+    checking = false; render();
+  }
+
+  // Active click: actually remove the old app's service worker/caches, then
+  // re-verify for real rather than just flipping a flag.
+  stop1.addEventListener('click', async () => {
+    if(step1Verified) return;
+    stop1.classList.add('busy'); checking = true; render();
+    await cleanupOldApp();
+    const stillActive = await oldAppStillActive();
+    step1Verified = !stillActive;
+    if(step1Verified){ done['1'] = true; saveDone(done); }
+    stop1.classList.remove('busy'); checking = false; render();
+  });
+
+  stop2.addEventListener('click', () => {
+    done['2'] = !done['2'];
     saveDone(done);
     render();
-  }
-  stop1.addEventListener('click', () => toggleStep('1'));
-  stop2.addEventListener('click', () => toggleStep('2'));
+  });
+
+  stop3.addEventListener('click', (e) => {
+    if(!step1Verified) e.preventDefault();
+  });
+
   render();
+  verifyStep1();
+  // Real-time re-check: catches the case where someone removes the old app
+  // (or its service worker gets evicted) while this tab is just sitting
+  // open, without needing a manual reload.
+  const pollId = setInterval(() => { if(!step1Verified) verifyStep1(); else clearInterval(pollId); }, 4000);
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') verifyStep1(); });
+  window.addEventListener('focus', verifyStep1);
 </script>
 
 </body>
