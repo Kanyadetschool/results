@@ -196,7 +196,7 @@
       <span>Kanyadet Primary &amp; Junior School</span>
     </div>
 
-    <h1>We've moved to a <em>new home</em></h1>
+    <h1>You've moved to a <em>new home</em></h1>
     <p class="lede">
       The school portal now lives at a fresh, faster address. Follow the
       steps below to finish the switch on this device.
@@ -253,12 +253,18 @@
 <script>
   const toggle = document.getElementById('themeToggle');
   const root = document.documentElement;
+  function safeGet(key){
+    try{ return localStorage.getItem(key); }catch(e){ return null; }
+  }
+  function safeSet(key, val){
+    try{ localStorage.setItem(key, val); }catch(e){ /* storage unavailable — ignore */ }
+  }
   function applyTheme(t){
     root.setAttribute('data-theme', t);
     toggle.textContent = t === 'dark' ? '☀️' : '🌙';
-    localStorage.setItem('ktp_moved_theme', t);
+    safeSet('ktp_moved_theme', t);
   }
-  applyTheme(localStorage.getItem('ktp_moved_theme') || 'light');
+  applyTheme(safeGet('ktp_moved_theme') || 'light');
   toggle.addEventListener('click', () => {
     applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
   });
@@ -292,15 +298,18 @@
   } else {
     card.classList.add('in-view');
   }
+  // Failsafe: guarantee the card is visible shortly after load even if the
+  // observer never fires for some reason (e.g. unusual viewport/embed context).
+  setTimeout(() => card.classList.add('in-view'), 800);
 
   // Checklist steps 1 & 2 toggle on tap and persist; the track fills to
   // match progress, and step 3 (Sign In) is always a live link.
   const STORE_KEY = 'ktp_migration_steps';
   function loadDone(){
-    try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }catch(e){ return {}; }
+    try{ return JSON.parse(safeGet(STORE_KEY) || '{}'); }catch(e){ return {}; }
   }
   function saveDone(state){
-    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+    safeSet(STORE_KEY, JSON.stringify(state));
   }
   const done = loadDone();
   const stop1 = document.getElementById('stop1');
