@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanyadet Portal Has Moved</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue:#2980b9; --blue-dk:#1a5276; --blue-lt:#5dade2; --blue-glow:rgba(41,128,185,.35);
+    --orange:#e67e22; --orange-dk:#d35400; --gold:#f39c12;
+    --green:#27ae60; --green-dk:#1d8a4e; --teal:#16a085; --red:#e74c3c;
+    --radius-xl:30px; --radius-lg:18px; --radius-md:13px; --radius-sm:9px;
+    --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  }
+  [data-theme="dark"] {
+    --bg-1:#07111d; --bg-2:#0d1b31; --bg-3:#0f2744;
+    --surface:#101f38; --surface2:#172b49;
+    --border:rgba(93,173,226,.16); --border-strong:rgba(93,173,226,.38);
+    --text:#e7f1fc; --text2:#93b4d6; --text3:#5f83a8;
+    --card-shadow:0 34px 80px -16px rgba(0,0,0,.55), 0 10px 24px -8px rgba(0,0,0,.4);
+    --chip-bg:#0b1728; --track-empty:#16283f;
+  }
+  [data-theme="light"] {
+    --bg-1:#eef4fb; --bg-2:#f8f1e3; --bg-3:#fce9b7;
+    --surface:#ffffff; --surface2:#fbfaf5;
+    --border:rgba(20,30,45,.08); --border-strong:rgba(20,30,45,.14);
+    --text:#101c2c; --text2:#5b6472; --text3:#98a0ac;
+    --card-shadow:0 34px 80px -20px rgba(30,50,80,.22), 0 10px 26px -12px rgba(41,128,185,.12);
+    --chip-bg:#f3f5f8; --track-empty:#ebeef2;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Plus Jakarta Sans',sans-serif;color:var(--text);
+    min-height:100vh;overflow-x:hidden;position:relative;
+    display:flex;align-items:center;justify-content:center;padding:28px;
+    background:linear-gradient(160deg,var(--bg-1) 0%,var(--bg-2) 52%,var(--bg-3) 100%);
+    transition:background .4s ease,color .3s ease;
+  }
+
+  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .aurora span{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;animation:drift 18s ease-in-out infinite;}
+  .aurora .a1{width:420px;height:420px;top:-140px;left:-120px;background:radial-gradient(circle,var(--blue-lt),transparent 70%);}
+  .aurora .a2{width:380px;height:380px;bottom:-160px;right:-100px;background:radial-gradient(circle,var(--orange),transparent 70%);animation-delay:-6s;}
+  [data-theme="dark"] .aurora span{opacity:.28;}
+  @keyframes drift{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(20px,-14px) scale(1.05);}}
+  @media (prefers-reduced-motion: reduce){ .aurora span{animation:none;} }
+
+  .grain{
+    position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.03;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .theme-toggle{
+    position:fixed;top:22px;right:22px;z-index:20;width:44px;height:44px;border-radius:50%;
+    background:var(--surface);border:1px solid var(--border);color:var(--text2);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:18px;transition:.25s ease;
+    box-shadow:var(--card-shadow);
+  }
+  .theme-toggle:hover{color:var(--gold);transform:translateY(-2px) rotate(-8deg);}
+  .theme-toggle:focus-visible{outline:2px solid var(--blue-lt);outline-offset:3px;}
+
+  .wrap{position:relative;z-index:1;width:100%;max-width:440px;}
+
+  /* ── the single card ── */
+  .card{
+    position:relative;background:var(--surface);border-radius:var(--radius-xl);
+    box-shadow:var(--card-shadow);padding:38px 32px 30px;isolation:isolate;overflow:hidden;
+    opacity:1;filter:none;transform:none;clip-path:inset(0 100% 0 0);
+    transition:clip-path 1s cubic-bezier(.16,1,.3,1);
+  }
+  .card.in-view{clip-path:inset(0 0 0 0);}
+  @media (prefers-reduced-motion: reduce){ .card{clip-path:inset(0);transition:none;} }
+
+  .kicker{
+    display:inline-flex;align-items:center;gap:7px;margin-bottom:16px;
+    font-size:11.5px;font-weight:700;color:var(--text3);letter-spacing:.2px;
+  }
+  .kicker .mark{
+    width:20px;height:20px;border-radius:6px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--blue),var(--blue-dk));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:10px;
+    font-family:'Fraunces',serif;
+  }
+
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:29px;letter-spacing:-.5px;
+    line-height:1.18;margin-bottom:10px;
+  }
+  h1 em{font-style:italic;font-weight:500;background:linear-gradient(100deg,var(--blue),var(--teal) 70%);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .lede{font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:24px;}
+  .lede b{color:var(--text);font-weight:700;}
+
+  /* address info panel */
+  .panel{
+    background:var(--chip-bg);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:16px 18px;margin-bottom:22px;
+  }
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+  .panel-head span{font-size:12px;font-weight:800;color:var(--text);letter-spacing:.1px;}
+  .panel-head svg{width:15px;height:15px;color:var(--text3);}
+  .addr-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--surface);border:1px solid var(--border);border-radius:100px;
+    padding:9px 8px 9px 14px;
+  }
+  .addr-row .left{display:flex;align-items:center;gap:8px;min-width:0;}
+  .addr-row .link-ic{
+    width:22px;height:22px;border-radius:50%;flex-shrink:0;background:rgba(41,128,185,.12);
+    color:var(--blue);display:flex;align-items:center;justify-content:center;
+  }
+  .addr-row .link-ic svg{width:12px;height:12px;}
+  .addr-row code{font-size:12.5px;color:var(--text2);font-family:ui-monospace,'SF Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .copy-btn{
+    background:var(--chip-bg);border:none;cursor:pointer;color:var(--text3);width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;transition:.25s ease;flex-shrink:0;
+  }
+  .copy-btn:hover{color:var(--blue);background:rgba(41,128,185,.12);}
+  .copy-btn svg{width:13px;height:13px;}
+  .copy-btn.copied{color:var(--green);}
+
+  /* horizontal step tracker */
+  .tracker{margin-bottom:20px;}
+  .track-wrap{position:relative;height:52px;margin-bottom:12px;}
+  .track-pill{
+    position:absolute;top:50%;left:22px;right:22px;height:12px;transform:translateY(-50%);
+    border-radius:20px;background:var(--track-empty);overflow:hidden;
+  }
+  .track-fill{
+    position:absolute;inset:0;width:0%;border-radius:inherit;
+    background:linear-gradient(90deg,var(--blue-dk),var(--teal));
+    transition:width .9s cubic-bezier(.65,0,.35,1);
+  }
+  .stops{position:absolute;top:50%;left:22px;right:22px;transform:translateY(-50%);display:flex;justify-content:space-between;}
+  .stop-circle{
+    width:44px;height:44px;border-radius:50%;flex-shrink:0;position:relative;
+    display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;
+    background:var(--track-empty);color:var(--text3);border:4px solid var(--surface);
+    box-shadow:0 4px 12px rgba(0,0,0,.12);cursor:pointer;
+    transition:background .35s var(--ease-spring),color .35s ease,transform .35s var(--ease-spring),box-shadow .35s ease;
+  }
+  .stop-circle:hover{transform:scale(1.06);}
+  .stop-circle:focus-visible{outline:2px solid var(--blue-lt);outline-offset:2px;}
+  .stop-circle .num{transition:opacity .2s ease;}
+  .stop-circle .check{position:absolute;width:18px;height:18px;opacity:0;transform:scale(.5);transition:opacity .25s ease,transform .25s var(--ease-spring);}
+  .stop-circle.done{background:linear-gradient(135deg,var(--green),var(--green-dk));color:#fff;}
+  .stop-circle.done .num{opacity:0;}
+  .stop-circle.done .check{opacity:1;transform:scale(1);}
+  .stop-circle.current{background:linear-gradient(135deg,var(--blue),var(--blue-dk));color:#fff;box-shadow:0 0 0 5px rgba(41,128,185,.16),0 4px 12px rgba(0,0,0,.12);}
+  .stop-circle.link{text-decoration:none;}
+  .stop-circle.link svg{width:16px;height:16px;}
+
+  .stop-labels{display:flex;justify-content:space-between;padding:0 0;}
+  .stop-labels .lbl{width:44px;flex-shrink:0;text-align:center;position:relative;}
+  .stop-labels .lbl span{
+    display:block;font-size:11px;font-weight:700;color:var(--text3);line-height:1.3;
+    white-space:nowrap;position:relative;left:50%;transform:translateX(-50%);transition:color .3s ease;
+  }
+  .stop-labels .lbl.active span,.stop-labels .lbl.done span{color:var(--text);}
+
+  /* tip chip */
+  .tip{
+    display:flex;align-items:center;gap:10px;background:var(--chip-bg);border:1px solid var(--border);
+    border-radius:100px;padding:11px 16px;font-size:12px;color:var(--text2);line-height:1.4;
+  }
+  .tip .tip-ic{
+    width:22px;height:22px;border-radius:50%;flex-shrink:0;background:rgba(243,156,18,.16);
+    color:var(--gold);display:flex;align-items:center;justify-content:center;
+  }
+  .tip .tip-ic svg{width:12px;height:12px;}
+  [data-theme="dark"] .tip .tip-ic{color:#f4c14e;}
+
+  @media(max-width:420px){
+    .card{padding:30px 22px 24px;}
+    h1{font-size:24px;}
+    .stop-circle{width:38px;height:38px;font-size:12.5px;}
+    .stop-labels .lbl,.track-wrap .stops>.stop-circle{width:38px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="aurora" aria-hidden="true"><span class="a1"></span><span class="a2"></span></div>
+<div class="grain" aria-hidden="true"></div>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark theme" title="Toggle theme">🌙</button>
+
+<div class="wrap">
+  <div class="card" id="mainCard">
+
+    <div class="kicker">
+      <span class="mark">K</span>
+      <span>Kanyadet Primary &amp; Junior School</span>
+    </div>
+
+    <h1>We've moved to a <em>new home</em></h1>
+    <p class="lede">
+      The school portal now lives at a fresh, faster address. Follow the
+      steps below to finish the switch on this device.
+    </p>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span>New address</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="addr-row">
+        <div class="left">
+          <span class="link-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
+          <code>kanyadet-school-portal.web.app</code>
+        </div>
+        <button class="copy-btn" id="copyBtn" aria-label="Copy new portal address" title="Copy address">
+          <svg id="copyIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="tracker">
+      <div class="track-wrap">
+        <div class="track-pill"><div class="track-fill" id="trackFill"></div></div>
+        <div class="stops">
+          <button class="stop-circle" id="stop1" data-step="1" aria-label="Mark: deleted the old app">
+            <span class="num">1</span>
+            <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </button>
+          <button class="stop-circle" id="stop2" data-step="2" aria-label="Mark: installed the new app">
+            <span class="num">2</span>
+            <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </button>
+          <a class="stop-circle current link" id="stop3" href="https://kanyadet-school-portal.web.app/login.html" aria-label="Sign in to the new portal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="stop-labels">
+        <div class="lbl" id="lbl1"><span>Delete old app</span></div>
+        <div class="lbl" id="lbl2"><span>Install new</span></div>
+        <div class="lbl active" id="lbl3"><span>Sign in</span></div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <span class="tip-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zm-1.5 19h3v1a1.5 1.5 0 0 1-3 0v-1z"/></svg></span>
+      <span>Tap steps <b>1</b> &amp; <b>2</b> to check them off, then tap <b>3</b> to sign in.</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const toggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  function applyTheme(t){
+    root.setAttribute('data-theme', t);
+    toggle.textContent = t === 'dark' ? '☀️' : '🌙';
+    localStorage.setItem('ktp_moved_theme', t);
+  }
+  applyTheme(localStorage.getItem('ktp_moved_theme') || 'light');
+  toggle.addEventListener('click', () => {
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  const copyBtn = document.getElementById('copyBtn');
+  const originalIconHTML = document.getElementById('copyIcon').outerHTML;
+  copyBtn.addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText('https://kanyadet-school-portal.web.app/login.html');
+      copyBtn.classList.add('copied');
+      copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.innerHTML = originalIconHTML;
+      }, 1600);
+    }catch(e){ /* clipboard unavailable — silently ignore */ }
+  });
+
+  // Card swipe-reveals in when it enters the viewport.
+  const card = document.getElementById('mainCard');
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          entry.target.classList.add('in-view');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    io.observe(card);
+  } else {
+    card.classList.add('in-view');
+  }
+
+  // Checklist steps 1 & 2 toggle on tap and persist; the track fills to
+  // match progress, and step 3 (Sign In) is always a live link.
+  const STORE_KEY = 'ktp_migration_steps';
+  function loadDone(){
+    try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }catch(e){ return {}; }
+  }
+  function saveDone(state){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+  const done = loadDone();
+  const stop1 = document.getElementById('stop1');
+  const stop2 = document.getElementById('stop2');
+  const lbl1 = document.getElementById('lbl1');
+  const lbl2 = document.getElementById('lbl2');
+  const fill = document.getElementById('trackFill');
+
+  function render(){
+    stop1.classList.toggle('done', !!done['1']);
+    stop2.classList.toggle('done', !!done['2']);
+    lbl1.classList.toggle('done', !!done['1']);
+    lbl2.classList.toggle('done', !!done['2']);
+    const completed = (done['1'] ? 1 : 0) + (done['2'] ? 1 : 0);
+    fill.style.width = (completed / 2 * 100) + '%';
+  }
+  function toggleStep(n){
+    done[n] = !done[n];
+    saveDone(done);
+    render();
+  }
+  stop1.addEventListener('click', () => toggleStep('1'));
+  stop2.addEventListener('click', () => toggleStep('2'));
+  render();
+</script>
+
+</body>
+</html>
