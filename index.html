@@ -256,7 +256,7 @@
             <span class="num">2</span>
             <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
-          <a class="stop-circle current link locked3" id="stop3" href="https://kanyadet-school-portal.web.app/login.html" aria-label="Sign in to the new portal" aria-disabled="true" tabindex="-1">
+          <a class="stop-circle current link locked3" id="stop3" href="https://kanyadet-school-admin.web.app/Results-portal.html" aria-label="Sign in to the new portal" aria-disabled="true" tabindex="-1">
             <svg class="ic-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
             <svg class="ic-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           </a>
@@ -306,7 +306,7 @@
   const originalIconHTML = document.getElementById('copyIcon').outerHTML;
   copyBtn.addEventListener('click', async () => {
     try{
-      await navigator.clipboard.writeText('https://kanyadet-school-portal.web.app/login.html');
+      await navigator.clipboard.writeText('https://kanyadet-school-admin.web.app/Results-portal.html');
       copyBtn.classList.add('copied');
       copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
       setTimeout(() => {
@@ -373,8 +373,8 @@
   // "removed" state, then send them on to sign-in automatically. Any click
   // on stop2/stop3 in the meantime cancels the timer (they're taking it
   // from here themselves).
-  const REDIRECT_URL = 'https://kanyadet-school-portal.web.app/login.html';
-  const REDIRECT_DELAY = 3000;
+  const REDIRECT_URL = 'https://kanyadet-school-admin.web.app/Results-portal.html';
+  const REDIRECT_DELAY = 15000;
   let redirectTimer = null;
   let redirectDeadline = null;
   let redirectTickId = null;
@@ -390,6 +390,7 @@
     redirectDeadline = Date.now() + REDIRECT_DELAY;
     redirectTimer = setTimeout(() => { window.location.href = REDIRECT_URL; }, REDIRECT_DELAY);
     redirectTickId = setInterval(render, 250);
+    render();
   }
 
   async function oldAppStillActive(){
